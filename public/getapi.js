@@ -61,7 +61,9 @@ async function loadOdds({ refresh = false } = {}) {
 function updateMetadata(payload) {
   const mode = payload.mode === 'live' ? 'live' : 'demo';
   elements.dataMode.textContent =
-    mode === 'live' ? 'Live (normalized)' : 'Demo (sample prices)';
+    mode === 'live'
+      ? `Live — ${payload.source || 'normalized'}`
+      : 'Demo (sample prices)';
   elements.statusDot.dataset.mode = mode;
   elements.lastUpdated.textContent = formatDate(payload.fetchedAt);
   elements.warning.hidden = !payload.warning;
@@ -144,7 +146,51 @@ function createOddsTable(bookmakers) {
   }
 
   table.append(head, body);
-  return table;
+  const marketGroup = createElement('div', 'market-group');
+  marketGroup.append(table);
+
+  const drawNoBetBookmakers = bookmakers.filter(
+    (bookmaker) =>
+      Number.isFinite(bookmaker.markets?.drawNoBet?.home) &&
+      Number.isFinite(bookmaker.markets?.drawNoBet?.away),
+  );
+  if (drawNoBetBookmakers.length > 0) {
+    marketGroup.append(createDrawNoBetTable(drawNoBetBookmakers));
+  }
+
+  return marketGroup;
+}
+
+function createDrawNoBetTable(bookmakers) {
+  const section = createElement('section', 'draw-no-bet');
+  section.append(
+    createElement('h3', 'draw-no-bet__title', 'Draw no bet'),
+  );
+
+  const table = createElement('table', 'odds-table odds-table--two-way');
+  const head = document.createElement('thead');
+  const headRow = document.createElement('tr');
+  for (const label of ['Bookmaker', '1', '2']) {
+    headRow.append(createElement('th', '', label));
+  }
+  head.append(headRow);
+
+  const body = document.createElement('tbody');
+  for (const bookmaker of bookmakers) {
+    const row = document.createElement('tr');
+    const name = createElement('th', '', bookmaker.name);
+    name.scope = 'row';
+    row.append(
+      name,
+      createElement('td', '', formatPrice(bookmaker.markets.drawNoBet.home)),
+      createElement('td', '', formatPrice(bookmaker.markets.drawNoBet.away)),
+    );
+    body.append(row);
+  }
+
+  table.append(head, body);
+  section.append(table);
+  return section;
 }
 
 function findBestPrices(bookmakers) {

@@ -1,6 +1,7 @@
 const { createApp } = require('./app');
 const { OddsService } = require('./odds-service');
 const { DemoOddsProvider } = require('./providers/demo-provider');
+const { FortunaProvider } = require('./providers/fortuna-provider');
 const { TheOddsApiProvider } = require('./providers/the-odds-api-provider');
 
 const port = parsePositiveInteger(process.env.PORT, 3000);
@@ -23,7 +24,7 @@ const liveProvider = process.env.ODDS_API_KEY
       sportKeys,
       timeoutMs,
     })
-  : null;
+  : new FortunaProvider({ timeoutMs });
 
 const oddsService = new OddsService({
   liveProvider,
@@ -36,7 +37,7 @@ const app = createApp({
 });
 
 const server = app.listen(port, () => {
-  const mode = liveProvider ? 'live API with demo fallback' : 'demo';
+  const mode = `${liveProvider.name} with demo fallback`;
   console.log(`Odds dashboard listening on http://localhost:${port} (${mode})`);
 });
 

@@ -25,4 +25,13 @@ test('creates clearly labeled upcoming sample events', async () => {
       ),
     ),
   );
+  assert.ok(
+    events.every((event) =>
+      event.bookmakers.every(
+        (bookmaker) =>
+          Number.isFinite(bookmaker.markets.drawNoBet.home) &&
+          Number.isFinite(bookmaker.markets.drawNoBet.away),
+      ),
+    ),
+  );
 });

@@ -61,6 +61,10 @@ function createBookmaker(name, home, draw, away, baseTime) {
         draw: round(draw),
         away: round(away),
       },
+      drawNoBet: {
+        home: round(Math.max(1.05, home - 0.32)),
+        away: round(Math.max(1.05, away - 0.72)),
+      },
     },
   };
 }

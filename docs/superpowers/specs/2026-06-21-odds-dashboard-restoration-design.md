@@ -16,10 +16,11 @@ Restore the abandoned odds scraper as a reliable local web application that disp
 
 Use a provider adapter architecture with two modes:
 
-1. `TheOddsApiProvider` supplies live data when `ODDS_API_KEY` is configured.
-2. `DemoOddsProvider` supplies clearly labeled sample data when no key is configured or the live provider fails.
+1. `FortunaProvider` supplies live `1/X/2` and draw-no-bet prices from Fortuna's current public offer API by default.
+2. `TheOddsApiProvider` supplies multi-bookmaker live data when `ODDS_API_KEY` is configured.
+3. `DemoOddsProvider` supplies clearly labeled sample data when the active live provider fails.
 
-This keeps the application functional immediately while providing a supported path to live data. Direct circumvention of bookmaker bot protection is intentionally excluded because it is brittle and unsuitable for a maintainable application.
+This reconstructs the original author's verified Fortuna integration and draw-no-bet market while providing a supported path to multi-bookmaker data. Direct circumvention of Betano's bookmaker bot protection is intentionally excluded because it is brittle and unsuitable for a maintainable application.
 
 ## Architecture
 

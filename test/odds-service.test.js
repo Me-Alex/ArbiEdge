@@ -26,7 +26,10 @@ test('uses demo mode when no live provider is configured', async () => {
 
 test('uses live mode when the live provider succeeds', async () => {
   const service = new OddsService({
-    liveProvider: { getOdds: async () => liveEvents },
+    liveProvider: {
+      name: 'Fortuna',
+      getOdds: async () => liveEvents,
+    },
     demoProvider: { getOdds: async () => demoEvents },
     now: () => new Date('2026-06-21T12:00:00Z'),
   });
@@ -34,7 +37,7 @@ test('uses live mode when the live provider succeeds', async () => {
   const result = await service.getOdds();
 
   assert.equal(result.mode, 'live');
-  assert.equal(result.source, 'The Odds API');
+  assert.equal(result.source, 'Fortuna');
   assert.equal(result.warning, null);
   assert.deepEqual(result.events, liveEvents);
 });
@@ -42,6 +45,7 @@ test('uses live mode when the live provider succeeds', async () => {
 test('falls back to demo mode when the live provider fails', async () => {
   const service = new OddsService({
     liveProvider: {
+      name: 'Fortuna',
       getOdds: async () => {
         throw new Error('upstream unavailable');
       },
@@ -62,6 +66,7 @@ test('reuses cached results until the TTL expires', async () => {
   let currentTime = new Date('2026-06-21T12:00:00Z');
   const service = new OddsService({
     liveProvider: {
+      name: 'Fortuna',
       getOdds: async () => {
         calls += 1;
         return liveEvents;
@@ -91,6 +96,7 @@ test('coalesces concurrent refresh requests', async () => {
   });
   const service = new OddsService({
     liveProvider: {
+      name: 'Fortuna',
       getOdds: async () => {
         calls += 1;
         return livePromise;

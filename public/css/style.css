@@ -265,6 +265,29 @@ input {
   font-variant-numeric: tabular-nums;
 }
 
+.market-group {
+  display: grid;
+  gap: 14px;
+}
+
+.draw-no-bet {
+  display: grid;
+  grid-template-columns: minmax(110px, 0.36fr) 1fr;
+  gap: 12px;
+  align-items: end;
+}
+
+.draw-no-bet__title {
+  margin: 0 0 9px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+
+.odds-table--two-way tbody td {
+  width: 24%;
+}
+
 .odds-table th,
 .odds-table td {
   padding: 8px 12px;
@@ -473,6 +496,11 @@ input {
 
   .odds-table tbody td {
     font-size: 0.86rem;
+  }
+
+  .draw-no-bet {
+    grid-template-columns: 1fr;
+    gap: 0;
   }
 }
 

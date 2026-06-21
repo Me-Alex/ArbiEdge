@@ -57,7 +57,7 @@ class OddsService {
     try {
       return {
         mode: 'live',
-        source: 'The Odds API',
+        source: this.liveProvider.name || 'Live provider',
         fetchedAt,
         warning: null,
         events: await this.liveProvider.getOdds(),

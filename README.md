@@ -4,8 +4,9 @@ A small football-odds dashboard that replaces the original 2022 Betano/eFortuna 
 
 The app always starts:
 
-- **Demo mode** uses clearly labeled sample prices and requires no account or API key.
-- **Live mode** uses [The Odds API](https://the-odds-api.com/liveapi/guides/v4/) when `ODDS_API_KEY` is configured.
+- **Live Fortuna mode** uses Fortuna's current public offer API and requires no account or API key.
+- **Multi-bookmaker mode** uses [The Odds API](https://the-odds-api.com/liveapi/guides/v4/) when `ODDS_API_KEY` is configured.
+- **Demo mode** is used only if the configured live provider fails.
 - If the live provider fails, the server returns demo data with a visible warning instead of leaving the page broken.
 
 ## Requirements
@@ -28,7 +29,21 @@ Run the tests:
 npm test
 ```
 
-## Enable live odds
+## Default live odds
+
+No key is required. `npm start` loads Fortuna's current upcoming football fixtures, including:
+
+- match result (`1 / X / 2`);
+- draw no bet (`1 / 2`, called “Victorie fără egal” by Fortuna).
+
+The current public endpoints reconstructed from Fortuna's web application are:
+
+```text
+https://api.efortuna.ro/offer/structure/api/v1_0/widget/upcoming
+https://api.efortuna.ro/offer/markets/api/v1_0/fixtures/markets/overview
+```
+
+## Enable multi-bookmaker odds
 
 Create an API key through The Odds API, then set environment variables before starting:
 
@@ -51,7 +66,7 @@ Available configuration:
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `PORT` | `3000` | HTTP port |
-| `ODDS_API_KEY` | empty | Enables live mode |
+| `ODDS_API_KEY` | empty | Replaces direct Fortuna mode with The Odds API |
 | `ODDS_SPORT_KEYS` | `soccer_fifa_world_cup` | Comma-separated provider sport keys |
 | `ODDS_CACHE_TTL_MS` | `60000` | Successful response cache duration |
 | `ODDS_REQUEST_TIMEOUT_MS` | `8000` | Upstream request timeout |
@@ -70,10 +85,10 @@ Returns metadata and normalized events:
 
 ```json
 {
-  "mode": "demo",
-  "source": "Built-in demo data",
+  "mode": "live",
+  "source": "Fortuna",
   "fetchedAt": "2026-06-21T12:00:00.000Z",
-  "warning": "Sample prices only; they are not live bookmaker quotes. Set ODDS_API_KEY to load live odds.",
+  "warning": null,
   "events": [
     {
       "id": "demo-romania-brazil",
@@ -84,13 +99,17 @@ Returns metadata and normalized events:
       "awayTeam": "Brazil",
       "bookmakers": [
         {
-          "name": "Betano (sample)",
+          "name": "Fortuna",
           "lastUpdate": "2026-06-21T12:00:00.000Z",
           "markets": {
             "h2h": {
               "home": 1.85,
               "draw": 3.35,
               "away": 3.65
+            },
+            "drawNoBet": {
+              "home": 1.42,
+              "away": 2.93
             }
           }
         }
@@ -102,15 +121,17 @@ Returns metadata and normalized events:
 
 Use `GET /api/odds?refresh=1` to clear the server cache before loading.
 
-## Why direct Betano/eFortuna scraping was removed
+## Endpoint research and limitations
 
-The endpoints used by the original project are no longer dependable:
+The original repository and its later sibling, `Me-Alex/oddsScraper`, show that the intended workflow was:
 
-- the old Heroku deployment returns HTTP 404;
-- the former Betano endpoint rejects automated requests with HTTP 403;
-- the former eFortuna endpoint currently returns HTTP 502.
+1. collect Betano and Fortuna events;
+2. align the same match using Sportradar IDs;
+3. compare `1/X/2` and “Niciun pariu pe egal” / “Victorie fără egal” prices.
 
-The application therefore uses a provider adapter instead of coupling the frontend to undocumented bookmaker response formats. It does not attempt to bypass anti-bot controls.
+The former Fortuna `/live3` endpoint is obsolete, but its replacement above works publicly. Betano now loads data from endpoints including `/api/sports/FOOT/...`; standalone server requests currently receive Cloudflare HTTP 403. The old public Sportradar feeds now respond with `Unauthorized feed`.
+
+This project does not attempt to bypass Betano's anti-bot controls. Betano and other bookmaker comparisons can be supplied through The Odds API by setting `ODDS_API_KEY`.
 
 ## Project structure
 

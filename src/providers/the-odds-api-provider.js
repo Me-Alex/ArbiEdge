@@ -18,6 +18,7 @@ class TheOddsApiProvider {
     }
 
     this.apiKey = apiKey;
+    this.name = 'The Odds API';
     this.sportKeys = sportKeys;
     this.fetchImpl = fetchImpl;
     this.timeoutMs = timeoutMs;
