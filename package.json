@@ -1,18 +1,20 @@
 {
-  "name": "odsscraper",
-  "version": "1.0.0",
-  "description": "",
-  "main": "node js/main.js",
+  "name": "odds-dashboard",
+  "version": "2.0.0",
+  "private": true,
+  "description": "A local football odds dashboard with live API and demo fallback modes.",
+  "main": "src/server.js",
   "scripts": {
-    "start": "node js/main.js"
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "node --test",
+    "test:watch": "node --test --watch"
   },
-  "author": "",
+  "engines": {
+    "node": ">=20"
+  },
   "license": "ISC",
   "dependencies": {
-    "cors": "^2.8.5",
-    "express": "^4.18.2",
-    "fs": "^0.0.1-security",
-    "https": "^1.0.0",
-    "puppeteer": "^19.2.2"
+    "express": "^5.2.1"
   }
 }
