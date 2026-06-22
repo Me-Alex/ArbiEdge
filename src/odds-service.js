@@ -55,12 +55,30 @@ class OddsService {
     }
 
     try {
+      const liveResult = await this.liveProvider.getOdds();
+      const events = Array.isArray(liveResult)
+        ? liveResult
+        : liveResult.events;
+      const providers = Array.isArray(liveResult?.providers)
+        ? liveResult.providers
+        : undefined;
+      const failures = providers?.filter((provider) => !provider.ok) || [];
+
+      if (!Array.isArray(events) || events.length === 0) {
+        throw new Error('No live bookmaker events were returned');
+      }
+
       return {
         mode: 'live',
         source: this.liveProvider.name || 'Live provider',
         fetchedAt,
-        warning: null,
-        events: await this.liveProvider.getOdds(),
+        warning: failures.length
+          ? `Some bookmakers are unavailable: ${failures
+              .map((provider) => `${provider.name}: ${provider.error}`)
+              .join('; ')}`
+          : null,
+        ...(providers ? { providers } : {}),
+        events,
       };
     } catch (error) {
       return {

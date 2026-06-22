@@ -73,6 +73,7 @@ test('normalizes current Fortuna football match and draw-no-bet odds', () => {
   assert.deepEqual(events, [
     {
       id: 'fortuna:ufo:mtch:1tn-00j',
+      externalIds: {},
       sport: 'Football',
       competition: 'FIFA World Cup',
       startsAt: '2026-06-21T22:00:00.000Z',

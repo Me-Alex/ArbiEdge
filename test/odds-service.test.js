@@ -61,6 +61,33 @@ test('falls back to demo mode when the live provider fails', async () => {
   assert.deepEqual(result.events, demoEvents);
 });
 
+test('returns partial provider warnings from a composite live provider', async () => {
+  const service = new OddsService({
+    liveProvider: {
+      name: 'Romanian bookmakers',
+      getOdds: async () => ({
+        events: liveEvents,
+        providers: [
+          { name: 'Fortuna', ok: true, events: 1 },
+          { name: 'Betano', ok: false, events: 0, error: 'challenge' },
+        ],
+      }),
+    },
+    demoProvider: { getOdds: async () => demoEvents },
+    now: () => new Date('2026-06-21T12:00:00Z'),
+  });
+
+  const result = await service.getOdds();
+
+  assert.equal(result.mode, 'live');
+  assert.match(result.warning, /Betano: challenge/);
+  assert.deepEqual(result.providers[0], {
+    name: 'Fortuna',
+    ok: true,
+    events: 1,
+  });
+});
+
 test('reuses cached results until the TTL expires', async () => {
   let calls = 0;
   let currentTime = new Date('2026-06-21T12:00:00Z');

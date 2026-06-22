@@ -1,8 +1,15 @@
 const { createApp } = require('./app');
 const { OddsService } = require('./odds-service');
 const { DemoOddsProvider } = require('./providers/demo-provider');
+const { BetanoBrowserTransport } = require('./providers/betano-browser-transport');
+const { BetanoProvider } = require('./providers/betano-provider');
+const { BrowserJsonTransport } = require('./providers/browser-json-transport');
+const { CasaPariurilorProvider } = require('./providers/casa-pariurilor-provider');
+const { CompositeProvider } = require('./providers/composite-provider');
 const { FortunaProvider } = require('./providers/fortuna-provider');
+const { SuperbetProvider } = require('./providers/superbet-provider');
 const { TheOddsApiProvider } = require('./providers/the-odds-api-provider');
+const { UnibetProvider } = require('./providers/unibet-provider');
 
 const port = parsePositiveInteger(process.env.PORT, 3000);
 const timeoutMs = parsePositiveInteger(
@@ -18,13 +25,39 @@ const sportKeys = (process.env.ODDS_SPORT_KEYS || 'soccer_fifa_world_cup')
   .map((key) => key.trim())
   .filter(Boolean);
 
+const directProviders = [
+  new FortunaProvider({ timeoutMs }),
+  new CasaPariurilorProvider({ timeoutMs }),
+  new SuperbetProvider({ timeoutMs }),
+  new UnibetProvider({
+    timeoutMs,
+    browserTransport: new BrowserJsonTransport({
+      pageUrl: 'https://www.unibet.ro/betting/odds/football',
+      timeoutMs: 30_000,
+    }),
+  }),
+];
+if (process.env.BETANO_BROWSER_ENABLED === '1') {
+  directProviders.push(
+    new BetanoProvider({
+      transport: new BetanoBrowserTransport({
+        headless: process.env.BETANO_BROWSER_HEADLESS !== '0',
+        timeoutMs: parsePositiveInteger(
+          process.env.BETANO_BROWSER_TIMEOUT_MS,
+          30_000,
+        ),
+      }),
+    }),
+  );
+}
+
 const liveProvider = process.env.ODDS_API_KEY
   ? new TheOddsApiProvider({
       apiKey: process.env.ODDS_API_KEY,
       sportKeys,
       timeoutMs,
     })
-  : new FortunaProvider({ timeoutMs });
+  : new CompositeProvider(directProviders);
 
 const oddsService = new OddsService({
   liveProvider,

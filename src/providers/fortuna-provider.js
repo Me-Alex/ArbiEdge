@@ -231,6 +231,9 @@ function normalizeFixture(
 
   return {
     id: `fortuna:${fixture.id}`,
+    externalIds: fixture.sportradarIds?.[0]
+      ? { sportradar: String(fixture.sportradarIds[0]) }
+      : {},
     sport: 'Football',
     competition: tournaments.get(fixture.tournamentId) || 'Fortuna Football',
     startsAt: startsAt.toISOString(),
