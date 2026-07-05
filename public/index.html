@@ -3,95 +3,171 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta
-      name="description"
-      content="A normalized view of upcoming football bookmaker odds."
-    >
-    <title>Odds dashboard</title>
-    <link
-      rel="icon"
-      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23adf22f'/%3E%3Cpath d='M17 42V22h12c8 0 13 4 13 10s-5 10-13 10H17Zm9-7h3c3 0 5-1 5-3s-2-3-5-3h-3v6Z' fill='%2306152a'/%3E%3C/svg%3E"
-    >
+    <meta name="description" content="Arb Desk — arbitrage scanner, value bets, calculator, journal, and odds feed for Romanian bookmakers.">
+    <title>Arb Desk</title>
     <link rel="stylesheet" href="/css/style.css">
-    <script src="/getapi.js" defer></script>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#0d1117">
+    <script src="/js/app.js" type="module"></script>
   </head>
   <body>
-    <main class="shell">
-      <header class="page-header">
-        <div>
-          <h1>Odds dashboard</h1>
-          <p class="subtitle">Football prices in one normalized view.</p>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand__mark">A</div>
+          <div>
+            <p class="brand__eyebrow">Arbitrage</p>
+            <h1>Arb Desk</h1>
+          </div>
         </div>
-      </header>
 
-      <section class="toolbar" aria-label="Dashboard controls">
-        <dl class="metadata">
-          <div>
-            <dt>Data mode</dt>
-            <dd>
-              <span class="status-dot" id="status-dot"></span>
-              <span id="data-mode">Loading</span>
-            </dd>
-          </div>
-          <div>
-            <dt>Last updated</dt>
-            <dd id="last-updated">—</dd>
-          </div>
-        </dl>
+        <nav class="sidebar-nav" aria-label="Primary">
+          <button class="nav-link" data-nav="scanner" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/></svg>Scanner</button>
+          <button class="nav-link" data-nav="value" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"/><path d="M2 7h20"/><path d="M2 7l10-5 10 5"/><path d="M2 17l10 5 10-5"/></svg>Value Bets</button>
+          <button class="nav-link" data-nav="ai" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="5"/><path d="M8 13.5a6 6 0 0 0 8 0"/><path d="M12 18v3"/><path d="M9 21h6"/></svg>AI Picks</button>
+          <button class="nav-link" data-nav="calculator" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="10" y2="10"/><line x1="14" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="10" y2="14"/><line x1="14" y1="14" x2="16" y2="14"/><line x1="8" y1="18" x2="10" y2="18"/><line x1="14" y1="18" x2="16" y2="18"/></svg>Calculator</button>
+          <button class="nav-link" data-nav="journal" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v16l-4-2-4 2-4-2-4 2z"/><path d="M8 6h8"/><path d="M8 10h8"/></svg>Journal</button>
+          <button class="nav-link" data-nav="analytics" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 6-6"/></svg>Analytics</button>
+          <button class="nav-link" data-nav="movement" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M17 7h4v4"/></svg>Movement</button>
+          <button class="nav-link" data-nav="bookmakers" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18"/></svg>Bookmakers</button>
+          <button class="nav-link" data-nav="matches" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v18"/><path d="M3 12h18"/></svg>Matches</button>
+        </nav>
 
-        <div class="actions">
-          <label class="filter-control">
-            <span>Filter teams or competitions</span>
-            <input
-              id="filter"
-              type="search"
-              autocomplete="off"
-              placeholder="Filter teams or competitions"
-            >
-          </label>
-          <button id="refresh" type="button">
-            <svg
-              aria-hidden="true"
-              viewBox="0 0 24 24"
-              width="18"
-              height="18"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <path d="M20 11a8.1 8.1 0 0 0-15.5-2M4 4v5h5"></path>
-              <path d="M4 13a8.1 8.1 0 0 0 15.5 2M20 20v-5h-5"></path>
-            </svg>
-            <span>Refresh odds</span>
+        <div class="sidebar-footer">
+          <div class="activity-timeline" id="activity-timeline"></div>
+          <label class="sound-toggle"><input id="sound-alert-toggle" type="checkbox" checked><span class="sound-toggle__label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>Sound</span></label>
+          <button id="theme-toggle" class="ghost-button theme-toggle" type="button" title="Cycle theme">
+            <svg class="icon-dark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><circle cx="12" cy="12" r="5"/><path d="M12 1v2"/><path d="M12 21v2"/><path d="M4.22 4.22l1.42 1.42"/><path d="M18.36 18.36l1.42 1.42"/><path d="M1 12h2"/><path d="M21 12h2"/><path d="M4.22 19.78l1.42-1.42"/><path d="M18.36 5.64l1.42-1.42"/></svg>
+            <svg class="icon-light" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            <svg class="icon-system" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>
           </button>
         </div>
-      </section>
-
-      <aside id="warning" class="warning" hidden>
-        <strong>Demo data</strong>
-        <span id="warning-message"></span>
       </aside>
 
-      <p id="announcement" class="sr-only" aria-live="polite"></p>
+      <div class="main-shell">
+        <header class="topbar">
+          <div class="topbar__meta">
+            <div class="live-pill"><span class="live-dot" id="live-dot" data-mode="loading"></span><span id="data-mode">Loading</span></div>
+            <div class="topbar__subtext" id="last-updated">Waiting for odds feed</div>
+          </div>
+          <div class="topbar__tools">
+            <label class="search-field"><span class="sr-only">Search events</span><input id="search" type="search" placeholder="Search teams or competitions"></label>
+            <select id="sport-selector" class="toolbar-control" aria-label="Sport filter"><option value="">All sports</option><option value="football">Football</option><option value="basketball">Basketball</option><option value="tennis">Tennis</option><option value="icehockey">Ice Hockey</option></select>
+            <select id="refresh-interval" class="toolbar-control" aria-label="Auto-refresh interval" title="Auto-refresh interval"><option value="0">Manual</option><option value="30">30s</option><option value="60" selected>1min</option><option value="300">5min</option></select>
+            <button id="refresh-btn" class="primary-button" type="button">Refresh</button>
+          </div>
+        </header>
 
-      <section id="loading" class="state-panel" aria-live="polite">
-        Loading football odds…
-      </section>
-      <section id="error" class="state-panel state-panel--error" hidden>
-        <strong>Odds could not be loaded.</strong>
-        <span id="error-message">Try refreshing the page.</span>
-      </section>
-      <section id="empty" class="state-panel" hidden>
-        No events match this filter.
-      </section>
+        <aside id="warning" class="banner" hidden><strong id="warning-title">Warning:</strong><span id="warning-text"></span></aside>
+        <section id="loading" class="state-panel">Loading arb desk…</section>
+        <section id="error" class="state-panel state-panel--error" hidden><strong>Odds could not be loaded.</strong><span id="error-msg">Try refreshing again.</span><button id="retry-btn" class="ghost-button" type="button" style="margin-top:8px">Retry</button></section>
+        <section id="empty-state" class="state-panel" hidden>No data matched the current filters.</section>
+        <section id="desk-overview" class="desk-overview" aria-label="Desk overview"></section>
 
-      <section
-        id="events"
-        class="events"
-        aria-label="Upcoming football events"
-      ></section>
-    </main>
+        <main class="content">
+          <section class="page" data-page="scanner">
+            <div class="page-header"><div><p class="page-kicker">Scanner</p><h1>Arbitrage opportunities</h1></div><div class="page-note">Cross-book surebets and formula opportunities.</div></div>
+            <div class="filter-bar">
+              <label class="field-inline"><span>Min edge %</span><input id="filter-min-edge" type="number" min="0" step="0.1" value="0"></label>
+              <label class="field-inline"><span>Alert threshold %</span><input id="alert-threshold" type="number" min="0" step="0.1" value="5" title="Browser notification when edge exceeds this %"></label>
+              <select id="confidence-filter" class="toolbar-control" aria-label="Confidence filter" style="min-width:120px"><option value="">All confidence</option><option value="trusted">Trusted only</option><option value="review">Review+</option><option value="risky">All</option></select>
+              <button id="filter-reset" class="ghost-button" type="button">Reset</button>
+              <button id="export-csv" class="ghost-button" type="button">Export CSV</button>
+              <label class="field-inline" style="flex-direction:row;align-items:center;gap:6px"><input id="dense-view-toggle" type="checkbox"><span>Dense</span></label>
+            </div>
+            <div id="scanner-list" class="card-stack"></div>
+            <div class="page-header" style="margin-top:24px"><div><p class="page-kicker">History</p><h1>Arbitrage history</h1></div><div class="page-note">Logged arbitrage opportunities over time.</div></div>
+            <div class="filter-bar"><button id="arb-history-refresh" class="ghost-button" type="button">Refresh history</button><button id="arb-history-clear" class="ghost-button" type="button">Clear</button></div>
+            <div id="arb-history-list" class="card-stack"></div>
+          </section>
+
+          <section class="page page--hidden" data-page="value"><div class="page-header"><div><p class="page-kicker">Value</p><h1>Value bets</h1></div><div class="page-note">Consensus gaps with quick calculator handoff.</div></div><div id="value-list" class="card-grid"></div></section>
+          <section class="page page--hidden" data-page="ai"><div class="page-header"><div><p class="page-kicker">AI Picks</p><h1>Review queue</h1></div><div class="page-note">Shortlisted paper picks based on current value signals.</div></div><div id="ai-list" class="card-grid"></div></section>
+
+          <section class="page page--hidden" data-page="calculator">
+            <div class="page-header"><div><p class="page-kicker">Calculator</p><h1>Bet math toolkit</h1></div><div class="page-note">Load odds from the feed or test lines manually.</div></div>
+            <div id="calculator" class="calc-hero">
+              <div class="calc-card"><div class="calc-hero__label">Loaded odds</div><div class="calc-hero__odds" id="calc-odds">—</div><div class="calc-hero__meta" id="calc-context">No selection loaded yet.</div></div>
+              <div class="calc-card" style="display:flex;flex-direction:column;gap:10px;justify-content:center">
+                <label class="field-block"><span>Stake</span><input id="calc-stake" type="number" min="1" step="1" value="100"></label>
+                <div class="quick-stakes"><button class="ghost-button qs-btn" data-stake="50" type="button">50</button><button class="ghost-button qs-btn" data-stake="100" type="button">100</button><button class="ghost-button qs-btn" data-stake="250" type="button">250</button><button class="ghost-button qs-btn" data-stake="500" type="button">500</button></div>
+                <label class="field-block"><span>Bankroll</span><input id="calc-bankroll" type="number" min="1" step="1" value="1000"></label>
+                <div class="calc-hero__buttons"><button id="calc-save" class="primary-button" type="button" disabled>Save to journal</button></div>
+              </div>
+            </div>
+            <div class="calc-grid">
+              <section id="calc-prob-section" class="calc-card"><h2>Probability</h2><div id="calc-prob-output" class="stat-list"></div></section>
+              <section id="calc-kelly-section" class="calc-card"><h2>Kelly</h2><div id="calc-kelly-output" class="stat-list"></div></section>
+              <section id="calc-dutch-section" class="calc-card"><div class="calc-card__head"><h2>Dutching</h2><div class="row-actions"><button id="dutch-add-leg" class="ghost-button" type="button">Add leg</button><button id="dutch-clear" class="ghost-button" type="button">Clear</button></div></div><label class="field-block"><span>Total stake</span><input id="dutch-stake" type="number" min="1" step="1" value="100"></label><div id="dutch-legs" class="stack-sm"></div><div id="dutch-summary" class="summary-list"></div></section>
+              <section id="calc-arb-section" class="calc-card"><h2>3-way arbitrage</h2><div class="three-col"><label class="field-block"><span>Odds 1</span><input id="arb-odds-1" type="number" step="0.01"></label><label class="field-block"><span>Odds X</span><input id="arb-odds-2" type="number" step="0.01"></label><label class="field-block"><span>Odds 2</span><input id="arb-odds-3" type="number" step="0.01"></label></div><button id="arb-check-btn" class="ghost-button" type="button">Check arb</button><pre id="arb-check-result" class="result-box"></pre></section>
+              <section id="calc-tax-section" class="calc-card"><h2>Romanian tax</h2><div class="three-col"><label class="field-block"><span>Stake</span><input id="tax-stake" type="number" min="0" step="1" value="100"></label><label class="field-block"><span>Odds</span><input id="tax-odds" type="number" min="1.01" step="0.01" value="2.00"></label><label class="field-block"><span>YTD winnings</span><input id="tax-ytd" type="number" min="0" step="1" value="0"></label></div><pre id="tax-result" class="result-box"></pre></section>
+              <section id="calc-novig-section" class="calc-card"><h2>No-vig 1X2</h2><div class="three-col"><label class="field-block"><span>1</span><input id="novig-odds-1" type="number" step="0.01"></label><label class="field-block"><span>X</span><input id="novig-odds-x" type="number" step="0.01"></label><label class="field-block"><span>2</span><input id="novig-odds-2" type="number" step="0.01"></label></div><pre id="novig-results" class="result-box"></pre></section>
+              <section id="calc-novig-manual-section" class="calc-card"><h2>No-vig notes</h2><p class="support-copy">Fair probabilities are normalized from the raw implied total, then converted back into fair odds for a cleaner market view.</p></section>
+              <section id="calc-middle-section" class="calc-card"><h2>Middle</h2><div class="four-col"><label class="field-block"><span>Over line</span><input id="mid-over-line" type="number" step="0.25"></label><label class="field-block"><span>Over odds</span><input id="mid-over-odds" type="number" step="0.01"></label><label class="field-block"><span>Under line</span><input id="mid-under-line" type="number" step="0.25"></label><label class="field-block"><span>Under odds</span><input id="mid-under-odds" type="number" step="0.01"></label></div><button id="mid-check-btn" class="ghost-button" type="button">Check middle</button><pre id="mid-result" class="result-box"></pre></section>
+              <section id="calc-conv-section" class="calc-card"><h2>Odds converter</h2><label class="field-block"><span>Decimal odds</span><input id="conv-decimal" type="number" step="0.01" value="2.50"></label><pre id="conv-results" class="result-box"></pre></section>
+              <section id="calc-autostake-section" class="calc-card"><h2>Auto-stake allocation</h2><p class="support-copy" style="margin-bottom:8px">Split your bankroll across active arbitrage opportunities, proportional to edge and capped by Kelly.</p><label class="field-block"><span>Total bankroll</span><input id="autostake-bankroll" type="number" min="1" step="1" value="1000"></label><label class="field-block"><span>Max stake per arb (%)</span><input id="autostake-max-pct" type="number" min="1" max="100" step="1" value="25"></label><button id="autostake-compute" class="ghost-button" type="button">Compute allocation</button><div id="autostake-results" class="stat-list" style="margin-top:8px"></div></section>
+            </div>
+          </section>
+
+          <section class="page page--hidden" data-page="journal">
+            <div class="page-header"><div><p class="page-kicker">Journal</p><h1>Saved bets</h1></div><button id="journal-clear" class="ghost-button" type="button">Clear local</button></div>
+            <div class="filter-bar">
+              <input id="journal-search" class="toolbar-control" type="search" placeholder="Search bets…" style="min-width:180px">
+              <select id="journal-status-filter" class="toolbar-control"><option value="">All status</option><option value="pending">Pending</option><option value="won">Won</option><option value="lost">Lost</option></select>
+              <select id="journal-bookmaker-filter" class="toolbar-control"><option value="">All bookmakers</option></select>
+              <button id="journal-export" class="ghost-button" type="button">Export CSV</button>
+              <button id="journal-import" class="ghost-button" type="button">Import CSV</button>
+              <input id="journal-import-file" type="file" accept=".csv,text/csv" hidden>
+            </div>
+            <div id="journal-list" class="card-stack"></div>
+          </section>
+
+          <section class="page page--hidden" data-page="analytics"><div class="page-header"><div><p class="page-kicker">Analytics</p><h1>Performance overview</h1></div><div class="page-note">ROI, hit rate, CLV, and breakdowns by bookmaker and market.</div></div><div id="analytics-summary" class="card-grid"></div><div id="analytics-breakdown" class="card-stack" style="margin-top:16px"></div></section>
+          <section class="page page--hidden" data-page="movement"><div class="page-header"><div><p class="page-kicker">Movement</p><h1>Odds movement</h1></div><div class="page-note">Price changes between the latest and previous odds snapshots.</div></div><div id="movement-list" class="card-stack"></div></section>
+          <section class="page page--hidden" data-page="bookmakers"><div class="page-header"><div><p class="page-kicker">Bookmakers</p><h1>Coverage</h1></div><div class="page-note">Implemented and remaining provider status.</div></div><div id="bookmakers-list" class="bookmaker-grid"></div></section>
+          <section class="page page--hidden" data-page="matches">
+            <div class="page-header"><div><p class="page-kicker">Matches</p><h1>Odds feed</h1></div><div class="page-note">Current events with clickable prices.</div></div>
+            <div class="filter-bar">
+              <label class="field-inline" style="flex-direction:row;align-items:center;gap:6px"><input id="show-favorites-only" type="checkbox"><span>Favorites only</span></label>
+              <label class="field-inline" style="flex-direction:row;align-items:center;gap:6px"><input id="show-all-markets" type="checkbox"><span>Show all markets</span></label>
+              <span class="muted-line" id="favorites-hint">Use the row controls to pin or hide bookmakers.</span>
+            </div>
+            <div id="matches-list" class="match-stack"></div>
+          </section>
+        </main>
+
+        <!-- Bet Slip Drawer (#3) -->
+        <aside id="bet-slip-drawer" class="bet-slip-drawer" data-open="false">
+          <button id="bet-slip-toggle" class="bet-slip-tab" type="button">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M4 4h16v16H4z"/><path d="M8 8h8"/><path d="M8 12h8"/><path d="M8 16h4"/></svg>
+            <span class="bet-slip-count" id="bet-slip-count">0</span>
+          </button>
+          <div class="bet-slip-content">
+            <div class="bet-slip-header"><h2>Active positions</h2></div>
+            <div id="bet-slip-list"></div>
+          </div>
+        </aside>
+
+        <nav class="mobile-nav" aria-label="Mobile primary">
+          <button class="nav-link" data-nav="scanner" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/></svg>Scanner</button>
+          <button class="nav-link" data-nav="value" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"/><path d="M2 7h20"/><path d="M2 7l10-5 10 5"/><path d="M2 17l10 5 10-5"/></svg>Value</button>
+          <button class="nav-link" data-nav="ai" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="5"/><path d="M8 13.5a6 6 0 0 0 8 0"/><path d="M12 18v3"/><path d="M9 21h6"/></svg>AI</button>
+          <button class="nav-link" data-nav="calculator" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="10" y2="10"/><line x1="14" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="10" y2="14"/><line x1="14" y1="14" x2="16" y2="14"/><line x1="8" y1="18" x2="10" y2="18"/><line x1="14" y1="18" x2="16" y2="18"/></svg>Calc</button>
+          <button class="nav-link" data-nav="journal" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v16l-4-2-4 2-4-2-4 2z"/><path d="M8 6h8"/><path d="M8 10h8"/></svg>Journal</button>
+          <button class="nav-link" data-nav="matches" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v18"/><path d="M3 12h18"/></svg>Matches</button>
+        </nav>
+      </div>
+    </div>
+
+    <!-- Arb Detail Modal -->
+    <div id="arb-modal-overlay" class="modal-overlay" hidden>
+      <div class="modal">
+        <div class="modal__header"><div><h2 id="arb-modal-title">—</h2><div class="muted-line" id="arb-modal-subtitle"></div></div><button id="arb-modal-close" class="ghost-button" type="button">Close</button></div>
+        <div class="modal__body" id="arb-modal-body"></div>
+      </div>
+    </div>
+
+    <!-- Toast Container (#9) -->
+    <div id="toast-container" class="toast-container"></div>
   </body>
 </html>

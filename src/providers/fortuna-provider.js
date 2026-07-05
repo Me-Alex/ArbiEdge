@@ -1,53 +1,114 @@
 const { ProviderError } = require('./the-odds-api-provider');
+const {
+  genericMarketKey,
+  handicapMarketKey,
+  hasAnyCompleteMarket,
+  hasCompleteOutcomes,
+  isDecimalOdds,
+  isMatchDoubleChanceKey,
+  isMatchHandicapKey,
+  isMatchTotalCornersKey,
+  normalizeOutcomeKey,
+} = require('./market-utils');
+const { bookmakerLinkFields, ufoEventUrl } = require('./event-links');
 
 const FORTUNA_UPCOMING_URL =
   'https://api.efortuna.ro/offer/structure/api/v1_0/widget/upcoming';
+const FORTUNA_MATCHES_URL =
+  'https://api.efortuna.ro/offer/structure/api/v1_0/sport/ufo:sprt:00/matches';
 const FORTUNA_MARKETS_URL =
   'https://api.efortuna.ro/offer/markets/api/v1_0/fixtures/markets/overview';
 const FOOTBALL_SPORT_ID = 'ufo:sprt:00';
 const MATCH_MARKET_TYPE_ID = 'ufo:mtyp:00-00';
+const DOUBLE_CHANCE_MARKET_TYPE_ID = 'ufo:mtyp:00-01';
 const DRAW_NO_BET_MARKET_TYPE_ID = 'ufo:mtyp:00-03';
-
+const HALF_TIME_OR_FULL_TIME_MARKET_TYPE_ID = 'ufo:mtyp:00-04';
+const TO_QUALIFY_MARKET_TYPE_ID = 'ufo:mtyp:00-12';
+const DEFAULT_PAGE_SIZE = 100;
+const DEFAULT_MAX_PAGES = 20;
+const MARKET_CHUNK_SIZE = 100;
 class FortunaProvider {
   constructor({
     fetchImpl = globalThis.fetch,
+    maxPages = DEFAULT_MAX_PAGES,
+    pageSize = DEFAULT_PAGE_SIZE,
     timeoutMs = 8000,
     now = () => new Date(),
   } = {}) {
     this.name = 'Fortuna';
     this.fetchImpl = fetchImpl;
+    this.maxPages = maxPages;
+    this.pageSize = pageSize;
     this.timeoutMs = timeoutMs;
     this.now = now;
   }
 
   async getOdds() {
-    const payload = await this.#fetchJson(FORTUNA_UPCOMING_URL);
-    const fixtureIds = Array.isArray(payload.fixtures)
-      ? payload.fixtures
-          .filter(
-            (fixture) =>
-              fixture?.sportId === FOOTBALL_SPORT_ID &&
-              fixture.status === 'ACTIVE' &&
-              fixture.id,
-          )
-          .map((fixture) => fixture.id)
-      : [];
-
-    let drawNoBetPayload = {};
-    if (fixtureIds.length > 0) {
-      const marketsUrl = new URL(FORTUNA_MARKETS_URL);
-      marketsUrl.search = new URLSearchParams({
-        fixtureIds: fixtureIds.join(','),
-        marketTypeIds: DRAW_NO_BET_MARKET_TYPE_ID,
-      });
-      drawNoBetPayload = await this.#fetchJson(marketsUrl, { optional: true });
-    }
+    const payload = await this.#fetchFootballPayload();
 
     return normalizeFortunaPayload(
       payload,
       this.now().toISOString(),
-      drawNoBetPayload,
     );
+  }
+
+  async #fetchFootballPayload() {
+    const firstPage = await this.#fetchMatchesPage(0);
+    const pageCount = Math.min(
+      Number.isInteger(firstPage.pagingInfo?.pageCount)
+        ? firstPage.pagingInfo.pageCount
+        : 1,
+      this.maxPages,
+    );
+    const rest = await Promise.all(
+      Array.from({ length: Math.max(0, pageCount - 1) }, (_, index) =>
+        this.#fetchMatchesPage(index + 1),
+      ),
+    );
+    const payload = mergePagedPayloads([firstPage, ...rest]);
+    const fixturesWithMarkets = (payload.fixtures || [])
+      .filter(
+        (fixture) =>
+          fixture?.sportId === FOOTBALL_SPORT_ID &&
+          fixture.status === 'ACTIVE' &&
+          fixture.id,
+      )
+      .map((fixture) => ({
+        id: fixture.id,
+        marketTypeIds: Array.isArray(fixture.marketTypeIds)
+          ? fixture.marketTypeIds
+          : [MATCH_MARKET_TYPE_ID],
+      }));
+    payload.markets = await this.#fetchOverviewMarkets(fixturesWithMarkets);
+    return payload;
+  }
+
+  async #fetchMatchesPage(page) {
+    const url = new URL(FORTUNA_MATCHES_URL);
+    url.search = new URLSearchParams({
+      filter: 'all',
+      page: String(page),
+      pageSize: String(this.pageSize),
+    });
+    return this.#fetchJson(url);
+  }
+
+  async #fetchOverviewMarkets(fixtures) {
+    const chunks = chunkArray(fixtures, MARKET_CHUNK_SIZE);
+    const responses = await Promise.all(
+      chunks.map((chunk) => {
+        const marketsUrl = new URL(FORTUNA_MARKETS_URL);
+        const marketTypeIds = unique(
+          chunk.flatMap((fixture) => fixture.marketTypeIds || []),
+        );
+        marketsUrl.search = new URLSearchParams({
+          fixtureIds: chunk.map((fixture) => fixture.id).join(','),
+          marketTypeIds: marketTypeIds.join(','),
+        });
+        return this.#fetchJson(marketsUrl);
+      }),
+    );
+    return responses.flatMap(flattenMarketsPayload);
   }
 
   async #fetchJson(url, { optional = false } = {}) {
@@ -108,44 +169,20 @@ function normalizeFortunaPayload(payload, fetchedAt, drawNoBetPayload = {}) {
       .filter((tournament) => tournament?.id)
       .map((tournament) => [tournament.id, tournament.name]),
   );
-  const matchMarkets = new Map();
+  const marketsByFixture = normalizeMarketsByFixture(payload.markets, payload.fixtures);
   const drawNoBetMarkets = normalizeDrawNoBetMarkets(drawNoBetPayload);
-
-  for (const market of payload.markets) {
-    if (
-      !market?.fixtureId ||
-      (market.marketTypeId !== MATCH_MARKET_TYPE_ID &&
-        market.syntheticGroupKey !== 'match')
-    ) {
-      continue;
-    }
-
-    const prices = Object.fromEntries(
-      (Array.isArray(market.outcomes) ? market.outcomes : [])
-        .filter(
-          (outcome) =>
-            ['1', 'X', '2'].includes(outcome?.name) &&
-            Number.isFinite(outcome.odds),
-        )
-        .map((outcome) => [outcome.name, outcome.odds]),
-    );
-
-    if (['1', 'X', '2'].every((outcome) => Number.isFinite(prices[outcome]))) {
-      matchMarkets.set(market.fixtureId, prices);
-    }
-  }
 
   return payload.fixtures
     .filter(
       (fixture) =>
         fixture?.sportId === FOOTBALL_SPORT_ID &&
         fixture.status === 'ACTIVE' &&
-        matchMarkets.has(fixture.id),
+        hasAnyCompleteMarket(marketsByFixture.get(fixture.id)),
     )
     .map((fixture) =>
       normalizeFixture(
         fixture,
-        matchMarkets,
+        marketsByFixture,
         drawNoBetMarkets,
         tournaments,
         fetchedAt,
@@ -153,6 +190,50 @@ function normalizeFortunaPayload(payload, fetchedAt, drawNoBetPayload = {}) {
     )
     .filter(Boolean)
     .sort((left, right) => new Date(left.startsAt) - new Date(right.startsAt));
+}
+
+function mergePagedPayloads(pages) {
+  return {
+    sport: pages.find((page) => page?.sport)?.sport,
+    categories: mergeById(pages.flatMap((page) => page?.categories || [])),
+    tournaments: mergeById(pages.flatMap((page) => page?.tournaments || [])),
+    fixtures: mergeById(pages.flatMap((page) => page?.fixtures || [])),
+    markets: mergeById(pages.flatMap((page) => page?.markets || [])),
+  };
+}
+
+function mergeById(items) {
+  const result = new Map();
+  for (const item of items) {
+    if (item?.id) {
+      result.set(item.id, item);
+    }
+  }
+  return [...result.values()];
+}
+
+function flattenMarketsPayload(payload) {
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+  if (!payload || typeof payload !== 'object') {
+    return [];
+  }
+  return Object.values(payload)
+    .filter(Array.isArray)
+    .flat();
+}
+
+function chunkArray(items, size) {
+  const chunks = [];
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+  return chunks;
+}
+
+function unique(items) {
+  return [...new Set(items.filter(Boolean))];
 }
 
 function normalizeDrawNoBetMarkets(payload) {
@@ -178,11 +259,11 @@ function normalizeDrawNoBetMarkets(payload) {
         .filter(
           (outcome) =>
             ['1', '2'].includes(outcome?.name) &&
-            Number.isFinite(outcome.odds),
+            isDecimalOdds(outcome.odds),
         )
         .map((outcome) => [outcome.name, outcome.odds]),
     );
-    if (Number.isFinite(prices['1']) && Number.isFinite(prices['2'])) {
+    if (isDecimalOdds(prices['1']) && isDecimalOdds(prices['2'])) {
       result.set(fixtureId, {
         home: prices['1'],
         away: prices['2'],
@@ -195,7 +276,7 @@ function normalizeDrawNoBetMarkets(payload) {
 
 function normalizeFixture(
   fixture,
-  matchMarkets,
+  marketsByFixture,
   drawNoBetMarkets,
   tournaments,
   fetchedAt,
@@ -217,23 +298,19 @@ function normalizeFixture(
     return null;
   }
 
-  const prices = matchMarkets.get(fixture.id);
-  const markets = {
-    h2h: {
-      home: prices['1'],
-      draw: prices.X,
-      away: prices['2'],
-    },
-  };
+  const markets = { ...marketsByFixture.get(fixture.id) };
   if (drawNoBetMarkets.has(fixture.id)) {
     markets.drawNoBet = drawNoBetMarkets.get(fixture.id);
   }
 
   return {
     id: `fortuna:${fixture.id}`,
-    externalIds: fixture.sportradarIds?.[0]
-      ? { sportradar: String(fixture.sportradarIds[0]) }
-      : {},
+    externalIds: {
+      fortunaFixture: String(fixture.id),
+      ...(fixture.sportradarIds?.[0]
+        ? { sportradar: String(fixture.sportradarIds[0]) }
+        : {}),
+    },
     sport: 'Football',
     competition: tournaments.get(fixture.tournamentId) || 'Fortuna Football',
     startsAt: startsAt.toISOString(),
@@ -243,13 +320,257 @@ function normalizeFixture(
       {
         name: 'Fortuna',
         lastUpdate: fetchedAt,
+        ...bookmakerLinkFields('Fortuna', ufoEventUrl('Fortuna', fixture)),
         markets,
       },
     ],
   };
 }
 
+function normalizeMarketsByFixture(markets, fixtures = []) {
+  const result = new Map();
+  const fixtureContexts = new Map(
+    (Array.isArray(fixtures) ? fixtures : [])
+      .filter((fixture) => fixture?.id)
+      .map((fixture) => [fixture.id, fixtureTeamContext(fixture)]),
+  );
+  for (const market of markets || []) {
+    if (!market?.fixtureId || !Array.isArray(market.outcomes)) {
+      continue;
+    }
+
+    const normalized = normalizeFortunaMarket(
+      market,
+      fixtureContexts.get(market.fixtureId),
+    );
+    if (!normalized) {
+      continue;
+    }
+
+    if (!result.has(market.fixtureId)) {
+      result.set(market.fixtureId, {});
+    }
+    for (const item of Array.isArray(normalized) ? normalized : [normalized]) {
+      result.get(market.fixtureId)[item.key] = item.prices;
+    }
+  }
+  return result;
+}
+
+function normalizeFortunaMarket(market, context = {}) {
+  const synthetic = String(market.syntheticGroupKey || '').toLowerCase();
+
+  if (market.marketTypeId === MATCH_MARKET_TYPE_ID || synthetic === 'match') {
+    return mapOutcomes(market, 'h2h', { 1: 'home', X: 'draw', 2: 'away' }, ['home', 'draw', 'away']);
+  }
+  if (market.marketTypeId === DOUBLE_CHANCE_MARKET_TYPE_ID || isMatchDoubleChanceKey(synthetic)) {
+    return mapOutcomes(
+      market,
+      'doubleChance',
+      { '1X': 'homeDraw', 12: 'homeAway', X2: 'drawAway' },
+      ['homeDraw', 'homeAway', 'drawAway'],
+    );
+  }
+  if (market.marketTypeId === DRAW_NO_BET_MARKET_TYPE_ID || synthetic === 'draw_no_bet') {
+    return mapOutcomes(market, 'drawNoBet', { 1: 'home', 2: 'away' }, ['home', 'away']);
+  }
+  if (market.marketTypeId === TO_QUALIFY_MARKET_TYPE_ID || synthetic === 'to_qualify') {
+    return mapOutcomes(market, 'toQualify', { 1: 'home', 2: 'away' }, ['home', 'away']);
+  }
+  if (market.marketTypeId === HALF_TIME_OR_FULL_TIME_MARKET_TYPE_ID || synthetic === 'half_time_or_full_time') {
+    return mapOutcomes(
+      market,
+      'halfTimeOrFullTime',
+      { 1: 'home', X: 'draw', 2: 'away' },
+      ['home', 'draw', 'away'],
+    );
+  }
+  if (market.marketTypeId === 'ufo:mtyp:00-10') {
+    return normalizeLineMarket(market, 'market_total_goluri_home');
+  }
+  if (market.marketTypeId === 'ufo:mtyp:00-13') {
+    return normalizeLineMarket(market, 'market_total_goluri_away');
+  }
+  if (synthetic === 'total_goals_/_asian_total_goals' || synthetic === 'total_goals') {
+    return normalizeLineMarket(market, 'totalGoals');
+  }
+  if (isMatchTotalCornersKey(synthetic)) {
+    return normalizeLineMarket(market, 'totalCorners');
+  }
+  if (synthetic === 'both_teams_to_score') {
+    return mapOutcomes(
+      market,
+      'bothTeamsToScore',
+      { Da: 'yes', Nu: 'no', Yes: 'yes', No: 'no' },
+      ['yes', 'no'],
+    );
+  }
+  if (isMatchHandicapKey(synthetic)) {
+    return normalizeHandicapMarket(market, context);
+  }
+  return normalizeGenericMarket(market);
+}
+
+function mapOutcomes(market, key, outcomeMap, required) {
+  const prices = {};
+  for (const outcome of market.outcomes || []) {
+    const mapped = outcomeMap[String(outcome.name || '').trim()];
+    if (mapped && isDecimalOdds(outcome.odds)) {
+      prices[mapped] = outcome.odds;
+    }
+  }
+  return required.every((outcome) => isDecimalOdds(prices[outcome]))
+    ? { key, prices }
+    : null;
+}
+
+function normalizeLineMarket(market, baseKey) {
+  const prices = {};
+  let line = null;
+  for (const outcome of market.outcomes || []) {
+    const parsed = parseLineOutcome(outcome.name);
+    if (!parsed || !isDecimalOdds(outcome.odds)) {
+      continue;
+    }
+    line = line || parsed.line;
+    if (parsed.line === line) {
+      prices[parsed.side] = outcome.odds;
+    }
+  }
+  return line && ['over', 'under'].every((outcome) => isDecimalOdds(prices[outcome]))
+    ? { key: `${baseKey}_${line.replace('.', '_')}`, prices }
+    : null;
+}
+
+function normalizeHandicapMarket(market, context = {}) {
+  const groups = new Map();
+  for (const outcome of market.outcomes || []) {
+    const parsed = parseHandicapOutcome(outcome.name, context);
+    if (!parsed || !isDecimalOdds(outcome.odds)) {
+      continue;
+    }
+    const homeLine = parsed.side === 'home' ? parsed.line : -parsed.line;
+    const key = formatLine(homeLine);
+    if (!groups.has(key)) {
+      groups.set(key, { homeLine, prices: {} });
+    }
+    groups.get(key).prices[parsed.side] = outcome.odds;
+  }
+  const markets = [...groups.values()]
+    .filter(({ prices }) => ['home', 'away'].every((outcome) => isDecimalOdds(prices[outcome])))
+    .map(({ homeLine, prices }) => ({ key: handicapMarketKey('handicap', homeLine), prices }));
+  return markets.length === 1 ? markets[0] : markets.length ? markets : null;
+}
+
+function normalizeGenericMarket(market) {
+  const label =
+    market.name ||
+    market.marketName ||
+    market.syntheticGroupKey ||
+    market.marketTypeId;
+  const linePrices = {};
+  let line = null;
+  let lineOutcomeCount = 0;
+
+  for (const outcome of market.outcomes || []) {
+    const parsed = parseLineOutcome(outcome.name);
+    if (!parsed || !isDecimalOdds(outcome.odds)) {
+      continue;
+    }
+    line = line || parsed.line;
+    if (parsed.line === line) {
+      linePrices[parsed.side] = outcome.odds;
+      lineOutcomeCount += 1;
+    }
+  }
+
+  if (lineOutcomeCount > 0) {
+    const key = genericMarketKey(label, { line });
+    return key && hasCompleteOutcomes(linePrices)
+      ? { key, prices: linePrices }
+      : null;
+  }
+
+  const prices = {};
+  for (const outcome of market.outcomes || []) {
+    const outcomeKey = normalizeOutcomeKey(outcome.name || outcome.longName);
+    if (outcomeKey && isDecimalOdds(outcome.odds)) {
+      prices[outcomeKey] = outcome.odds;
+    }
+  }
+
+  const key = genericMarketKey(label);
+  return key && hasCompleteOutcomes(prices) ? { key, prices } : null;
+}
+
+function parseLineOutcome(value) {
+  const match = String(value || '').trim().match(/^([+-])\s*([0-9]+(?:\.[0-9]+)?)$/);
+  if (!match) {
+    return null;
+  }
+  return {
+    side: match[1] === '+' ? 'over' : 'under',
+    line: formatLine(match[2]),
+  };
+}
+
+function parseHandicapOutcome(value, { homeTeam, awayTeam } = {}) {
+  const raw = String(value || '').trim();
+  const match = raw.match(/^([12])\s*([+-]?[0-9]+(?:[.,][0-9]+)?)/);
+  if (match) {
+    return {
+      side: match[1] === '1' ? 'home' : 'away',
+      line: Number(match[2].replace(',', '.')),
+    };
+  }
+
+  const teamMatch = raw.match(/^(.+?)\s+([+-]?[0-9]+(?:[.,][0-9]+)?)/);
+  const side = teamMatch ? teamSide(teamMatch[1], { homeTeam, awayTeam }) : null;
+  if (side) {
+    return {
+      side,
+      line: Number(teamMatch[2].replace(',', '.')),
+    };
+  }
+
+  return null;
+}
+
+function fixtureTeamContext(fixture) {
+  return {
+    homeTeam: fixture.participants?.find((participant) => participant?.type === 'HOME')?.name,
+    awayTeam: fixture.participants?.find((participant) => participant?.type === 'AWAY')?.name,
+  };
+}
+
+function teamSide(value, { homeTeam, awayTeam }) {
+  const normalized = normalizeTeamToken(value);
+  if (normalized && normalized === normalizeTeamToken(homeTeam)) {
+    return 'home';
+  }
+  if (normalized && normalized === normalizeTeamToken(awayTeam)) {
+    return 'away';
+  }
+  return null;
+}
+
+function normalizeTeamToken(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+    .replace(/[^\p{Letter}\p{Number}]+/gu, ' ')
+    .trim();
+}
+
+function formatLine(value) {
+  const number = Number(value);
+  if (Number.isInteger(number)) return number.toFixed(0);
+  return Number.isInteger(number * 2) ? number.toFixed(1) : number.toFixed(2);
+}
+
 module.exports = {
+  FORTUNA_MATCHES_URL,
   FORTUNA_UPCOMING_URL,
   FortunaProvider,
   normalizeFortunaPayload,

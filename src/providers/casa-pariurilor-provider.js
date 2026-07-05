@@ -2,6 +2,7 @@ const { UfoProvider } = require('./ufo-provider');
 
 const CASA_BASE_URL = 'https://api.casapariurilor.ro/offer';
 const CASA_UPCOMING_URL = `${CASA_BASE_URL}/structure/api/v1_0/widget/upcoming`;
+const CASA_MATCHES_URL = `${CASA_BASE_URL}/structure/api/v1_0/sport/ufo:sprt:00/matches`;
 
 class CasaPariurilorProvider extends UfoProvider {
   constructor(options = {}) {
@@ -9,4 +10,8 @@ class CasaPariurilorProvider extends UfoProvider {
   }
 }
 
-module.exports = { CASA_UPCOMING_URL, CasaPariurilorProvider };
+module.exports = {
+  CASA_MATCHES_URL,
+  CASA_UPCOMING_URL,
+  CasaPariurilorProvider,
+};

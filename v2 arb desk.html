@@ -1,0 +1,1610 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Arb Desk · V2</title>
+    <!--
+      ═══════════════════════════════════════════════════════
+      Arb Desk V2 — Trading Terminal
+      "Bloomberg meets a poker table at 3 AM"
+
+      Design pillars:
+        1. Atmospheric depth — animated mesh, grain, glass layers
+        2. Hero numerics — profit numbers are the stars, not labels
+        3. Living pulse — glow, breathe, stagger
+        4. Dense but legible — trading-desk information density
+
+      Fonts: JetBrains Mono (display/data) + DM Sans (body)
+      ═══════════════════════════════════════════════════════
+    -->
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap');
+
+      :root {
+        color-scheme: dark;
+
+        /* ── Backgrounds — deep ocean of black-blue ── */
+        --bg-void: #03060a;
+        --bg-base: #06090f;
+        --bg-surface: #0a0e16;
+        --bg-elevated: #0f141e;
+        --bg-hover: #141a26;
+        --bg-active: #1a2130;
+        --bg-input: #070a10;
+        --bg-glass: rgba(10, 14, 22, 0.65);
+        --bg-glass-hover: rgba(15, 20, 30, 0.75);
+
+        /* ── Accent — electric mint (live / profit / action) ── */
+        --accent: #00d4aa;
+        --accent-bright: #2af5c8;
+        --accent-dim: #00a87f;
+        --accent-deep: #006d52;
+        --accent-glow: rgba(0, 212, 170, 0.12);
+        --accent-glow-mid: rgba(0, 212, 170, 0.20);
+        --accent-glow-strong: rgba(0, 212, 170, 0.35);
+        --accent-border: rgba(0, 212, 170, 0.25);
+        --accent-border-strong: rgba(0, 212, 170, 0.45);
+
+        /* ── Danger — hot crimson (loss / risk) ── */
+        --danger: #ff3b69;
+        --danger-bright: #ff5c7f;
+        --danger-glow: rgba(255, 59, 105, 0.10);
+        --danger-border: rgba(255, 59, 105, 0.22);
+
+        /* ── Warning — amber gold ── */
+        --warning: #f7a600;
+        --warning-glow: rgba(247, 166, 0, 0.10);
+        --warning-border: rgba(247, 166, 0, 0.22);
+
+        /* ── Info — electric blue ── */
+        --info: #3a86ff;
+        --info-glow: rgba(58, 134, 255, 0.10);
+
+        /* ── Market — muted purple ── */
+        --market: #b89ae0;
+
+        /* ── Text ── */
+        --text: #e8f0f7;
+        --text-secondary: #8b95a5;
+        --text-tertiary: #5a6478;
+        --text-faint: #3a4252;
+
+        /* ── Borders ── */
+        --line: #161c28;
+        --line-2: #202838;
+        --line-3: #2e3848;
+        --line-glass: rgba(255, 255, 255, 0.06);
+
+        /* ── Typography ── */
+        --font-display: 'JetBrains Mono', 'Cascadia Code', 'SF Mono', monospace;
+        --font-body: 'DM Sans', system-ui, -apple-system, sans-serif;
+        --font-mono: 'JetBrains Mono', 'Cascadia Code', 'SF Mono', monospace;
+
+        /* ── Shadows ── */
+        --shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.3);
+        --shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+        --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.5);
+        --shadow-glass: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+
+        /* ── Radius ── */
+        --r-xs: 3px;
+        --r-sm: 6px;
+        --r: 10px;
+        --r-lg: 14px;
+        --r-pill: 999px;
+
+        /* ── Transitions ── */
+        --t-fast: 100ms cubic-bezier(0.4, 0, 0.2, 1);
+        --t: 220ms cubic-bezier(0.4, 0, 0.2, 1);
+        --t-slow: 400ms cubic-bezier(0.4, 0, 0.2, 1);
+        --t-bounce: 340ms cubic-bezier(0.34, 1.56, 0.64, 1);
+
+        font-family: var(--font-body);
+        font-size: 14px;
+        line-height: 1.5;
+      }
+
+      /* ── Reset ── */
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+      html, body { min-height: 100%; background: var(--bg-void); color: var(--text); -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+      body { min-width: 320px; overflow-x: hidden; }
+      button, input, select { font: inherit; color: inherit; background: none; border: none; }
+        a { color: inherit; text-decoration: none; }
+
+      /* ═══════════════════════════════════════════════════
+         ATMOSPHERE — animated gradient mesh + grain
+         ═══════════════════════════════════════════════════ */
+      body::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        background:
+          radial-gradient(ellipse 70% 50% at 20% 0%, rgba(0, 212, 170, 0.06), transparent 60%),
+          radial-gradient(ellipse 50% 40% at 80% 10%, rgba(58, 134, 255, 0.05), transparent 60%),
+          radial-gradient(ellipse 60% 50% at 50% 100%, rgba(0, 212, 170, 0.03), transparent 60%);
+        pointer-events: none;
+        z-index: 0;
+        animation: mesh-drift 20s ease-in-out infinite alternate;
+      }
+
+      @keyframes mesh-drift {
+        0% { transform: translate(0, 0) scale(1); }
+        50% { transform: translate(2%, -1%) scale(1.03); }
+        100% { transform: translate(-1%, 1%) scale(1); }
+      }
+
+      /* Subtle film grain */
+      body::after {
+        content: '';
+        position: fixed;
+        inset: 0;
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' /%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.4'/%3E%3C/svg%3E");
+        opacity: 0.03;
+        pointer-events: none;
+        z-index: 0;
+        mix-blend-mode: overlay;
+      }
+
+      /* ═══════════════════════════════════════════════════
+         APP SHELL
+         ═══════════════════════════════════════════════════ */
+      .app-shell {
+        display: grid;
+        grid-template-columns: 60px minmax(0, 1fr);
+        min-height: 100vh;
+        position: relative;
+        z-index: 1;
+      }
+
+      /* ═══════════════════════════════════════════════════
+         SIDEBAR — glassmorphic icon rail
+         ═══════════════════════════════════════════════════ */
+      .sidebar {
+        border-right: 1px solid var(--line);
+        background: linear-gradient(180deg, rgba(10, 14, 22, 0.8) 0%, rgba(3, 6, 10, 0.9) 100%);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        padding: 14px 0;
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        transition: width var(--t), grid-template-columns var(--t);
+        z-index: 110;
+      }
+
+      .app-shell:has(.sidebar:hover) { grid-template-columns: 210px minmax(0, 1fr); }
+      .sidebar:hover { width: 210px; }
+
+      .brand {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        padding: 2px 10px 22px;
+        white-space: nowrap;
+        overflow: hidden;
+      }
+
+      .brand__mark {
+        width: 38px;
+        height: 38px;
+        flex-shrink: 0;
+        border-radius: var(--r-sm);
+        display: grid;
+        place-items: center;
+        background: linear-gradient(135deg, var(--bg-elevated), var(--bg-surface));
+        border: 1px solid var(--line-2);
+        color: var(--accent);
+        font-weight: 800;
+        font-family: var(--font-display);
+        font-size: 14px;
+        letter-spacing: -0.02em;
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.05),
+          0 0 16px rgba(0, 212, 170, 0.12),
+          0 2px 8px rgba(0, 0, 0, 0.3);
+        position: relative;
+      }
+
+      .brand__mark::after {
+        content: '';
+        position: absolute;
+        inset: -1px;
+        border-radius: var(--r-sm);
+        background: linear-gradient(135deg, var(--accent-border), transparent 50%);
+        opacity: 0.5;
+        z-index: -1;
+      }
+
+      .brand__eyebrow, .page-kicker {
+        margin: 0 0 2px;
+        color: var(--text-tertiary);
+        text-transform: uppercase;
+        font-size: 9px;
+        letter-spacing: 0.16em;
+        font-weight: 600;
+        font-family: var(--font-display);
+      }
+
+      .brand h1, .page-header h1 {
+        margin: 0;
+        font-family: var(--font-display);
+        font-size: 17px;
+        font-weight: 700;
+        letter-spacing: -0.03em;
+        color: var(--text);
+      }
+
+      .sidebar-nav {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        flex: 1;
+        padding: 0 8px;
+      }
+
+      .nav-link {
+        min-height: 42px;
+        border: 1px solid transparent;
+        border-radius: var(--r-sm);
+        background: transparent;
+        color: var(--text-tertiary);
+        text-align: left;
+        padding: 0 11px;
+        cursor: pointer;
+        font-weight: 500;
+        font-size: 13px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        transition: all var(--t-fast);
+        white-space: nowrap;
+        overflow: hidden;
+        position: relative;
+      }
+
+      .nav-link svg {
+        width: 19px;
+        height: 19px;
+        flex-shrink: 0;
+        stroke-width: 1.7;
+      }
+
+      .nav-link:hover {
+        color: var(--text);
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      .nav-link.is-active {
+        color: var(--accent);
+        background: var(--accent-glow);
+        border-color: var(--accent-border);
+        font-weight: 600;
+        box-shadow: inset 0 0 12px rgba(0, 212, 170, 0.05);
+      }
+
+      .nav-link.is-active::before {
+        content: '';
+        position: absolute;
+        left: -8px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 3px;
+        height: 22px;
+        background: var(--accent);
+        border-radius: 0 3px 3px 0;
+        box-shadow: 0 0 10px var(--accent), 0 0 20px var(--accent-glow-mid);
+      }
+
+      /* ═══════════════════════════════════════════════════
+         TICKER BAR — live data strip
+         ═══════════════════════════════════════════════════ */
+      .ticker-bar {
+        height: 28px;
+        border-bottom: 1px solid var(--line);
+        background: var(--bg-base);
+        display: flex;
+        align-items: center;
+        gap: 0;
+        overflow: hidden;
+        position: relative;
+        font-family: var(--font-display);
+        font-size: 11px;
+        font-weight: 500;
+      }
+
+      .ticker-track {
+        display: flex;
+        gap: 28px;
+        white-space: nowrap;
+        animation: ticker-scroll 40s linear infinite;
+        padding-left: 100%;
+      }
+
+      .ticker-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: var(--text-tertiary);
+      }
+
+      .ticker-item .tk-name { color: var(--text-secondary); }
+      .ticker-item .tk-up { color: var(--accent); }
+      .ticker-item .tk-down { color: var(--danger); }
+
+      @keyframes ticker-scroll {
+        from { transform: translateX(0); }
+        to { transform: translateX(-100%); }
+      }
+
+      .ticker-bar:hover .ticker-track { animation-play-state: paused; }
+
+      /* ═══════════════════════════════════════════════════
+         MAIN SHELL
+         ═══════════════════════════════════════════════════ */
+      .main-shell {
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        background: transparent;
+      }
+
+      /* ═══════════════════════════════════════════════════
+         TOPBAR — glassmorphic floating header
+         ═══════════════════════════════════════════════════ */
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 12px 22px;
+        border-bottom: 1px solid var(--line);
+        background: rgba(6, 9, 15, 0.7);
+        backdrop-filter: blur(20px) saturate(180%);
+        -webkit-backdrop-filter: blur(20px) saturate(180%);
+        position: sticky;
+        top: 0;
+        z-index: 100;
+      }
+
+      .topbar__meta, .topbar__tools {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+      }
+
+      .topbar__subtext, .page-note, .support-copy {
+        color: var(--text-tertiary);
+        font-size: 12px;
+        line-height: 1.5;
+      }
+
+      /* ── Live Pill — concentric pulse ── */
+      .live-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 32px;
+        padding: 0 14px;
+        border: 1px solid var(--line-2);
+        border-radius: var(--r-pill);
+        background: var(--bg-surface);
+        font-weight: 600;
+        font-size: 11px;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        font-family: var(--font-display);
+        position: relative;
+      }
+
+      .live-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: var(--r-pill);
+        background: var(--text-tertiary);
+        position: relative;
+      }
+
+      .live-dot[data-mode="live"] {
+        background: var(--accent);
+        box-shadow: 0 0 8px var(--accent), 0 0 16px var(--accent-glow-strong);
+      }
+
+      .live-dot[data-mode="live"]::before {
+        content: '';
+        position: absolute;
+        inset: -4px;
+        border-radius: var(--r-pill);
+        border: 1px solid var(--accent);
+        animation: ripple 2s ease-out infinite;
+      }
+
+      .live-dot[data-mode="live"]::after {
+        content: '';
+        position: absolute;
+        inset: -4px;
+        border-radius: var(--r-pill);
+        border: 1px solid var(--accent);
+        animation: ripple 2s ease-out infinite 0.7s;
+      }
+
+      @keyframes ripple {
+        0% { transform: scale(0.8); opacity: 0.8; }
+        100% { transform: scale(2.2); opacity: 0; }
+      }
+
+      .live-dot[data-mode="demo"] { background: var(--warning); box-shadow: 0 0 8px rgba(247, 166, 0, 0.5); }
+      .live-dot[data-mode="loading"] { background: var(--info); animation: pulse-dot 1s ease-in-out infinite; }
+
+      @keyframes pulse-dot {
+        0%, 100% { opacity: 0.3; }
+        50% { opacity: 1; }
+      }
+
+      /* ── Inputs ── */
+      .search-field {
+        position: relative;
+        display: flex;
+        align-items: center;
+      }
+
+      .search-field::before {
+        content: '';
+        position: absolute;
+        left: 11px;
+        width: 14px;
+        height: 14px;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%235a6478' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.3-4.3'/%3E%3C/svg%3E");
+        pointer-events: none;
+      }
+
+      .search-field input {
+        width: min(280px, 30vw);
+        min-height: 34px;
+        border: 1px solid var(--line-2);
+        border-radius: var(--r-sm);
+        background: var(--bg-input);
+        color: var(--text);
+        padding: 0 12px 0 34px;
+        font-size: 12px;
+        transition: all var(--t-fast);
+      }
+
+      .search-field input::placeholder { color: var(--text-faint); }
+
+      .search-field input:focus {
+        outline: none;
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-glow), inset 0 0 8px rgba(0, 212, 170, 0.03);
+      }
+
+      .toolbar-control, .field-inline input, .field-block input {
+        width: 100%;
+        min-height: 34px;
+        border: 1px solid var(--line-2);
+        border-radius: var(--r-sm);
+        background: var(--bg-input);
+        color: var(--text);
+        padding: 0 10px;
+        font-size: 12px;
+        transition: all var(--t-fast);
+        font-family: var(--font-body);
+      }
+
+      .toolbar-control:focus, .field-inline input:focus, .field-block input:focus {
+        outline: none;
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-glow);
+      }
+
+      /* ── Buttons ── */
+      .primary-button, .ghost-button {
+        min-height: 34px;
+        border-radius: var(--r-sm);
+        padding: 0 16px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 12px;
+        transition: all var(--t-fast);
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .primary-button {
+        border: 1px solid var(--accent-dim);
+        background: linear-gradient(180deg, var(--accent) 0%, var(--accent-dim) 100%);
+        color: #001812;
+        font-weight: 700;
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.15),
+          0 0 16px rgba(0, 212, 170, 0.15),
+          0 2px 8px rgba(0, 0, 0, 0.2);
+      }
+
+      .primary-button::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+        transition: left 600ms ease;
+      }
+
+      .primary-button:hover::before { left: 100%; }
+
+      .primary-button:hover {
+        background: linear-gradient(180deg, var(--accent-bright) 0%, var(--accent) 100%);
+        border-color: var(--accent);
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.2),
+          0 0 24px rgba(0, 212, 170, 0.25),
+          0 4px 12px rgba(0, 0, 0, 0.3);
+        transform: translateY(-1px);
+      }
+
+      .primary-button:active { transform: translateY(0); }
+      .primary-button:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+
+      .ghost-button {
+        border: 1px solid var(--line-2);
+        background: var(--bg-surface);
+        color: var(--text-secondary);
+      }
+
+      .ghost-button:hover {
+        color: var(--text);
+        border-color: var(--line-3);
+        background: var(--bg-elevated);
+      }
+
+      /* ═══════════════════════════════════════════════════
+         BANNERS & STATES
+         ═══════════════════════════════════════════════════ */
+      .banner, .state-panel {
+        border: 1px solid var(--line);
+        border-radius: var(--r);
+        padding: 14px 16px;
+        margin: 0 22px 12px;
+        font-size: 13px;
+      }
+
+      .banner {
+        color: var(--warning);
+        background: var(--warning-glow);
+        border-color: var(--warning-border);
+      }
+
+      .state-panel {
+        color: var(--text-tertiary);
+        background: var(--bg-surface);
+        text-align: center;
+        margin: 24px 22px;
+      }
+
+      .state-panel--error {
+        color: #ffc4ca;
+        background: var(--danger-glow);
+        border-color: var(--danger-border);
+      }
+
+      /* ═══════════════════════════════════════════════════
+         CONTENT & PAGES
+         ═══════════════════════════════════════════════════ */
+      .content {
+        min-width: 0;
+        padding: 0 22px 90px;
+        flex: 1;
+      }
+
+      .page { display: block; animation: page-in 320ms cubic-bezier(0.4, 0, 0.2, 1); }
+      .page--hidden { display: none; }
+
+      @keyframes page-in {
+        from { opacity: 0; transform: translateY(8px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      .page-header {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 18px;
+        margin: 18px 0 20px;
+        padding-bottom: 14px;
+        border-bottom: 1px solid var(--line);
+        position: relative;
+      }
+
+      .page-header::after {
+        content: '';
+        position: absolute;
+        bottom: -1px;
+        left: 0;
+        width: 60px;
+        height: 1px;
+        background: linear-gradient(90deg, var(--accent), transparent);
+      }
+
+      .page-header h1 {
+        font-family: var(--font-display);
+        font-size: 22px;
+        font-weight: 700;
+        letter-spacing: -0.03em;
+      }
+
+      /* ── Filter Bar ── */
+      .filter-bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: end;
+        margin-bottom: 16px;
+      }
+
+      .field-inline, .field-block { display: grid; gap: 5px; }
+
+      .field-inline span, .field-block span, .calc-hero__label {
+        color: var(--text-tertiary);
+        font-size: 10px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        font-family: var(--font-display);
+      }
+
+      /* ═══════════════════════════════════════════════════
+         CARDS — glassmorphic with depth
+         ═══════════════════════════════════════════════════ */
+      .card-stack, .match-stack { display: grid; gap: 10px; }
+
+      .card-grid, .bookmaker-grid {
+        display: grid;
+        gap: 10px;
+        grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+      }
+
+      .arb-card, .value-card, .ai-card, .journal-card,
+      .bookmaker-card, .match-card, .calc-card, .calc-hero {
+        border: 1px solid var(--line);
+        border-radius: var(--r);
+        background: var(--bg-glass);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        box-shadow: var(--shadow-glass);
+        transition: all var(--t);
+        position: relative;
+        overflow: hidden;
+        animation: card-enter 420ms cubic-bezier(0.4, 0, 0.2, 1) both;
+      }
+
+      .card-stack > :nth-child(1) { animation-delay: 0ms; }
+      .card-stack > :nth-child(2) { animation-delay: 60ms; }
+      .card-stack > :nth-child(3) { animation-delay: 120ms; }
+      .card-stack > :nth-child(4) { animation-delay: 180ms; }
+      .card-stack > :nth-child(5) { animation-delay: 240ms; }
+      .card-grid > :nth-child(1) { animation-delay: 0ms; }
+      .card-grid > :nth-child(2) { animation-delay: 60ms; }
+      .card-grid > :nth-child(3) { animation-delay: 120ms; }
+      .card-grid > :nth-child(4) { animation-delay: 180ms; }
+
+      @keyframes card-enter {
+        from { opacity: 0; transform: translateY(12px) scale(0.99); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
+      }
+
+      /* Top-edge glow on cards */
+      .arb-card::before, .value-card::before, .ai-card::before,
+      .match-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 10%;
+        right: 10%;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(0, 212, 170, 0.15), transparent);
+        pointer-events: none;
+      }
+
+      /* Subtle inner glow */
+      .arb-card::after, .value-card::after, .ai-card::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(ellipse 100% 50% at 50% 0%, rgba(0, 212, 170, 0.025), transparent 70%);
+        pointer-events: none;
+      }
+
+      .arb-card:hover, .value-card:hover, .ai-card:hover,
+      .journal-card:hover, .match-card:hover {
+        border-color: var(--line-3);
+        background: var(--bg-glass-hover);
+        box-shadow: var(--shadow-lg), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+        transform: translateY(-2px);
+      }
+
+      .arb-card, .value-card, .ai-card, .journal-card,
+      .bookmaker-card, .match-card { padding: 16px; }
+
+      /* ── Arb Card — the hero card ── */
+      .arb-card {
+        display: grid;
+        gap: 12px;
+        border-left: 2px solid var(--accent);
+      }
+
+      .arb-card:hover { border-left-color: var(--accent-bright); }
+
+      .arb-card__top, .value-card__top, .journal-card__head, .match-card__head {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        align-items: start;
+        position: relative;
+        z-index: 1;
+      }
+
+      .arb-card__title, .value-card__title, .ai-card__title,
+      .journal-card__title, .match-card__title {
+        margin: 0;
+        font-family: var(--font-body);
+        font-size: 15px;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+        color: var(--text);
+      }
+
+      .muted-line {
+        color: var(--text-tertiary);
+        font-size: 12px;
+        font-family: var(--font-display);
+        letter-spacing: 0.01em;
+        margin-top: 2px;
+      }
+
+      /* ── Pills ── */
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        min-height: 22px;
+        padding: 0 10px;
+        border-radius: var(--r-pill);
+        background: var(--bg-elevated);
+        border: 1px solid var(--line-2);
+        color: var(--text-secondary);
+        font-size: 10px;
+        font-weight: 700;
+        font-family: var(--font-display);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .pill--good {
+        color: var(--accent);
+        background: var(--accent-glow);
+        border-color: var(--accent-border);
+        box-shadow: 0 0 8px rgba(0, 212, 170, 0.08);
+      }
+
+      .pill--warn {
+        color: var(--warning);
+        background: var(--warning-glow);
+        border-color: var(--warning-border);
+      }
+
+      /* ── Arb Profit — HERO NUMBER ── */
+      .arb-card__profit {
+        color: var(--accent);
+        font-weight: 800;
+        font-size: 32px;
+        font-family: var(--font-display);
+        letter-spacing: -0.04em;
+        line-height: 1;
+        position: relative;
+        z-index: 1;
+        background: linear-gradient(135deg, var(--accent-bright) 0%, var(--accent) 50%, var(--accent-dim) 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+        filter: drop-shadow(0 0 16px rgba(0, 212, 170, 0.3));
+      }
+
+      /* ── Value / AI Cards ── */
+      .value-card, .ai-card, .bookmaker-card {
+        display: grid;
+        gap: 10px;
+        position: relative;
+        z-index: 1;
+      }
+
+      .value-card__metric, .ai-card__metric {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        font-size: 13px;
+      }
+
+      .value-card__metric .label, .ai-card__metric .label {
+        color: var(--text-tertiary);
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        font-family: var(--font-display);
+        font-weight: 600;
+      }
+
+      .value-card__metric .value, .ai-card__metric .value {
+        font-family: var(--font-display);
+        font-weight: 600;
+        font-size: 13px;
+      }
+
+      /* ═══════════════════════════════════════════════════
+         CALCULATOR
+         ═══════════════════════════════════════════════════ */
+      .calc-hero {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 18px;
+        padding: 20px;
+        margin-bottom: 14px;
+      }
+
+      .calc-hero__card {
+        border: 1px solid var(--line-2);
+        border-radius: var(--r);
+        padding: 16px;
+        background: var(--bg-input);
+        position: relative;
+        overflow: hidden;
+      }
+
+      .calc-hero__card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, var(--accent-border), transparent);
+      }
+
+      .calc-hero__odds {
+        font-family: var(--font-display);
+        font-size: 38px;
+        font-weight: 800;
+        color: var(--accent);
+        letter-spacing: -0.04em;
+        line-height: 1.1;
+        background: linear-gradient(135deg, var(--accent-bright) 0%, var(--accent) 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+        filter: drop-shadow(0 0 20px rgba(0, 212, 170, 0.25));
+      }
+
+      .calc-hero__meta { color: var(--text-tertiary); font-size: 12px; margin-top: 6px; }
+
+      .calc-hero__controls {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        justify-content: center;
+      }
+
+      .calc-hero__buttons { display: flex; gap: 8px; }
+
+      .calc-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 10px;
+      }
+
+      .calc-card { padding: 16px; }
+
+      .calc-card h2 {
+        margin: 0 0 12px;
+        font-family: var(--font-display);
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--text-secondary);
+      }
+
+      .calc-card__head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+      }
+
+      .calc-card__head h2 { margin: 0; }
+
+      .three-col, .four-col {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+      }
+
+      .four-col { grid-template-columns: repeat(4, 1fr); }
+
+      .result-box {
+        margin-top: 10px;
+        padding: 12px;
+        border: 1px solid var(--line);
+        border-radius: var(--r-sm);
+        background: var(--bg-input);
+        font-family: var(--font-mono);
+        font-size: 12px;
+        color: var(--text-secondary);
+        white-space: pre-wrap;
+        overflow-x: auto;
+        line-height: 1.7;
+      }
+
+      .stat-list, .summary-list {
+        display: grid;
+        gap: 7px;
+        list-style: none;
+      }
+
+      .stat-list > div, .summary-list > div {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        font-size: 12px;
+        align-items: center;
+      }
+
+      .summary-list > div .label, .stat-list > div .label {
+        color: var(--text-tertiary);
+        font-family: var(--font-display);
+        text-transform: uppercase;
+        font-size: 10px;
+        letter-spacing: 0.08em;
+        font-weight: 600;
+      }
+
+      .summary-list > div .value, .stat-list > div .value {
+        font-family: var(--font-mono);
+        font-weight: 700;
+        font-size: 13px;
+      }
+
+      .dutch-leg {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 8px;
+        align-items: end;
+      }
+
+      .journal-card__actions, .row-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+
+      .journal-card__status {
+        font-weight: 700;
+        font-size: 10px;
+        font-family: var(--font-display);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      .journal-card__error { color: var(--danger); font-size: 12px; }
+
+      /* ═══════════════════════════════════════════════════
+         ODDS TABLE — trading terminal style
+         ═══════════════════════════════════════════════════ */
+      .odds-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 10px;
+        position: relative;
+        z-index: 1;
+      }
+
+      .odds-table th, .odds-table td {
+        padding: 8px 7px;
+        border-top: 1px solid var(--line);
+        text-align: left;
+        vertical-align: middle;
+        font-size: 12px;
+      }
+
+      .odds-table th {
+        color: var(--text-tertiary);
+        font-weight: 700;
+        text-transform: uppercase;
+        font-size: 9px;
+        letter-spacing: 0.1em;
+        font-family: var(--font-display);
+        border-top: none;
+        padding-bottom: 6px;
+      }
+
+      .odds-table td { font-family: var(--font-display); }
+
+      .odds-button {
+        min-width: 54px;
+        min-height: 30px;
+        border: 1px solid var(--line-2);
+        border-radius: var(--r-xs);
+        background: var(--bg-input);
+        color: var(--text);
+        font-weight: 700;
+        font-family: var(--font-mono);
+        font-size: 12px;
+        cursor: pointer;
+        transition: all var(--t-fast);
+        position: relative;
+      }
+
+      .odds-button:hover {
+        border-color: var(--accent);
+        color: var(--accent-bright);
+        background: var(--accent-glow);
+        box-shadow: 0 0 12px rgba(0, 212, 170, 0.15), inset 0 0 8px rgba(0, 212, 170, 0.03);
+        transform: scale(1.05);
+      }
+
+      .odds-button:active { transform: scale(0.98); }
+
+      /* ═══════════════════════════════════════════════════
+         BOOKMAKER GRID
+         ═══════════════════════════════════════════════════ */
+      .bookmaker-card { display: flex; flex-direction: column; gap: 6px; position: relative; z-index: 1; }
+      .bookmaker-card h3 { margin: 0; font-size: 14px; font-weight: 600; }
+
+      /* ═══════════════════════════════════════════════════
+         SPORT TABS
+         ═══════════════════════════════════════════════════ */
+      .sport-tabs {
+        display: flex;
+        gap: 6px;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        padding: 0 0 4px;
+        margin-bottom: 14px;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+      }
+
+      .sport-tabs::-webkit-scrollbar { display: none; }
+
+      .sport-tab {
+        flex-shrink: 0;
+        min-height: 30px;
+        padding: 0 14px;
+        border: 1px solid var(--line-2);
+        border-radius: var(--r-pill);
+        background: transparent;
+        color: var(--text-secondary);
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all var(--t-fast);
+        font-family: var(--font-display);
+      }
+
+      .sport-tab:hover { background: var(--bg-surface); color: var(--text); }
+
+      .sport-tab.is-active {
+        background: var(--accent-glow);
+        border-color: var(--accent-border);
+        color: var(--accent);
+      }
+
+      /* ═══════════════════════════════════════════════════
+         SCROLLBAR
+         ═══════════════════════════════════════════════════ */
+      ::-webkit-scrollbar { width: 8px; height: 8px; }
+      ::-webkit-scrollbar-track { background: var(--bg-void); }
+      ::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 4px; }
+      ::-webkit-scrollbar-thumb:hover { background: var(--line-3); }
+
+      /* ═══════════════════════════════════════════════════
+         ACCESSIBILITY
+         ═══════════════════════════════════════════════════ */
+      .sr-only {
+        position: absolute;
+        width: 1px; height: 1px;
+        padding: 0; margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        border: 0;
+      }
+
+      /* ═══════════════════════════════════════════════════
+         MOBILE NAV
+         ═══════════════════════════════════════════════════ */
+      .mobile-nav { display: none; }
+
+      /* ═══════════════════════════════════════════════════
+         RESPONSIVE
+         ═══════════════════════════════════════════════════ */
+      @media (max-width: 980px) {
+        .app-shell { grid-template-columns: 1fr; }
+        .sidebar { display: none; }
+        .main-shell { padding: 0; }
+        .topbar, .topbar__meta, .topbar__tools {
+          flex-direction: column;
+          align-items: stretch;
+          padding: 10px 14px;
+        }
+        .search-field input { width: 100%; }
+        .content { padding: 0 14px 80px; }
+        .mobile-nav {
+          display: flex;
+          position: fixed;
+          left: 0; right: 0; bottom: 0;
+          justify-content: stretch;
+          gap: 4px;
+          padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+          border-top: 1px solid var(--line);
+          background: rgba(3, 6, 10, 0.96);
+          backdrop-filter: blur(20px);
+          -webkit-backdrop-filter: blur(20px);
+          z-index: 200;
+        }
+        .mobile-nav .nav-link {
+          min-height: 36px;
+          font-size: 9px;
+          padding: 0 4px;
+          border-radius: var(--r-xs);
+          text-align: center;
+          justify-content: center;
+          flex-direction: column;
+          gap: 2px;
+        }
+        .mobile-nav .nav-link svg { width: 17px; height: 17px; }
+        .calc-hero { grid-template-columns: 1fr; }
+        .calc-grid { grid-template-columns: 1fr; }
+        .three-col, .four-col { grid-template-columns: 1fr; }
+        .page-header h1 { font-size: 18px; }
+        .banner, .state-panel { margin: 0 14px 10px; }
+        .arb-card__profit { font-size: 26px; }
+        .calc-hero__odds { font-size: 30px; }
+        .ticker-bar { display: none; }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+          animation-duration: 0.01ms !important;
+          transition-duration: 0.01ms !important;
+        }
+        body::before { animation: none !important; }
+        .ticker-track { animation: none !important; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app-shell">
+      <!-- ═══ SIDEBAR ═══ -->
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand__mark">AD</div>
+          <div>
+            <p class="brand__eyebrow">Odds workspace</p>
+            <h1>Arb Desk</h1>
+          </div>
+        </div>
+        <nav class="sidebar-nav" aria-label="Primary">
+          <button class="nav-link is-active" data-nav="scanner" type="button" onclick="showPage('scanner')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/></svg>
+            Scanner
+          </button>
+          <button class="nav-link" data-nav="value" type="button" onclick="showPage('value')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"/><path d="M2 7h20"/><path d="M2 7l10-5 10 5"/><path d="M2 17l10 5 10-5"/></svg>
+            Value
+          </button>
+          <button class="nav-link" data-nav="ai" type="button" onclick="showPage('ai')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="5"/><path d="M8 13.5a6 6 0 0 0 8 0"/><path d="M12 18v3"/><path d="M9 21h6"/></svg>
+            AI Picks
+          </button>
+          <button class="nav-link" data-nav="calculator" type="button" onclick="showPage('calculator')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="10" y2="10"/><line x1="14" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="10" y2="14"/><line x1="14" y1="14" x2="16" y2="14"/><line x1="8" y1="18" x2="10" y2="18"/><line x1="14" y1="18" x2="16" y2="18"/></svg>
+            Calculator
+          </button>
+          <button class="nav-link" data-nav="journal" type="button" onclick="showPage('journal')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v16l-4-2-4 2-4-2-4 2z"/><path d="M8 6h8"/><path d="M8 10h8"/></svg>
+            Journal
+          </button>
+          <button class="nav-link" data-nav="bookmakers" type="button" onclick="showPage('bookmakers')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18"/></svg>
+            Bookmakers
+          </button>
+          <button class="nav-link" data-nav="matches" type="button" onclick="showPage('matches')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v18"/><path d="M3 12h18"/></svg>
+            Matches
+          </button>
+        </nav>
+      </aside>
+
+      <!-- ═══ MAIN ═══ -->
+      <div class="main-shell">
+        <!-- Ticker Bar -->
+        <div class="ticker-bar">
+          <div class="ticker-track">
+            <span class="ticker-item"><span class="tk-name">STE/DIN</span> <span class="tk-up">2.10▲</span></span>
+            <span class="ticker-item"><span class="tk-name">CFR/UCV</span> <span class="tk-up">2.05▲</span></span>
+            <span class="ticker-item"><span class="tk-name">SEP/VOL</span> <span class="tk-down">1.95▼</span></span>
+            <span class="ticker-item"><span class="tk-name">RAP/FAR</span> <span class="tk-up">2.25▲</span></span>
+            <span class="ticker-item"><span class="tk-name">UTA/CHI</span> <span class="tk-down">1.80▼</span></span>
+            <span class="ticker-item"><span class="tk-name">BOT/MIO</span> <span class="tk-up">1.90▲</span></span>
+            <span class="ticker-item"><span class="tk-name">SUREBET</span> <span class="tk-up">+2.34%</span></span>
+            <span class="ticker-item"><span class="tk-name">VALUE</span> <span class="tk-up">+8.17%</span></span>
+            <span class="ticker-item"><span class="tk-name">PROVIDERS</span> <span class="tk-up">29 LIVE</span></span>
+            <span class="ticker-item"><span class="tk-name">STE/DIN</span> <span class="tk-up">2.10▲</span></span>
+            <span class="ticker-item"><span class="tk-name">CFR/UCV</span> <span class="tk-up">2.05▲</span></span>
+            <span class="ticker-item"><span class="tk-name">SEP/VOL</span> <span class="tk-down">1.95▼</span></span>
+            <span class="ticker-item"><span class="tk-name">RAP/FAR</span> <span class="tk-up">2.25▲</span></span>
+            <span class="ticker-item"><span class="tk-name">UTA/CHI</span> <span class="tk-down">1.80▼</span></span>
+            <span class="ticker-item"><span class="tk-name">BOT/MIO</span> <span class="tk-up">1.90▲</span></span>
+            <span class="ticker-item"><span class="tk-name">SUREBET</span> <span class="tk-up">+2.34%</span></span>
+            <span class="ticker-item"><span class="tk-name">VALUE</span> <span class="tk-up">+8.17%</span></span>
+            <span class="ticker-item"><span class="tk-name">PROVIDERS</span> <span class="tk-up">29 LIVE</span></span>
+          </div>
+        </div>
+
+        <!-- Topbar -->
+        <header class="topbar">
+          <div class="topbar__meta">
+            <div class="live-pill">
+              <span class="live-dot" data-mode="live"></span>
+              <span>Live</span>
+            </div>
+            <div class="topbar__subtext">Updated 14:32 · 29 providers · 8,420 events</div>
+          </div>
+          <div class="topbar__tools">
+            <label class="search-field">
+              <span class="sr-only">Search events</span>
+              <input type="search" placeholder="Search teams or competitions">
+            </label>
+            <select class="toolbar-control" aria-label="Sport filter">
+              <option value="">All sports</option>
+              <option value="football">Football</option>
+              <option value="basketball">Basketball</option>
+              <option value="tennis">Tennis</option>
+            </select>
+            <button class="primary-button" type="button">Refresh</button>
+          </div>
+        </header>
+
+        <main class="content">
+          <!-- ═══ SCANNER ═══ -->
+          <section class="page" data-page="scanner">
+            <div class="page-header">
+              <div><p class="page-kicker">Scanner</p><h1>Arbitrage opportunities</h1></div>
+              <div class="page-note">Cross-book surebets and formula opportunities.</div>
+            </div>
+            <div class="filter-bar">
+              <label class="field-inline"><span>Min edge %</span><input type="number" min="0" step="0.1" value="0"></label>
+              <button class="ghost-button" type="button">Reset</button>
+              <button class="ghost-button" type="button">Export CSV</button>
+            </div>
+            <div class="card-stack">
+              <div class="arb-card">
+                <div class="arb-card__top">
+                  <div>
+                    <h3 class="arb-card__title">Steaua Bucuresti vs Dinamo</h3>
+                    <p class="muted-line">SuperLiga · 05 Jul 20:30</p>
+                  </div>
+                  <span class="pill pill--good">SUREBET</span>
+                </div>
+                <div class="arb-card__profit">+2.34%</div>
+                <div>
+                  <table class="odds-table"><thead><tr><th>Outcome</th><th>Bookmaker</th><th>Odds</th><th>Stake</th></tr></thead>
+                  <tbody>
+                    <tr><td>1 — Steaua</td><td>Fortuna</td><td><button class="odds-button">2.10</button></td><td>48.2%</td></tr>
+                    <tr><td>X — Draw</td><td>Superbet</td><td><button class="odds-button">3.45</button></td><td>29.3%</td></tr>
+                    <tr><td>2 — Dinamo</td><td>Casa Pariurilor</td><td><button class="odds-button">4.20</button></td><td>22.5%</td></tr>
+                  </tbody></table>
+                </div>
+              </div>
+              <div class="arb-card">
+                <div class="arb-card__top">
+                  <div><h3 class="arb-card__title">CFR Cluj vs Universitatea Craiova</h3><p class="muted-line">SuperLiga · 06 Jul 18:00</p></div>
+                  <span class="pill pill--good">SUREBET</span>
+                </div>
+                <div class="arb-card__profit">+1.87%</div>
+                <div><table class="odds-table"><thead><tr><th>Outcome</th><th>Bookmaker</th><th>Odds</th><th>Stake</th></tr></thead>
+                <tbody>
+                  <tr><td>1 — CFR</td><td>BetOne</td><td><button class="odds-button">2.05</button></td><td>51.1%</td></tr>
+                  <tr><td>X — Draw</td><td>Unibet</td><td><button class="odds-button">3.30</button></td><td>30.6%</td></tr>
+                  <tr><td>2 — U Craiova</td><td>GetsBet</td><td><button class="odds-button">4.05</button></td><td>18.3%</td></tr>
+                </tbody></table></div>
+              </div>
+              <div class="arb-card">
+                <div class="arb-card__top">
+                  <div><h3 class="arb-card__title">Sepsi vs Voluntari</h3><p class="muted-line">SuperLiga · 06 Jul 21:00</p></div>
+                  <span class="pill pill--warn">FORMULA</span>
+                </div>
+                <div class="arb-card__profit">+1.42%</div>
+                <div><table class="odds-table"><thead><tr><th>Outcome</th><th>Bookmaker</th><th>Odds</th><th>Stake</th></tr></thead>
+                <tbody>
+                  <tr><td>Over 2.5</td><td>Winner</td><td><button class="odds-button">1.95</button></td><td>53.8%</td></tr>
+                  <tr><td>Under 2.5</td><td>888</td><td><button class="odds-button">2.15</button></td><td>46.2%</td></tr>
+                </tbody></table></div>
+              </div>
+              <div class="arb-card">
+                <div class="arb-card__top">
+                  <div><h3 class="arb-card__title">Rapid Bucuresti vs Farul</h3><p class="muted-line">SuperLiga · 07 Jul 19:00</p></div>
+                  <span class="pill pill--good">SUREBET</span>
+                </div>
+                <div class="arb-card__profit">+1.15%</div>
+                <div><table class="odds-table"><thead><tr><th>Outcome</th><th>Bookmaker</th><th>Odds</th><th>Stake</th></tr></thead>
+                <tbody>
+                  <tr><td>1 — Rapid</td><td>NetBet</td><td><button class="odds-button">2.25</button></td><td>46.7%</td></tr>
+                  <tr><td>X — Draw</td><td>VivaBet</td><td><button class="odds-button">3.10</button></td><td>32.3%</td></tr>
+                  <tr><td>2 — Farul</td><td>Bet7</td><td><button class="odds-button">4.10</button></td><td>21.0%</td></tr>
+                </tbody></table></div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ═══ VALUE ═══ -->
+          <section class="page page--hidden" data-page="value">
+            <div class="page-header"><div><p class="page-kicker">Value</p><h1>Value bets</h1></div><div class="page-note">Consensus gaps with quick calculator handoff.</div></div>
+            <div class="card-grid">
+              <div class="value-card">
+                <div class="value-card__top"><h3 class="value-card__title">Rapid Bucuresti vs Farul</h3><span class="pill">1X2</span></div>
+                <div class="value-card__metric"><span class="label">Outcome</span><span class="value">1 — Rapid</span></div>
+                <div class="value-card__metric"><span class="label">Best odds</span><span class="value">2.25</span></div>
+                <div class="value-card__metric"><span class="label">Consensus</span><span class="value">2.08</span></div>
+                <div class="value-card__metric"><span class="label">Edge</span><span class="value" style="color:var(--accent)">+8.17%</span></div>
+                <div class="value-card__metric"><span class="label">Book</span><span class="value">Betfair</span></div>
+              </div>
+              <div class="value-card">
+                <div class="value-card__top"><h3 class="value-card__title">UTA Arad vs Chindia</h3><span class="pill">BTTS</span></div>
+                <div class="value-card__metric"><span class="label">Outcome</span><span class="value">Yes</span></div>
+                <div class="value-card__metric"><span class="label">Best odds</span><span class="value">1.80</span></div>
+                <div class="value-card__metric"><span class="label">Consensus</span><span class="value">1.68</span></div>
+                <div class="value-card__metric"><span class="label">Edge</span><span class="value" style="color:var(--accent)">+7.14%</span></div>
+                <div class="value-card__metric"><span class="label">Book</span><span class="value">MrPlay</span></div>
+              </div>
+              <div class="value-card">
+                <div class="value-card__top"><h3 class="value-card__title">Botosani vs Mioveni</h3><span class="pill">O/U 2.5</span></div>
+                <div class="value-card__metric"><span class="label">Outcome</span><span class="value">Over 2.5</span></div>
+                <div class="value-card__metric"><span class="label">Best odds</span><span class="value">1.90</span></div>
+                <div class="value-card__metric"><span class="label">Consensus</span><span class="value">1.78</span></div>
+                <div class="value-card__metric"><span class="label">Edge</span><span class="value" style="color:var(--accent)">+6.74%</span></div>
+                <div class="value-card__metric"><span class="label">Book</span><span class="value">NetBet</span></div>
+              </div>
+              <div class="value-card">
+                <div class="value-card__top"><h3 class="value-card__title">Voluntari vs Sepsi</h3><span class="pill">DNB</span></div>
+                <div class="value-card__metric"><span class="label">Outcome</span><span class="value">1 — Voluntari</span></div>
+                <div class="value-card__metric"><span class="label">Best odds</span><span class="value">2.60</span></div>
+                <div class="value-card__metric"><span class="label">Consensus</span><span class="value">2.45</span></div>
+                <div class="value-card__metric"><span class="label">Edge</span><span class="value" style="color:var(--accent)">+6.12%</span></div>
+                <div class="value-card__metric"><span class="label">Book</span><span class="value">Winner</span></div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ═══ AI PICKS ═══ -->
+          <section class="page page--hidden" data-page="ai">
+            <div class="page-header"><div><p class="page-kicker">AI Picks</p><h1>Review queue</h1></div><div class="page-note">Shortlisted paper picks based on current value signals.</div></div>
+            <div class="card-grid">
+              <div class="ai-card">
+                <div class="value-card__top"><h3 class="ai-card__title">Steaua vs Dinamo — Over 2.5</h3><span class="pill pill--good">HIGH</span></div>
+                <div class="ai-card__metric"><span class="label">Confidence</span><span class="value">82%</span></div>
+                <div class="ai-card__metric"><span class="label">Fair odds</span><span class="value">1.85</span></div>
+                <div class="ai-card__metric"><span class="label">Best line</span><span class="value">2.05 · Fortuna</span></div>
+                <div class="ai-card__metric"><span class="label">Edge</span><span class="value" style="color:var(--accent)">+10.8%</span></div>
+              </div>
+              <div class="ai-card">
+                <div class="value-card__top"><h3 class="ai-card__title">CFR Cluj — Win</h3><span class="pill pill--warn">MED</span></div>
+                <div class="ai-card__metric"><span class="label">Confidence</span><span class="value">64%</span></div>
+                <div class="ai-card__metric"><span class="label">Fair odds</span><span class="value">2.00</span></div>
+                <div class="ai-card__metric"><span class="label">Best line</span><span class="value">2.10 · BetOne</span></div>
+                <div class="ai-card__metric"><span class="label">Edge</span><span class="value" style="color:var(--accent)">+5.0%</span></div>
+              </div>
+              <div class="ai-card">
+                <div class="value-card__top"><h3 class="ai-card__title">Rapid vs Farul — BTTS Yes</h3><span class="pill pill--good">HIGH</span></div>
+                <div class="ai-card__metric"><span class="label">Confidence</span><span class="value">78%</span></div>
+                <div class="ai-card__metric"><span class="label">Fair odds</span><span class="value">1.72</span></div>
+                <div class="ai-card__metric"><span class="label">Best line</span><span class="value">1.80 · MrPlay</span></div>
+                <div class="ai-card__metric"><span class="label">Edge</span><span class="value" style="color:var(--accent)">+4.7%</span></div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ═══ CALCULATOR ═══ -->
+          <section class="page page--hidden" data-page="calculator">
+            <div class="page-header"><div><p class="page-kicker">Calculator</p><h1>Bet math toolkit</h1></div><div class="page-note">Load odds from the feed or test lines manually.</div></div>
+            <div class="calc-hero">
+              <div class="calc-hero__card">
+                <div class="calc-hero__label">Loaded odds</div>
+                <div class="calc-hero__odds">2.10</div>
+                <div class="calc-hero__meta">Steaua vs Dinamo · 1 — Steaua · Fortuna</div>
+              </div>
+              <div class="calc-hero__controls">
+                <label class="field-block"><span>Stake</span><input type="number" min="1" step="1" value="100"></label>
+                <label class="field-block"><span>Bankroll</span><input type="number" min="1" step="1" value="1000"></label>
+                <div class="calc-hero__buttons"><button class="primary-button" type="button">Save to journal</button></div>
+              </div>
+            </div>
+            <div class="calc-grid">
+              <section class="calc-card"><h2>Probability</h2>
+                <div class="stat-list"><div><span class="label">Implied</span><span class="value">47.62%</span></div><div><span class="label">No-vig</span><span class="value">45.50%</span></div><div><span class="label">Vig</span><span class="value">4.67%</span></div></div>
+              </section>
+              <section class="calc-card"><h2>Kelly</h2>
+                <div class="stat-list"><div><span class="label">Full Kelly</span><span class="value">12.5%</span></div><div><span class="label">Half Kelly</span><span class="value">6.25%</span></div><div><span class="label">Stake</span><span class="value">62.50 RON</span></div></div>
+              </section>
+              <section class="calc-card"><h2>Odds converter</h2>
+                <label class="field-block"><span>Decimal odds</span><input type="number" step="0.01" value="2.50"></label>
+                <pre class="result-box">Decimal:  2.50
+Fraction: 3/2
+American: +150
+Implied:  40.00%</pre>
+              </section>
+              <section class="calc-card"><h2>3-way arbitrage</h2>
+                <div class="three-col">
+                  <label class="field-block"><span>Odds 1</span><input type="number" step="0.01" value="2.10"></label>
+                  <label class="field-block"><span>Odds X</span><input type="number" step="0.01" value="3.45"></label>
+                  <label class="field-block"><span>Odds 2</span><input type="number" step="0.01" value="4.20"></label>
+                </div>
+                <pre class="result-box">Implied total:  97.66%
+Profit margin:  +2.34%
+Stake split:
+  1 → 48.2%  (482 RON)
+  X → 29.3%  (293 RON)
+  2 → 22.5%  (225 RON)</pre>
+              </section>
+              <section class="calc-card"><h2>No-vig 1X2</h2>
+                <div class="three-col">
+                  <label class="field-block"><span>1</span><input type="number" step="0.01" value="2.10"></label>
+                  <label class="field-block"><span>X</span><input type="number" step="0.01" value="3.45"></label>
+                  <label class="field-block"><span>2</span><input type="number" step="0.01" value="4.20"></label>
+                </div>
+                <pre class="result-box">Raw implied:  47.6% + 29.0% + 23.8% = 100.4%
+Vig: 0.4%
+Fair: 47.4% / 28.9% / 23.7%
+Fair odds: 2.11 / 3.46 / 4.22</pre>
+              </section>
+              <section class="calc-card"><h2>Middle</h2>
+                <div class="four-col">
+                  <label class="field-block"><span>Over line</span><input type="number" step="0.25" value="2.5"></label>
+                  <label class="field-block"><span>Over odds</span><input type="number" step="0.01" value="1.95"></label>
+                  <label class="field-block"><span>Under line</span><input type="number" step="0.25" value="2.5"></label>
+                  <label class="field-block"><span>Under odds</span><input type="number" step="0.01" value="2.15"></label>
+                </div>
+                <pre class="result-box">Total implied: 97.8%
+Middle hit: 2-2 or 3 goals
+Profit if middle: +107.5%
+Profit if not: +2.2%</pre>
+              </section>
+            </div>
+          </section>
+
+          <!-- ═══ JOURNAL ═══ -->
+          <section class="page page--hidden" data-page="journal">
+            <div class="page-header"><div><p class="page-kicker">Journal</p><h1>Saved bets</h1></div><button class="ghost-button" type="button">Clear all</button></div>
+            <div class="card-stack">
+              <div class="journal-card">
+                <div class="journal-card__head">
+                  <div><h3 class="journal-card__title">Steaua vs Dinamo — 1</h3><p class="muted-line">05 Jul · Fortuna · 2.10</p></div>
+                  <span class="pill pill--good">WON</span>
+                </div>
+                <div class="value-card__metric"><span class="label">Stake</span><span class="value">100 RON</span></div>
+                <div class="value-card__metric"><span class="label">Return</span><span class="value" style="color:var(--accent)">+110 RON</span></div>
+              </div>
+              <div class="journal-card">
+                <div class="journal-card__head">
+                  <div><h3 class="journal-card__title">CFR Cluj — Over 2.5</h3><p class="muted-line">03 Jul · BetOne · 1.95</p></div>
+                  <span class="pill" style="color:var(--danger);border-color:var(--danger-border);background:var(--danger-glow)">LOST</span>
+                </div>
+                <div class="value-card__metric"><span class="label">Stake</span><span class="value">50 RON</span></div>
+                <div class="value-card__metric"><span class="label">Return</span><span class="value" style="color:var(--danger)">−50 RON</span></div>
+              </div>
+              <div class="journal-card">
+                <div class="journal-card__head">
+                  <div><h3 class="journal-card__title">Sepsi vs Voluntari — Draw</h3><p class="muted-line">02 Jul · Superbet · 3.20</p></div>
+                  <span class="pill pill--warn">PENDING</span>
+                </div>
+                <div class="value-card__metric"><span class="label">Stake</span><span class="value">80 RON</span></div>
+              </div>
+              <div class="journal-card">
+                <div class="journal-card__head">
+                  <div><h3 class="journal-card__title">Rapid vs Farul — BTTS Yes</h3><p class="muted-line">01 Jul · MrPlay · 1.80</p></div>
+                  <span class="pill pill--good">WON</span>
+                </div>
+                <div class="value-card__metric"><span class="label">Stake</span><span class="value">60 RON</span></div>
+                <div class="value-card__metric"><span class="label">Return</span><span class="value" style="color:var(--accent)">+48 RON</span></div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ═══ BOOKMAKERS ═══ -->
+          <section class="page page--hidden" data-page="bookmakers">
+            <div class="page-header"><div><p class="page-kicker">Bookmakers</p><h1>Coverage</h1></div><div class="page-note">Implemented and remaining provider status.</div></div>
+            <div class="bookmaker-grid">
+              <div class="bookmaker-card"><h3>Fortuna</h3><p class="muted-line">UFO API · 1,240 events</p><span class="pill pill--good">ACTIVE</span></div>
+              <div class="bookmaker-card"><h3>Casa Pariurilor</h3><p class="muted-line">UFO API · 1,180 events</p><span class="pill pill--good">ACTIVE</span></div>
+              <div class="bookmaker-card"><h3>Superbet</h3><p class="muted-line">Fastly feed · 980 events</p><span class="pill pill--good">ACTIVE</span></div>
+              <div class="bookmaker-card"><h3>BetOne</h3><p class="muted-line">Detail API · 1,100 events</p><span class="pill pill--good">ACTIVE</span></div>
+              <div class="bookmaker-card"><h3>Unibet</h3><p class="muted-line">Web sportsbook · 1,320 events</p><span class="pill pill--good">ACTIVE</span></div>
+              <div class="bookmaker-card"><h3>GetsBet</h3><p class="muted-line">WebSocket · 870 events</p><span class="pill pill--good">ACTIVE</span></div>
+              <div class="bookmaker-card"><h3>Winner</h3><p class="muted-line">Digitain feed · 640 events</p><span class="pill pill--good">ACTIVE</span></div>
+              <div class="bookmaker-card"><h3>888</h3><p class="muted-line">Digitain feed · 620 events</p><span class="pill pill--good">ACTIVE</span></div>
+              <div class="bookmaker-card"><h3>Betano</h3><p class="muted-line">Browser-based · Cloudflare</p><span class="pill pill--warn">LIMITED</span></div>
+              <div class="bookmaker-card"><h3>MrPlay</h3><p class="muted-line">Digitain feed · 580 events</p><span class="pill pill--good">ACTIVE</span></div>
+              <div class="bookmaker-card"><h3>NetBet</h3><p class="muted-line">Detail API · 750 events</p><span class="pill pill--good">ACTIVE</span></div>
+              <div class="bookmaker-card"><h3>VivaBet</h3><p class="muted-line">EGT feed · 520 events</p><span class="pill pill--good">ACTIVE</span></div>
+            </div>
+          </section>
+
+          <!-- ═══ MATCHES ═══ -->
+          <section class="page page--hidden" data-page="matches">
+            <div class="page-header"><div><p class="page-kicker">Matches</p><h1>Odds feed</h1></div><div class="page-note">Current events with clickable prices.</div></div>
+            <div class="match-stack">
+              <div class="match-card">
+                <div class="match-card__head"><div><h3 class="match-card__title">Steaua Bucuresti vs Dinamo</h3><p class="muted-line">SuperLiga · 05 Jul 20:30</p></div></div>
+                <table class="odds-table"><thead><tr><th>Book</th><th>1</th><th>X</th><th>2</th></tr></thead>
+                <tbody>
+                  <tr><td>Fortuna</td><td><button class="odds-button">2.10</button></td><td><button class="odds-button">3.25</button></td><td><button class="odds-button">3.80</button></td></tr>
+                  <tr><td>Superbet</td><td><button class="odds-button">2.05</button></td><td><button class="odds-button">3.45</button></td><td><button class="odds-button">3.60</button></td></tr>
+                  <tr><td>Casa Pariurilor</td><td><button class="odds-button">2.08</button></td><td><button class="odds-button">3.30</button></td><td><button class="odds-button">4.20</button></td></tr>
+                  <tr><td>Unibet</td><td><button class="odds-button">2.02</button></td><td><button class="odds-button">3.40</button></td><td><button class="odds-button">3.75</button></td></tr>
+                  <tr><td>BetOne</td><td><button class="odds-button">2.04</button></td><td><button class="odds-button">3.35</button></td><td><button class="odds-button">3.90</button></td></tr>
+                </tbody></table>
+              </div>
+              <div class="match-card">
+                <div class="match-card__head"><div><h3 class="match-card__title">CFR Cluj vs Universitatea Craiova</h3><p class="muted-line">SuperLiga · 06 Jul 18:00</p></div></div>
+                <table class="odds-table"><thead><tr><th>Book</th><th>1</th><th>X</th><th>2</th></tr></thead>
+                <tbody>
+                  <tr><td>BetOne</td><td><button class="odds-button">2.05</button></td><td><button class="odds-button">3.10</button></td><td><button class="odds-button">3.90</button></td></tr>
+                  <tr><td>GetsBet</td><td><button class="odds-button">1.98</button></td><td><button class="odds-button">3.25</button></td><td><button class="odds-button">4.05</button></td></tr>
+                  <tr><td>NetBet</td><td><button class="odds-button">2.00</button></td><td><button class="odds-button">3.15</button></td><td><button class="odds-button">3.85</button></td></tr>
+                  <tr><td>Unibet</td><td><button class="odds-button">2.03</button></td><td><button class="odds-button">3.05</button></td><td><button class="odds-button">3.95</button></td></tr>
+                </tbody></table>
+              </div>
+              <div class="match-card">
+                <div class="match-card__head"><div><h3 class="match-card__title">Sepsi vs Voluntari</h3><p class="muted-line">SuperLiga · 06 Jul 21:00</p></div></div>
+                <table class="odds-table"><thead><tr><th>Book</th><th>1</th><th>X</th><th>2</th></tr></thead>
+                <tbody>
+                  <tr><td>Winner</td><td><button class="odds-button">2.60</button></td><td><button class="odds-button">3.10</button></td><td><button class="odds-button">2.55</button></td></tr>
+                  <tr><td>888</td><td><button class="odds-button">2.55</button></td><td><button class="odds-button">3.20</button></td><td><button class="odds-button">2.60</button></td></tr>
+                  <tr><td>Superbet</td><td><button class="odds-button">2.58</button></td><td><button class="odds-button">3.15</button></td><td><button class="odds-button">2.52</button></td></tr>
+                </tbody></table>
+              </div>
+            </div>
+          </section>
+        </main>
+
+        <!-- Mobile Nav -->
+        <nav class="mobile-nav" aria-label="Mobile primary">
+          <button class="nav-link is-active" type="button" onclick="showPage('scanner')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/></svg>Scanner</button>
+          <button class="nav-link" type="button" onclick="showPage('value')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"/><path d="M2 7h20"/><path d="M2 7l10-5 10 5"/><path d="M2 17l10 5 10-5"/></svg>Value</button>
+          <button class="nav-link" type="button" onclick="showPage('ai')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="5"/><path d="M8 13.5a6 6 0 0 0 8 0"/><path d="M12 18v3"/><path d="M9 21h6"/></svg>AI</button>
+          <button class="nav-link" type="button" onclick="showPage('calculator')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="10" y2="10"/><line x1="14" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="10" y2="14"/><line x1="14" y1="14" x2="16" y2="14"/><line x1="8" y1="18" x2="10" y2="18"/><line x1="14" y1="18" x2="16" y2="18"/></svg>Calc</button>
+          <button class="nav-link" type="button" onclick="showPage('journal')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v16l-4-2-4 2-4-2-4 2z"/><path d="M8 6h8"/><path d="M8 10h8"/></svg>Journal</button>
+          <button class="nav-link" type="button" onclick="showPage('matches')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v18"/><path d="M3 12h18"/></svg>Matches</button>
+        </nav>
+      </div>
+    </div>
+
+    <script>
+      function showPage(name) {
+        document.querySelectorAll('.page').forEach(p => {
+          p.classList.toggle('page--hidden', p.dataset.page !== name);
+          if (p.dataset.page === name) {
+            // Restart entrance animation
+            p.style.animation = 'none';
+            p.offsetHeight; // trigger reflow
+            p.style.animation = '';
+          }
+        });
+        document.querySelectorAll('.nav-link').forEach(n => n.classList.toggle('is-active', n.dataset.nav === name));
+      }
+    </script>
+  </body>
+</html>

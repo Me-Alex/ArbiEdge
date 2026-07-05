@@ -90,6 +90,228 @@ test('ignores malformed events and bookmakers without complete h2h prices', asyn
   assert.equal(events[0].id, 'match-1');
 });
 
+test('normalizes The Odds API spreads and totals when present', async () => {
+  const event = structuredClone(upstreamEvent);
+  event.bookmakers[0].markets.push(
+    {
+      key: 'spreads',
+      outcomes: [
+        { name: 'Romania', price: 1.91, point: 1.5 },
+        { name: 'Brazil', price: 1.95, point: -1.5 },
+      ],
+    },
+    {
+      key: 'totals',
+      outcomes: [
+        { name: 'Over', price: 2.02, point: 2.5 },
+        { name: 'Under', price: 1.84, point: 2.5 },
+      ],
+    },
+  );
+  const provider = new TheOddsApiProvider({
+    apiKey: 'test-key',
+    sportKeys: ['soccer_fifa_world_cup'],
+    fetchImpl: async () => new Response(JSON.stringify([event]), { status: 200 }),
+  });
+
+  const events = await provider.getOdds();
+
+  assert.equal(events[0].bookmakers[0].markets.handicap_1_5, undefined);
+  assert.deepEqual(events[0].bookmakers[0].markets.handicap_plus_1_5, {
+    home: 1.91,
+    away: 1.95,
+  });
+  assert.deepEqual(events[0].bookmakers[0].markets.totalGoals_2_5, {
+    over: 2.02,
+    under: 1.84,
+  });
+});
+
+test('normalizes The Odds API BTTS markets when present', async () => {
+  const event = structuredClone(upstreamEvent);
+  event.bookmakers[0].markets = [
+    {
+      key: 'btts',
+      outcomes: [
+        { name: 'Yes', price: 1.91 },
+        { name: 'No', price: 1.84 },
+      ],
+    },
+  ];
+  const provider = new TheOddsApiProvider({
+    apiKey: 'test-key',
+    sportKeys: ['soccer_fifa_world_cup'],
+    fetchImpl: async () => new Response(JSON.stringify([event]), { status: 200 }),
+  });
+
+  const events = await provider.getOdds();
+
+  assert.equal(events[0].bookmakers[0].markets.h2h, undefined);
+  assert.deepEqual(events[0].bookmakers[0].markets.bothTeamsToScore, {
+    yes: 1.91,
+    no: 1.84,
+  });
+});
+
+test('fetches configured event markets and merges them into base bookmakers', async () => {
+  const detailEvent = structuredClone(upstreamEvent);
+  detailEvent.bookmakers[0].markets = [
+    {
+      key: 'alternate_spreads',
+      outcomes: [
+        { name: 'Romania', price: 1.72, point: 0.5 },
+        { name: 'Brazil', price: 2.08, point: -0.5 },
+        { name: 'Romania', price: 2.2, point: 1.5 },
+        { name: 'Brazil', price: 1.68, point: -1.5 },
+      ],
+    },
+    {
+      key: 'alternate_totals',
+      outcomes: [
+        { name: 'Over', price: 1.54, point: 1.5 },
+        { name: 'Under', price: 2.38, point: 1.5 },
+        { name: 'Over', price: 2.42, point: 3.5 },
+        { name: 'Under', price: 1.52, point: 3.5 },
+      ],
+    },
+    {
+      key: 'btts',
+      outcomes: [
+        { name: 'Yes', price: 1.91 },
+        { name: 'No', price: 1.84 },
+      ],
+    },
+    {
+      key: 'draw_no_bet',
+      outcomes: [
+        { name: 'Romania', price: 2.82 },
+        { name: 'Brazil', price: 1.42 },
+      ],
+    },
+  ];
+
+  const requests = [];
+  const provider = new TheOddsApiProvider({
+    apiKey: 'test-key',
+    sportKeys: ['soccer_fifa_world_cup'],
+    eventMarketKeys: ['btts', 'draw_no_bet', 'alternate_spreads', 'alternate_totals'],
+    fetchImpl: async (url) => {
+      const requestUrl = new URL(url);
+      requests.push(requestUrl);
+      const isDetailRequest = requestUrl.pathname.endsWith('/events/match-1/odds');
+      return new Response(JSON.stringify(isDetailRequest ? detailEvent : [upstreamEvent]), {
+        status: 200,
+      });
+    },
+  });
+
+  const events = await provider.getOdds();
+
+  assert.equal(requests.length, 2);
+  assert.equal(requests[0].pathname, '/v4/sports/soccer_fifa_world_cup/odds/');
+  assert.equal(requests[0].searchParams.get('markets'), 'h2h,spreads,totals');
+  assert.equal(
+    requests[1].pathname,
+    '/v4/sports/soccer_fifa_world_cup/events/match-1/odds',
+  );
+  assert.equal(
+    requests[1].searchParams.get('markets'),
+    'btts,draw_no_bet,alternate_spreads,alternate_totals',
+  );
+  assert.equal(requests[1].searchParams.get('regions'), 'eu,uk');
+  assert.deepEqual(events[0].bookmakers[0].markets.h2h, {
+    home: 4.2,
+    draw: 3.4,
+    away: 1.8,
+  });
+  assert.deepEqual(events[0].bookmakers[0].markets.bothTeamsToScore, {
+    yes: 1.91,
+    no: 1.84,
+  });
+  assert.deepEqual(events[0].bookmakers[0].markets.drawNoBet, {
+    home: 2.82,
+    away: 1.42,
+  });
+  assert.deepEqual(events[0].bookmakers[0].markets.handicap_plus_0_5, {
+    home: 1.72,
+    away: 2.08,
+  });
+  assert.deepEqual(events[0].bookmakers[0].markets.handicap_plus_1_5, {
+    home: 2.2,
+    away: 1.68,
+  });
+  assert.deepEqual(events[0].bookmakers[0].markets.totalGoals_1_5, {
+    over: 1.54,
+    under: 2.38,
+  });
+  assert.deepEqual(events[0].bookmakers[0].markets.totalGoals_3_5, {
+    over: 2.42,
+    under: 1.52,
+  });
+});
+
+test('keeps base odds when event-detail requests fail or exceed the per-sport cap', async () => {
+  const baseEvents = ['match-1', 'match-2', 'match-3'].map((id, index) => {
+    const event = structuredClone(upstreamEvent);
+    event.id = id;
+    event.commence_time = `2026-06-${21 + index}T18:00:00Z`;
+    return event;
+  });
+  const detailEvent = structuredClone(baseEvents[1]);
+  detailEvent.bookmakers[0].markets = [
+    {
+      key: 'btts',
+      outcomes: [
+        { name: 'Yes', price: 1.75 },
+        { name: 'No', price: 2.05 },
+      ],
+    },
+  ];
+
+  const requests = [];
+  const provider = new TheOddsApiProvider({
+    apiKey: 'test-key',
+    sportKeys: ['soccer_fifa_world_cup'],
+    eventMarketKeys: ['btts'],
+    maxEventDetailRequests: 2,
+    eventDetailConcurrency: 1,
+    fetchImpl: async (url) => {
+      const requestUrl = new URL(url);
+      requests.push(requestUrl);
+      if (requestUrl.pathname.endsWith('/events/match-1/odds')) {
+        return new Response('detail unavailable', { status: 502 });
+      }
+      if (requestUrl.pathname.endsWith('/events/match-2/odds')) {
+        return new Response(JSON.stringify(detailEvent), { status: 200 });
+      }
+      if (requestUrl.pathname.includes('/events/match-3/odds')) {
+        throw new Error('event cap should prevent this request');
+      }
+      return new Response(JSON.stringify(baseEvents), { status: 200 });
+    },
+  });
+
+  const events = await provider.getOdds();
+  const detailRequests = requests.filter((request) =>
+    request.pathname.includes('/events/'),
+  );
+
+  assert.equal(events.length, 3);
+  assert.equal(detailRequests.length, 2);
+  assert.equal(events.find((event) => event.id === 'match-1').bookmakers[0].markets.bothTeamsToScore, undefined);
+  assert.deepEqual(
+    events.find((event) => event.id === 'match-2').bookmakers[0].markets.bothTeamsToScore,
+    {
+      yes: 1.75,
+      no: 2.05,
+    },
+  );
+  assert.equal(
+    detailRequests.some((request) => request.pathname.includes('/events/match-3/odds')),
+    false,
+  );
+});
+
 test('throws a provider error for non-success responses', async () => {
   const provider = new TheOddsApiProvider({
     apiKey: 'test-key',
@@ -104,4 +326,44 @@ test('throws a provider error for non-success responses', async () => {
       error.status === 403 &&
       error.message.includes('403'),
   );
+});
+
+test('requests multiple bookmaker regions by default', async () => {
+  let requestUrl;
+  const provider = new TheOddsApiProvider({
+    apiKey: 'test-key',
+    sportKeys: ['soccer_fifa_world_cup'],
+    fetchImpl: async (url) => {
+      requestUrl = new URL(url);
+      return new Response(JSON.stringify([upstreamEvent]), { status: 200 });
+    },
+  });
+
+  await provider.getOdds();
+
+  assert.equal(requestUrl.searchParams.get('markets'), 'h2h,spreads,totals');
+  assert.equal(requestUrl.searchParams.get('regions'), 'eu,uk');
+  assert.equal(requestUrl.searchParams.get('bookmakers'), null);
+});
+
+test('requests explicit bookmakers when configured', async () => {
+  let requestUrl;
+  const provider = new TheOddsApiProvider({
+    apiKey: 'test-key',
+    sportKeys: ['soccer_fifa_world_cup'],
+    regions: ['eu', 'uk'],
+    bookmakers: ['pinnacle', 'betfair_ex_eu'],
+    fetchImpl: async (url) => {
+      requestUrl = new URL(url);
+      return new Response(JSON.stringify([upstreamEvent]), { status: 200 });
+    },
+  });
+
+  await provider.getOdds();
+
+  assert.equal(
+    requestUrl.searchParams.get('bookmakers'),
+    'pinnacle,betfair_ex_eu',
+  );
+  assert.equal(requestUrl.searchParams.get('regions'), null);
 });

@@ -4,7 +4,7 @@ class BetanoBrowserTransport {
   constructor({
     headless = true,
     timeoutMs = 30_000,
-    maxEvents = 40,
+    maxEvents = 120,
   } = {}) {
     this.headless = headless;
     this.timeoutMs = timeoutMs;
@@ -52,6 +52,7 @@ class BetanoBrowserTransport {
           }
           output.push({
             id: event.id,
+            url: event.url,
             betRadarId: event.betRadarId,
             name: event.name,
             startTime: event.startTime,

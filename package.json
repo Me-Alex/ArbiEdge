@@ -7,8 +7,16 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
-    "test": "node --test",
-    "test:watch": "node --test --watch"
+    "find:formula": "node scripts/find-best-formula.js",
+    "screenshot:calc": "node scripts/screenshot-calc.js",
+    "test": "npm run test:unit && npm run test:calc",
+    "test:all": "npm run test:syntax && npm test && npm run test:ui",
+    "test:calc": "node --test scripts/test-calc.js",
+    "test:syntax": "node scripts/check-js-syntax.js",
+    "test:unit": "node --test \"test/*.test.js\"",
+    "test:ui": "node scripts/ui-smoke.js",
+    "test:watch": "node --test --watch \"test/*.test.js\"",
+    "verify:odds": "node scripts/verify-bookmaker-odds.js"
   },
   "engines": {
     "node": ">=20"
@@ -16,6 +24,7 @@
   "license": "ISC",
   "dependencies": {
     "express": "^5.2.1",
-    "playwright-core": "^1.57.0"
+    "playwright-core": "^1.57.0",
+    "sharp": "^0.35.3"
   }
 }

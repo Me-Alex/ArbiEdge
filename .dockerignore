@@ -1,0 +1,15 @@
+node_modules
+npm-debug.log*
+.git
+.env
+.DS_Store
+coverage
+output
+tmp-*
+*.local
+.agents
+.codex
+docs
+test
+scripts
+skills-lock.json

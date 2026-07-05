@@ -1,86 +1,79 @@
+const { loadEnvFile } = require('./env-loader');
+loadEnvFile();
+
 const { createApp } = require('./app');
 const { OddsService } = require('./odds-service');
 const { DemoOddsProvider } = require('./providers/demo-provider');
-const { BetanoBrowserTransport } = require('./providers/betano-browser-transport');
-const { BetanoProvider } = require('./providers/betano-provider');
-const { BrowserJsonTransport } = require('./providers/browser-json-transport');
-const { CasaPariurilorProvider } = require('./providers/casa-pariurilor-provider');
 const { CompositeProvider } = require('./providers/composite-provider');
-const { FortunaProvider } = require('./providers/fortuna-provider');
-const { SuperbetProvider } = require('./providers/superbet-provider');
-const { TheOddsApiProvider } = require('./providers/the-odds-api-provider');
-const { UnibetProvider } = require('./providers/unibet-provider');
+const { createLogger } = require('./logger');
+const {
+  buildProviderConfig,
+  parseBooleanFlag,
+  parsePositiveInteger,
+} = require('./provider-config');
+
+const log = createLogger({ level: process.env.LOG_LEVEL || 'info', json: process.env.LOG_JSON === '1' });
 
 const port = parsePositiveInteger(process.env.PORT, 3000);
-const timeoutMs = parsePositiveInteger(
-  process.env.ODDS_REQUEST_TIMEOUT_MS,
-  8000,
-);
 const cacheTtlMs = parsePositiveInteger(
   process.env.ODDS_CACHE_TTL_MS,
   60_000,
 );
-const sportKeys = (process.env.ODDS_SPORT_KEYS || 'soccer_fifa_world_cup')
-  .split(',')
-  .map((key) => key.trim())
-  .filter(Boolean);
+const { configuredProviders, liveProviderName } = buildProviderConfig(process.env);
 
-const directProviders = [
-  new FortunaProvider({ timeoutMs }),
-  new CasaPariurilorProvider({ timeoutMs }),
-  new SuperbetProvider({ timeoutMs }),
-  new UnibetProvider({
-    timeoutMs,
-    browserTransport: new BrowserJsonTransport({
-      pageUrl: 'https://www.unibet.ro/betting/odds/football',
-      timeoutMs: 30_000,
-    }),
-  }),
-];
-if (process.env.BETANO_BROWSER_ENABLED === '1') {
-  directProviders.push(
-    new BetanoProvider({
-      transport: new BetanoBrowserTransport({
-        headless: process.env.BETANO_BROWSER_HEADLESS !== '0',
-        timeoutMs: parsePositiveInteger(
-          process.env.BETANO_BROWSER_TIMEOUT_MS,
-          30_000,
-        ),
-      }),
-    }),
-  );
+if (require.main === module) {
+  startServer();
 }
 
-const liveProvider = process.env.ODDS_API_KEY
-  ? new TheOddsApiProvider({
-      apiKey: process.env.ODDS_API_KEY,
-      sportKeys,
-      timeoutMs,
-    })
-  : new CompositeProvider(directProviders);
-
-const oddsService = new OddsService({
-  liveProvider,
-  demoProvider: new DemoOddsProvider(),
-  cacheTtlMs,
-});
-const app = createApp({
-  oddsService,
-  liveConfigured: Boolean(liveProvider),
-});
-
-const server = app.listen(port, () => {
-  const mode = `${liveProvider.name} with demo fallback`;
-  console.log(`Odds dashboard listening on http://localhost:${port} (${mode})`);
-});
-
-for (const signal of ['SIGINT', 'SIGTERM']) {
-  process.on(signal, () => {
-    server.close(() => process.exit(0));
+function startServer() {
+  const liveProvider = new CompositeProvider(configuredProviders, {
+    name: liveProviderName,
   });
+
+  const demoOnly = process.env.DEMO_ONLY === '1';
+  const oddsService = new OddsService({
+    liveProvider: demoOnly ? null : liveProvider,
+    demoProvider: new DemoOddsProvider(),
+    cacheTtlMs,
+  });
+  const app = createApp({
+    oddsService,
+    liveConfigured: !demoOnly && Boolean(liveProvider),
+  });
+
+  const server = app.listen(port, () => {
+    const mode = demoOnly ? 'demo only' : `${liveProvider.name} with demo fallback`;
+    log.info('Odds dashboard listening', { port, mode });
+    warmOddsCache({
+      enabled: parseBooleanFlag(process.env.ODDS_WARM_CACHE_ON_START, false),
+      oddsService,
+      logger: log,
+    });
+  });
+
+  for (const signal of ['SIGINT', 'SIGTERM']) {
+    process.on(signal, () => {
+      log.info('Shutting down', { signal });
+      server.close(() => process.exit(0));
+    });
+  }
+
+  return server;
 }
 
-function parsePositiveInteger(value, fallback) {
-  const parsed = Number.parseInt(value, 10);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+function warmOddsCache({ enabled, oddsService, logger = log }) {
+  if (!enabled || typeof oddsService?.getOdds !== 'function') {
+    return;
+  }
+
+  oddsService.getOdds()
+    .then((payload) => {
+      const eventCount = Array.isArray(payload?.events) ? payload.events.length : 0;
+      logger.info('Odds cache warmed', { events: eventCount });
+    })
+    .catch((error) => {
+      logger.warn('Odds cache warm-up failed', { error: error.message });
+    });
 }
+
+module.exports = { startServer, warmOddsCache };

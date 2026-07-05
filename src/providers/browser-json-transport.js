@@ -8,6 +8,11 @@ class BrowserJsonTransport {
   }
 
   async getJson(url, headers = {}) {
+    const [payload] = await this.getJsons([url], headers);
+    return payload;
+  }
+
+  async getJsons(urls, headers = {}) {
     const browser = await chromium.launch({ channel: 'chrome', headless: this.headless });
     try {
       const page = await browser.newPage({ locale: 'ro-RO' });
@@ -17,14 +22,16 @@ class BrowserJsonTransport {
       });
       await page.waitForTimeout(4000);
       return await page.evaluate(
-        async ({ requestUrl, requestHeaders }) => {
-          const response = await fetch(requestUrl, { headers: requestHeaders });
-          if (!response.ok) {
-            throw new Error(`Browser request returned HTTP ${response.status}`);
-          }
-          return response.json();
+        async ({ requestUrls, requestHeaders }) => {
+          return Promise.all(requestUrls.map(async (requestUrl) => {
+            const response = await fetch(requestUrl, { headers: requestHeaders });
+            if (!response.ok) {
+              throw new Error(`Browser request returned HTTP ${response.status}`);
+            }
+            return response.json();
+          }));
         },
-        { requestUrl: url, requestHeaders: headers },
+        { requestUrls: urls, requestHeaders: headers },
       );
     } finally {
       await browser.close();
