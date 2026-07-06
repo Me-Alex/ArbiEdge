@@ -14,6 +14,9 @@ export function renderMatches() {
     const card = document.createElement('article'); card.className = 'match-card';
     card.innerHTML = `<div class="match-card__head"><div><h2 class="match-card__title">${escapeHtml(event.homeTeam)} vs ${escapeHtml(event.awayTeam)}</h2><div class="muted-line">${escapeHtml(event.competition || '')} · ${escapeHtml(event.sport || '')} · ${formatTime(event.startsAt)}</div></div></div>`;
     const sortedBms = sortBookmakers(event.bookmakers || []);
+    const visibleBms = state.favoritesOnly
+      ? sortedBms.filter((b) => state.favorites.includes(b.name))
+      : sortedBms;
     const table = document.createElement('table'); table.className = 'odds-table';
     table.innerHTML = '<thead><tr><th>Bookmaker</th><th>Market</th><th>Selections</th><th></th></tr></thead><tbody></tbody>';
     const body = table.querySelector('tbody');

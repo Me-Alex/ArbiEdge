@@ -2,11 +2,11 @@
  * Entry point: orchestrates data loading, rendering, event binding, and init.
  */
 
-import { state, renderRegistry, PAGE_ROUTES } from './state.js';
+import { state, renderRegistry, PAGE_ROUTES, readJournal, readFavorites } from './state.js';
 import { fetchJson } from './api.js';
 import {
   initTheme, initSound, initNotifications, initServiceWorker, initDense,
-  initKeyboardShortcuts, readFavorites, readJournal,
+  initKeyboardShortcuts,
   renderStatus, renderDeskOverview, renderBetSlip, setPage, toggleDense,
   toggleSound, cycleTheme, toggleBetSlip, closeArbModal, openArbModal, toast, logActivity,
   detectArbChanges, triggerAlerts,
