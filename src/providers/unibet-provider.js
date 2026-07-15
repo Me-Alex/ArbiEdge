@@ -336,7 +336,7 @@ function mapUnibetLineMarket(proposition, baseKey) {
     }
   }
 
-  return line && ['over', 'under'].every((outcome) => isDecimalOdds(prices[outcome]))
+  return isPositiveLine(line) && ['over', 'under'].every((outcome) => isDecimalOdds(prices[outcome]))
     ? { key: `${baseKey}_${line.replace('.', '_')}`, prices }
     : null;
 }
@@ -375,7 +375,7 @@ function parseLineOption(option) {
 
   const side = normalizeOutcomeKey(option.optionDisplayName);
   const rawLine = option.line ?? option.handicap ?? option.point ?? option.points ?? option.total;
-  if (['over', 'under'].includes(side) && Number.isFinite(Number(rawLine))) {
+  if (['over', 'under'].includes(side) && isPositiveLine(rawLine)) {
     return {
       side,
       line: formatLine(rawLine),
@@ -396,7 +396,12 @@ function extractLine(proposition) {
     proposition.point ??
     proposition.points ??
     proposition.total;
-  return Number.isFinite(Number(rawLine)) ? formatLine(rawLine) : null;
+  return isPositiveLine(rawLine) ? formatLine(rawLine) : null;
+}
+
+function isPositiveLine(value) {
+  const line = Number(value);
+  return Number.isFinite(line) && line > 0;
 }
 
 function normalizeUnibetOutcomeKey(value, { homeTeam, awayTeam }) {

@@ -38,17 +38,14 @@ test('keeps remaining licensed sportsbook targets visible', () => {
 
   for (const domain of [
     'betfair.ro',
-    'favbet.ro',
     'mozzartbet.ro',
     '777.ro',
-    'victorybet.ro',
     'xbet.ro',
     'pokerstarssports.ro',
     'winboss.ro',
     'powerbet.ro',
     'magnumbet.ro',
     'excelbet.ro',
-    'spin.ro',
     'royalslots.ro',
   ]) {
     assert.equal(remainingDomains.has(domain), true, `${domain} should remain tracked`);
@@ -60,7 +57,7 @@ test('tracks a discovery URL for every remaining provider target', () => {
     (entry) => entry.status === COVERAGE_STATUSES.remainingProvider,
   );
 
-  assert.equal(providerTargets.length, 14);
+  assert.equal(providerTargets.length, 11);
   for (const entry of providerTargets) {
     assert.ok(entry.discoveryUrl, `${entry.name} requires a discovery URL`);
     assert.doesNotThrow(() => new URL(entry.discoveryUrl));
@@ -108,10 +105,10 @@ test('tracks evidence for temporarily unavailable licensed domains', () => {
 
 test('summarizes current coverage status counts', () => {
   assert.deepEqual(coverageByStatus(), {
-    direct: 28,
+    direct: 32,
     browserOptional: 1,
-    remainingProvider: 14,
-    needsTriage: 9,
+    remainingProvider: 11,
+    needsTriage: 8,
     notSportsbook: 7,
     inactive: 1,
     temporarilyUnavailable: 2,
@@ -122,13 +119,13 @@ test('builds a public coverage summary for the application API', () => {
   const summary = coverageSummary();
 
   assert.equal(summary.total, 62);
-  assert.equal(summary.active, 29);
-  assert.equal(summary.remaining, 23);
+  assert.equal(summary.active, 33);
+  assert.equal(summary.remaining, 19);
   assert.deepEqual(summary.counts, {
-    direct: 28,
+    direct: 32,
     browserOptional: 1,
-    remainingProvider: 14,
-    needsTriage: 9,
+    remainingProvider: 11,
+    needsTriage: 8,
     notSportsbook: 7,
     inactive: 1,
     temporarilyUnavailable: 2,

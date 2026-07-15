@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 
 const { auditOdds } = require('../src/odds-audit');
 
-function eventWithMarkets(markets) {
+function eventWithMarkets(markets, bookmakerOverrides = {}) {
   return [{
     id: 'event-1',
     homeTeam: 'Home',
@@ -12,6 +12,7 @@ function eventWithMarkets(markets) {
     bookmakers: [{
       name: 'Book',
       markets,
+      ...bookmakerOverrides,
     }],
   }];
 }
@@ -98,4 +99,47 @@ test('marks extreme odds as review without blocking validation', () => {
   assert.equal(audit.status, 'review');
   assert.equal(audit.issueCounts.highOdds, 2);
   assert.match(audit.warning, /suspicious price issues/);
+});
+
+test('flags impossible non-positive total line markets', () => {
+  const audit = auditOdds(eventWithMarkets({
+    totalGoals_0: { over: 1.58, under: 2.3 },
+  }));
+
+  assert.equal(audit.status, 'warning');
+  assert.equal(audit.issueCounts.impossibleLineMarkets, 1);
+  assert.equal(audit.issues.impossibleLineMarkets.samples[0].marketKey, 'totalGoals_0');
+});
+
+test('flags explicit fidelity verification failures', () => {
+  const audit = auditOdds(eventWithMarkets({
+    totalGoals_2_5: { over: 1.58, under: 2.3 },
+  }, {
+    verification: {
+      markets: {
+        totalGoals_2_5: {
+          over: {
+            status: 'mismatch',
+            endpointPrice: 1.58,
+            websitePrice: 1.64,
+          },
+          under: { status: 'verified' },
+        },
+      },
+    },
+  }));
+
+  assert.equal(audit.status, 'warning');
+  assert.equal(audit.issueCounts.fidelityMismatches, 1);
+  assert.deepEqual(audit.issues.fidelityMismatches.samples[0], {
+    eventId: 'event-1',
+    match: 'Home vs Away',
+    startsAt: '2026-06-29T12:00:00.000Z',
+    bookmaker: 'Book',
+    marketKey: 'totalGoals_2_5',
+    outcome: 'over',
+    verificationStatus: 'mismatch',
+    endpointPrice: 1.58,
+    websitePrice: 1.64,
+  });
 });

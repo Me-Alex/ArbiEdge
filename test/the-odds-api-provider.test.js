@@ -70,6 +70,36 @@ test('normalizes The Odds API h2h events', async () => {
   ]);
 });
 
+test('normalizes two-way basketball h2h and sport-specific point totals', async () => {
+  const basketball = structuredClone(upstreamEvent);
+  basketball.id = 'basketball-1';
+  basketball.sport_key = 'basketball_nba';
+  basketball.sport_title = 'NBA';
+  basketball.bookmakers[0].markets = [{
+    key: 'h2h',
+    outcomes: [
+      { name: 'Romania', price: 2.1 },
+      { name: 'Brazil', price: 1.8 },
+    ],
+  }, {
+    key: 'totals',
+    outcomes: [
+      { name: 'Over', price: 1.91, point: 224.5 },
+      { name: 'Under', price: 1.95, point: 224.5 },
+    ],
+  }];
+  const provider = new TheOddsApiProvider({
+    apiKey: 'test-key',
+    sportKeys: ['basketball_nba'],
+    fetchImpl: async () => new Response(JSON.stringify([basketball]), { status: 200 }),
+  });
+
+  const [event] = await provider.getOdds();
+  assert.equal(event.sport, 'Basketball');
+  assert.deepEqual(event.bookmakers[0].markets.h2h, { home: 2.1, away: 1.8 });
+  assert.deepEqual(event.bookmakers[0].markets.totalPoints_224_5, { over: 1.91, under: 1.95 });
+});
+
 test('ignores malformed events and bookmakers without complete h2h prices', async () => {
   const incomplete = structuredClone(upstreamEvent);
   incomplete.id = 'match-2';
@@ -366,4 +396,59 @@ test('requests explicit bookmakers when configured', async () => {
     'pinnacle,betfair_ex_eu',
   );
   assert.equal(requestUrl.searchParams.get('regions'), null);
+});
+
+test('optionally discovers active sports by group with a bounded request set', async () => {
+  const basketball = structuredClone(upstreamEvent);
+  basketball.sport_key = 'basketball_nba';
+  basketball.sport_title = 'NBA';
+  basketball.bookmakers[0].markets[0].outcomes = [
+    { name: 'Romania', price: 2.1 },
+    { name: 'Brazil', price: 1.8 },
+  ];
+  const requests = [];
+  const provider = new TheOddsApiProvider({
+    apiKey: 'test-key',
+    sportKeys: [],
+    discoverSports: true,
+    sportGroups: ['Basketball'],
+    maxSports: 2,
+    fetchImpl: async (url) => {
+      const request = new URL(url);
+      requests.push(request);
+      if (request.pathname === '/v4/sports/') {
+        return new Response(JSON.stringify([
+          { key: 'soccer_epl', group: 'Soccer', active: true },
+          { key: 'basketball_nba', group: 'Basketball', active: true },
+        ]), { status: 200 });
+      }
+      return new Response(JSON.stringify([basketball]), { status: 200 });
+    },
+  });
+
+  const events = await provider.getOdds();
+  assert.equal(events.length, 1);
+  assert.equal(events[0].sport, 'Basketball');
+  assert.deepEqual(requests.map((request) => request.pathname), [
+    '/v4/sports/',
+    '/v4/sports/basketball_nba/odds/',
+  ]);
+});
+
+test('keeps successful sports when another sport endpoint fails', async () => {
+  const provider = new TheOddsApiProvider({
+    apiKey: 'test-key',
+    sportKeys: ['soccer_bad', 'soccer_fifa_world_cup'],
+    sportConcurrency: 1,
+    fetchImpl: async (url) => {
+      const request = new URL(url);
+      if (request.pathname.includes('/soccer_bad/')) return new Response('bad', { status: 503 });
+      return new Response(JSON.stringify([upstreamEvent]), { status: 200 });
+    },
+  });
+
+  const events = await provider.getOdds();
+  assert.equal(events.length, 1);
+  assert.equal(provider.lastSportFailures.length, 1);
+  assert.equal(provider.lastSportFailures[0].sportKey, 'soccer_bad');
 });

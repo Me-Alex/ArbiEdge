@@ -139,6 +139,8 @@ test('reports plain text operational metrics from diagnostics', async () => {
               sameBookUnderround: 1,
               sameBookHighOverround: 3,
               highOdds: 0,
+              impossibleLineMarkets: 0,
+              fidelityMismatches: 0,
             },
           },
         },
@@ -171,6 +173,8 @@ test('reports plain text operational metrics from diagnostics', async () => {
     assert.match(text, /^odds_audit_same_book_underround 1$/m);
     assert.match(text, /^odds_audit_same_book_high_overround 3$/m);
     assert.match(text, /^odds_audit_high_odds 0$/m);
+    assert.match(text, /^odds_audit_impossible_line_markets 0$/m);
+    assert.match(text, /^odds_audit_fidelity_mismatches 0$/m);
     assert.match(text, /^odds_slow_provider_duration_ms\{name="Casa \\"Pariurilor\\""\} 1450$/m);
     assert.match(text, /^odds_slow_provider_events\{name="Casa \\"Pariurilor\\""\} 346$/m);
     assert.match(text, /^odds_slow_provider_ok\{name="Casa \\"Pariurilor\\""\} 1$/m);

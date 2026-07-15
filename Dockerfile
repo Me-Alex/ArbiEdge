@@ -1,13 +1,21 @@
 FROM node:20-bookworm-slim AS runtime
 
 ENV NODE_ENV=production
+ENV CHROME_PATH=/usr/bin/chromium
 WORKDIR /app
 
-COPY package*.json ./
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ca-certificates chromium \
+  && rm -rf /var/lib/apt/lists/*
+
+COPY --chown=node:node package*.json ./
 RUN npm ci --omit=dev
 
-COPY public ./public
-COPY src ./src
+COPY --chown=node:node public ./public
+COPY --chown=node:node src ./src
+COPY --chown=node:node scripts ./scripts
+COPY --chown=node:node migrations ./migrations
+RUN mkdir -p /app/data /app/output && chown -R node:node /app/data /app/output
 
 USER node
 EXPOSE 3000

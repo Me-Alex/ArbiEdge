@@ -2,33 +2,37 @@
  * Entry point: orchestrates data loading, rendering, event binding, and init.
  */
 
-import { state, renderRegistry, PAGE_ROUTES, readJournal, readFavorites } from './state.js';
-import { fetchJson } from './api.js';
+import {
+  state, renderRegistry, PAGE_ROUTES, MARKET_TYPE_KEYS,
+  readJournal, readFavorites, resetSelectedMarketTypes, setSelectedMarketTypes,
+  toggleMarketTypeSelection,
+} from './state.js?v=12';
+import { fetchJson } from './api.js?v=12';
 import {
   initTheme, initSound, initNotifications, initServiceWorker, initDense,
   initKeyboardShortcuts,
   renderStatus, renderDeskOverview, renderBetSlip, setPage, toggleDense,
   toggleSound, cycleTheme, toggleBetSlip, closeArbModal, openArbModal, toast, logActivity,
   detectArbChanges, triggerAlerts,
-} from './ui-common.js';
+} from './ui-common.js?v=18';
 
-import { renderScanner, renderArbHistory, exportCsv } from './pages/scanner.js';
-import { renderValue, renderAi } from './pages/value-bets.js';
+import { renderScanner, renderArbHistory, exportCsv } from './pages/scanner.js?v=12';
+import { renderValue, renderAi } from './pages/value-bets.js?v=12';
 import {
   renderCalculator, loadSelectionIntoCalculator, updateLoadedSelection,
   renderProbCalculator, renderAutoStake, addDutchLeg, renderDutchSummary,
   renderArbCheck, renderTaxCalculator, renderNoVig, renderMiddle, renderConverter,
-} from './pages/calculator.js';
+} from './pages/calculator.js?v=12';
 import {
   renderJournal, createLocalJournalEntry, saveCalculatorSelection,
   settleJournalEntry, removeJournalEntry, clearJournalEntries,
   exportJournalCsv, importJournalCsv, getFilteredJournalEntries,
-} from './pages/journal.js';
-import { renderAnalytics } from './pages/analytics.js';
-import { renderMovement } from './pages/movement.js';
-import { renderBookmakers } from './pages/bookmakers.js';
-import { renderMatches } from './pages/matches.js';
-import { loadAnalyticsData, loadMovementData, loadArbHistoryData, logArbHistoryData } from './api.js';
+} from './pages/journal.js?v=12';
+import { renderAnalytics } from './pages/analytics.js?v=12';
+import { renderMovement } from './pages/movement.js?v=12';
+import { renderBookmakers } from './pages/bookmakers.js?v=12';
+import { renderMatches } from './pages/matches.js?v=12';
+import { loadAnalyticsData, loadMovementData, loadArbHistoryData, logArbHistoryData } from './api.js?v=12';
 
 // ── Wire render registry so modules can call each other without circular imports ──
 renderRegistry.allPages = renderAllPages;
@@ -56,14 +60,23 @@ renderRegistry.loadMovement = loadMovementPage;
 async function loadData(refresh = false) {
   const loading = document.querySelector('#loading');
   const error = document.querySelector('#error');
+  const emptyState = document.querySelector('#empty-state');
+  const mainContent = document.querySelector('#main-content');
   const refreshBtn = document.querySelector('#refresh-btn');
   const dataMode = document.querySelector('#data-mode');
   const errorMsg = document.querySelector('#error-msg');
+  let slowLoadTimer = null;
 
   if (loading) loading.hidden = false;
   if (error) error.hidden = true;
+  if (emptyState) emptyState.hidden = true;
+  if (mainContent) mainContent.setAttribute('aria-busy', 'true');
   if (refreshBtn) refreshBtn.disabled = true;
   if (dataMode) dataMode.textContent = 'Loading';
+  slowLoadTimer = setTimeout(() => {
+    const detail = loading?.querySelector('.state-panel__copy > span:last-child');
+    if (detail) detail.textContent = 'This is taking longer than expected. The desk is still waiting for the local odds source.';
+  }, 15_000);
 
   try {
     const p = new URLSearchParams();
@@ -86,9 +99,12 @@ async function loadData(refresh = false) {
     state.bookmakerCoverage = bm;
     state.serverJournal = jr.bets || [];
     state.lastLoadOk = true;
+    const hasData = state.events.length > 0 || state.opportunities.length > 0 || state.valueBets.length > 0;
+    if (emptyState) emptyState.hidden = hasData;
 
-    const changes = detectArbChanges(state.opportunities);
-    if (changes.appeared.length > 0) logActivity(`${changes.appeared.length} new arb${changes.appeared.length === 1 ? '' : 's'}`, 'scanner');
+    const actionable = state.opportunities.filter((opportunity) => opportunity.eligibility === 'actionable');
+    const changes = detectArbChanges(actionable);
+    if (changes.appeared.length > 0) logActivity(`${changes.appeared.length} new actionable arb${changes.appeared.length === 1 ? '' : 's'}`, 'scanner');
 
     renderStatus();
     renderAllPages();
@@ -100,7 +116,11 @@ async function loadData(refresh = false) {
     if (loading) loading.hidden = true;
     if (error) error.hidden = false;
     if (errorMsg) errorMsg.textContent = e.message || 'Unknown error';
+    error?.setAttribute('tabindex', '-1');
+    error?.focus();
   } finally {
+    clearTimeout(slowLoadTimer);
+    if (mainContent) mainContent.setAttribute('aria-busy', 'false');
     if (refreshBtn) refreshBtn.disabled = false;
   }
 }
@@ -113,8 +133,9 @@ async function refreshOpportunities() {
     ]);
     state.opportunities = o.opportunities || [];
     state.valueBets = v.valueBets || [];
-    const ch = detectArbChanges(state.opportunities);
-    if (ch.appeared.length > 0) logActivity(`${ch.appeared.length} new arb${ch.appeared.length === 1 ? '' : 's'}`, 'scanner');
+    const actionable = state.opportunities.filter((opportunity) => opportunity.eligibility === 'actionable');
+    const ch = detectArbChanges(actionable);
+    if (ch.appeared.length > 0) logActivity(`${ch.appeared.length} new actionable arb${ch.appeared.length === 1 ? '' : 's'}`, 'scanner');
     renderScanner();
     renderValue();
     renderAi();
@@ -212,14 +233,55 @@ function bindEvents() {
   $('#sport-selector').addEventListener('change', async (e) => { state.sport = e.target.value; await loadData(true); });
   $('#refresh-btn').addEventListener('click', () => loadData(true));
   $('#retry-btn').addEventListener('click', () => loadData(false));
+  $('#empty-refresh').addEventListener('click', () => loadData(true));
   $('#refresh-interval').addEventListener('change', setupAutoRefresh);
-  $('#filter-min-edge').addEventListener('input', (e) => { state.minEdge = Number(e.target.value || 0); renderScanner(); });
-  $('#alert-threshold').addEventListener('input', (e) => { state.alertThreshold = Number(e.target.value || 5); });
-  $('#confidence-filter').addEventListener('change', (e) => { state.confidenceFilter = e.target.value; renderScanner(); });
+  $('#filter-min-edge').addEventListener('input', (e) => { state.minEdge = Number(e.target.value || 0); state.scannerVisibleLimit = 50; renderScanner(); });
+  $('#alert-threshold').addEventListener('input', (e) => { state.alertThreshold = Number(e.target.value || 1); });
+  $('#verification-filter').addEventListener('change', (e) => { state.scannerVerificationFilter = e.target.value; state.scannerVisibleLimit = 50; renderScanner(); });
+  $$('[data-scanner-tab]').forEach((b) => b.addEventListener('click', () => {
+    const requestedTab = b.dataset.scannerTab;
+    state.scannerTab = ['actionable', 'review', 'rejected', 'middles'].includes(requestedTab)
+      ? requestedTab
+      : 'actionable';
+    state.scannerVisibleLimit = 50;
+    renderScanner();
+  }));
+  const marketFilter = $('#scanner-market-filter');
+  const marketToggle = $('#market-filter-toggle');
+  const marketMenu = $('#market-filter-menu');
+  marketToggle?.addEventListener('click', (e) => {
+    if (!marketMenu) return;
+    e.stopPropagation();
+    marketMenu.hidden = !marketMenu.hidden;
+    marketToggle.setAttribute('aria-expanded', marketMenu.hidden ? 'false' : 'true');
+    renderScanner();
+  });
+  marketMenu?.addEventListener('click', (e) => {
+    const action = e.target.closest('[data-market-filter-action]')?.dataset.marketFilterAction;
+    if (!action) return;
+    e.preventDefault();
+    if (action === 'none') setSelectedMarketTypes([]);
+    else setSelectedMarketTypes(MARKET_TYPE_KEYS);
+    state.scannerVisibleLimit = 50;
+    renderScanner();
+  });
+  marketMenu?.addEventListener('change', (e) => {
+    if (!e.target.matches('[data-market-type]')) return;
+    toggleMarketTypeSelection(e.target.dataset.marketType, e.target.checked);
+    state.scannerVisibleLimit = 50;
+    renderScanner();
+  });
+  document.addEventListener('click', (e) => {
+    if (!marketFilter || !marketMenu || marketMenu.hidden || marketFilter.contains(e.target)) return;
+    marketMenu.hidden = true;
+    marketToggle?.setAttribute('aria-expanded', 'false');
+  });
   $('#dense-view-toggle').addEventListener('change', toggleDense);
   $('#filter-reset').addEventListener('click', () => {
     state.minEdge = 0; $('#filter-min-edge').value = '0'; $('#search').value = '';
-    state.search = ''; state.confidenceFilter = ''; $('#confidence-filter').value = '';
+    state.search = ''; state.scannerVerificationFilter = ''; $('#verification-filter').value = '';
+    state.scannerVisibleLimit = 50;
+    resetSelectedMarketTypes();
     renderAllPages();
   });
   $('#export-csv').addEventListener('click', exportCsv);
@@ -282,7 +344,8 @@ async function init() {
   await loadData(false);
   connectStream();
   setupAutoRefresh();
-  if (state.opportunities.length > 0) logArbHistoryData(state.opportunities);
+  const actionable = state.opportunities.filter((opportunity) => opportunity.eligibility === 'actionable');
+  if (actionable.length > 0) logArbHistoryData(actionable);
   loadArbHistoryPage();
 }
 

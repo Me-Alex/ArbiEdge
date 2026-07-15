@@ -4,6 +4,23 @@ This app is a Node.js HTTP service. It can run on a small always-on VM or as a
 container. For the current bookmaker workload, a VM is usually simpler than a
 serverless platform because live odds refreshes can run for several seconds.
 
+## Recommended: autonomous Compose stack
+
+The included Compose file runs the application with PostgreSQL, continuous
+collection, production fail-closed behavior, persistent volumes, and Chromium
+for rotating fidelity checks. Supply secrets through the environment:
+
+```bash
+export POSTGRES_PASSWORD='generate-and-store-this-outside-the-repository'
+export RESULTS_ENABLED=1
+export RESULTS_API_KEY='runtime-secret'
+docker compose up --build -d
+```
+
+Keep port 3000 private or bind it behind an authenticated HTTPS reverse proxy.
+The application container does not need direct public exposure for autonomous
+collection and alerts. PostgreSQL is intentionally not published to the host.
+
 ## Option 1: Google Cloud free VM
 
 Use an Always Free eligible Compute Engine VM, then run the app with systemd.
@@ -122,5 +139,9 @@ Use the VM option if you need browser-backed providers or long-running scraping.
   immediately after boot instead of waiting for a user to open the dashboard.
 - Increase `ODDS_CACHE_TTL_MS` if refreshes are slow or providers rate-limit.
 - Keep secrets in environment variables, not in the repository.
+- Use `AUTONOMY_ENABLED=1`, `DATABASE_URL`, and `PRODUCTION_FAIL_CLOSED=1` for
+  unattended operation. Autonomous production refuses to start without durable
+  PostgreSQL storage.
+- Verify `/api/autonomy/status` as well as health/readiness after every deploy.
 - Use `/api/health` for basic uptime checks, `/api/readiness` for stricter
   load-balancer checks, and `/api/odds/stream` for user-facing refreshes.

@@ -114,6 +114,8 @@ test('reports cache and refresh diagnostics without triggering a refresh', async
           sameBookHighOverround: 0,
           crossBookOutliers: 0,
           highOdds: 0,
+          impossibleLineMarkets: 0,
+          fidelityMismatches: 0,
         },
       },
       warning: null,
@@ -305,4 +307,14 @@ test('coalesces concurrent refresh requests', async () => {
 
   assert.strictEqual(second, first);
   assert.equal(calls, 1);
+});
+
+test('fail-closed mode never substitutes demo odds for a live failure', async () => {
+  const service = new OddsService({
+    liveProvider: { name: 'Broken', getOdds: async () => { throw new Error('blocked'); } },
+    demoProvider: { getOdds: async () => demoEvents },
+    failClosed: true,
+  });
+  await assert.rejects(service.getOdds(), /blocked/);
+  assert.equal(service.lastRefresh.status, 'error');
 });

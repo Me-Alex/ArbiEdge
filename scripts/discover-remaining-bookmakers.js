@@ -7,6 +7,7 @@ const {
 const { discoverBookmakerPage } = require('../src/providers/bookmaker-discovery');
 
 const DEFAULT_MAX_SCRIPTS = 8;
+const DEFAULT_TIMEOUT_MS = 15_000;
 
 async function main() {
   const maxScripts = parsePositiveInteger(
@@ -116,6 +117,10 @@ async function fetchText(url) {
       accept: '*/*',
       'user-agent': 'Mozilla/5.0',
     },
+    signal: AbortSignal.timeout(parsePositiveInteger(
+      process.env.DISCOVERY_TIMEOUT_MS,
+      DEFAULT_TIMEOUT_MS,
+    )),
   });
 
   if (!response.ok) {

@@ -1,173 +1,506 @@
 <!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="Arb Desk — arbitrage scanner, value bets, calculator, journal, and odds feed for Romanian bookmakers.">
-    <title>Arb Desk</title>
-    <link rel="stylesheet" href="/css/style.css">
-    <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#0d1117">
-    <script src="/js/app.js" type="module"></script>
-  </head>
-  <body>
-    <div class="app-shell">
-      <aside class="sidebar">
-        <div class="brand">
-          <div class="brand__mark">A</div>
-          <div>
-            <p class="brand__eyebrow">Arbitrage</p>
-            <h1>Arb Desk</h1>
+<html lang="ro" data-theme="light" data-theme-choice="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f7f4eb">
+  <meta name="description" content="Arb Desk — centru operațional pentru arbitraj verificat, cote și poziții.">
+  <title>Scanner de arbitraj · Arb Desk</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/design-tokens.css?v=18">
+  <link rel="stylesheet" href="/css/components.css?v=18">
+  <link rel="stylesheet" href="/css/style.css?v=18">
+  <link rel="manifest" href="/manifest.json">
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Sari la conținut</a>
+
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="Navigație principală">
+      <button class="brand" type="button" data-nav="scanner" aria-label="Arb Desk, deschide scannerul">
+        <span class="brand__name"><span>Arb</span><span>Desk</span></span>
+        <span class="brand__code">AD/01</span>
+      </button>
+
+      <nav class="sidebar-nav">
+        <section class="nav-group" aria-labelledby="nav-live-label">
+          <span class="nav-group__label" id="nav-live-label">Semnal</span>
+          <button class="nav-link is-active" type="button" data-nav="scanner" aria-current="page">
+            <span class="nav-link__index">01</span><span class="nav-link__label">Scanner</span>
+          </button>
+          <button class="nav-link" type="button" data-nav="value">
+            <span class="nav-link__index">02</span><span class="nav-link__label">Valoare</span>
+          </button>
+          <button class="nav-link" type="button" data-nav="ai">
+            <span class="nav-link__index">03</span><span class="nav-link__label">Revizuire</span>
+          </button>
+          <button class="nav-link" type="button" data-nav="movement">
+            <span class="nav-link__index">04</span><span class="nav-link__label">Mișcare</span>
+          </button>
+        </section>
+
+        <section class="nav-group" aria-labelledby="nav-work-label">
+          <span class="nav-group__label" id="nav-work-label">Operațiuni</span>
+          <button class="nav-link" type="button" data-nav="matches">
+            <span class="nav-link__index">05</span><span class="nav-link__label">Piețe</span>
+          </button>
+          <button class="nav-link" type="button" data-nav="calculator">
+            <span class="nav-link__index">06</span><span class="nav-link__label">Calculator</span>
+          </button>
+          <button class="nav-link" type="button" data-nav="journal">
+            <span class="nav-link__index">07</span><span class="nav-link__label">Jurnal</span>
+          </button>
+        </section>
+
+        <section class="nav-group" aria-labelledby="nav-audit-label">
+          <span class="nav-group__label" id="nav-audit-label">Control</span>
+          <button class="nav-link" type="button" data-nav="analytics">
+            <span class="nav-link__index">08</span><span class="nav-link__label">Analiză</span>
+          </button>
+          <button class="nav-link" type="button" data-nav="bookmakers">
+            <span class="nav-link__index">09</span><span class="nav-link__label">Case</span>
+          </button>
+        </section>
+      </nav>
+
+      <div class="sidebar__footer">
+        <span class="sidebar__edition"><strong>Signal Ledger</strong>ediția 2026.07</span>
+      </div>
+    </aside>
+
+    <div class="main-shell">
+      <header class="topbar">
+        <div class="topbar__status">
+          <div class="topbar__system">
+            <span class="live-dot" id="live-dot" data-mode="offline" aria-hidden="true"></span>
+            <span class="live-pill"><span id="data-mode">Pornire</span></span>
           </div>
+          <span class="topbar__meta" id="last-updated">Așteaptă primul instantaneu</span>
         </div>
 
-        <nav class="sidebar-nav" aria-label="Primary">
-          <button class="nav-link" data-nav="scanner" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/></svg>Scanner</button>
-          <button class="nav-link" data-nav="value" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"/><path d="M2 7h20"/><path d="M2 7l10-5 10 5"/><path d="M2 17l10 5 10-5"/></svg>Value Bets</button>
-          <button class="nav-link" data-nav="ai" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="5"/><path d="M8 13.5a6 6 0 0 0 8 0"/><path d="M12 18v3"/><path d="M9 21h6"/></svg>AI Picks</button>
-          <button class="nav-link" data-nav="calculator" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="10" y2="10"/><line x1="14" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="10" y2="14"/><line x1="14" y1="14" x2="16" y2="14"/><line x1="8" y1="18" x2="10" y2="18"/><line x1="14" y1="18" x2="16" y2="18"/></svg>Calculator</button>
-          <button class="nav-link" data-nav="journal" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v16l-4-2-4 2-4-2-4 2z"/><path d="M8 6h8"/><path d="M8 10h8"/></svg>Journal</button>
-          <button class="nav-link" data-nav="analytics" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 6-6"/></svg>Analytics</button>
-          <button class="nav-link" data-nav="movement" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M17 7h4v4"/></svg>Movement</button>
-          <button class="nav-link" data-nav="bookmakers" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18"/></svg>Bookmakers</button>
-          <button class="nav-link" data-nav="matches" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v18"/><path d="M3 12h18"/></svg>Matches</button>
-        </nav>
+        <div class="topbar__tools" aria-label="Comenzi globale">
+          <label class="search-field" for="search">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>
+            <input id="search" type="search" placeholder="Caută eveniment sau piață" autocomplete="off">
+            <kbd>/</kbd>
+          </label>
 
-        <div class="sidebar-footer">
-          <div class="activity-timeline" id="activity-timeline"></div>
-          <label class="sound-toggle"><input id="sound-alert-toggle" type="checkbox" checked><span class="sound-toggle__label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>Sound</span></label>
-          <button id="theme-toggle" class="ghost-button theme-toggle" type="button" title="Cycle theme">
-            <svg class="icon-dark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><circle cx="12" cy="12" r="5"/><path d="M12 1v2"/><path d="M12 21v2"/><path d="M4.22 4.22l1.42 1.42"/><path d="M18.36 18.36l1.42 1.42"/><path d="M1 12h2"/><path d="M21 12h2"/><path d="M4.22 19.78l1.42-1.42"/><path d="M18.36 5.64l1.42-1.42"/></svg>
-            <svg class="icon-light" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-            <svg class="icon-system" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>
+          <label class="topbar__tool topbar__tool--sport">
+            <span class="sr-only">Sport</span>
+            <select class="toolbar-control" id="sport-selector" aria-label="Selectează sportul">
+              <option value="">Toate sporturile</option>
+              <option value="soccer">Fotbal</option>
+              <option value="basketball">Baschet</option>
+              <option value="tennis">Tenis</option>
+              <option value="icehockey">Hochei</option>
+            </select>
+          </label>
+
+          <label class="topbar__tool topbar__tool--interval">
+            <span class="sr-only">Interval de actualizare</span>
+            <select class="toolbar-control" id="refresh-interval" aria-label="Interval de actualizare automată">
+              <option value="0">Manual</option>
+              <option value="15">15 sec</option>
+              <option value="30" selected>30 sec</option>
+              <option value="60">60 sec</option>
+            </select>
+          </label>
+
+          <label class="sound-toggle" title="Alerte sonore">
+            <input id="sound-alert-toggle" type="checkbox" aria-label="Activează alertele sonore">
+            <span class="sound-toggle__track" aria-hidden="true"></span>
+            <span>Sunet</span>
+          </label>
+
+          <button class="icon-button theme-toggle" id="theme-toggle" type="button" aria-label="Schimbă tema de culoare" title="Schimbă tema">
+            <svg class="theme-icon--light" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg>
+            <svg class="theme-icon--dark" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 15.2A8.5 8.5 0 0 1 8.8 4 8.5 8.5 0 1 0 20 15.2Z"></path></svg>
+            <svg class="theme-icon--system" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="13" rx="1"></rect><path d="M8 21h8M12 17v4"></path></svg>
+          </button>
+
+          <button class="primary-button" id="refresh-btn" type="button">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 11a8 8 0 1 0-2.3 5.7"></path><path d="M20 4v7h-7"></path></svg>
+            <span class="sr-only">Actualizează datele</span><span aria-hidden="true">Scan</span>
           </button>
         </div>
-      </aside>
+      </header>
 
-      <div class="main-shell">
-        <header class="topbar">
-          <div class="topbar__meta">
-            <div class="live-pill"><span class="live-dot" id="live-dot" data-mode="loading"></span><span id="data-mode">Loading</span></div>
-            <div class="topbar__subtext" id="last-updated">Waiting for odds feed</div>
-          </div>
-          <div class="topbar__tools">
-            <label class="search-field"><span class="sr-only">Search events</span><input id="search" type="search" placeholder="Search teams or competitions"></label>
-            <select id="sport-selector" class="toolbar-control" aria-label="Sport filter"><option value="">All sports</option><option value="football">Football</option><option value="basketball">Basketball</option><option value="tennis">Tennis</option><option value="icehockey">Ice Hockey</option></select>
-            <select id="refresh-interval" class="toolbar-control" aria-label="Auto-refresh interval" title="Auto-refresh interval"><option value="0">Manual</option><option value="30">30s</option><option value="60" selected>1min</option><option value="300">5min</option></select>
-            <button id="refresh-btn" class="primary-button" type="button">Refresh</button>
-          </div>
-        </header>
+      <section class="desk-overview" id="desk-overview" aria-label="Rezumat operațional" aria-live="polite">
+        <article class="overview-cell"><span class="overview-cell__label">Edge verificat</span><strong class="overview-cell__value">—</strong><span class="overview-cell__hint">Se încarcă</span></article>
+        <article class="overview-cell"><span class="overview-cell__label">Arbitraje</span><strong class="overview-cell__value">—</strong><span class="overview-cell__hint">Se încarcă</span></article>
+        <article class="overview-cell"><span class="overview-cell__label">Evenimente</span><strong class="overview-cell__value">—</strong><span class="overview-cell__hint">Se încarcă</span></article>
+        <article class="overview-cell"><span class="overview-cell__label">Miză activă</span><strong class="overview-cell__value">—</strong><span class="overview-cell__hint">Se încarcă</span></article>
+      </section>
 
-        <aside id="warning" class="banner" hidden><strong id="warning-title">Warning:</strong><span id="warning-text"></span></aside>
-        <section id="loading" class="state-panel">Loading arb desk…</section>
-        <section id="error" class="state-panel state-panel--error" hidden><strong>Odds could not be loaded.</strong><span id="error-msg">Try refreshing again.</span><button id="retry-btn" class="ghost-button" type="button" style="margin-top:8px">Retry</button></section>
-        <section id="empty-state" class="state-panel" hidden>No data matched the current filters.</section>
-        <section id="desk-overview" class="desk-overview" aria-label="Desk overview"></section>
-
-        <main class="content">
-          <section class="page" data-page="scanner">
-            <div class="page-header"><div><p class="page-kicker">Scanner</p><h1>Arbitrage opportunities</h1></div><div class="page-note">Cross-book surebets and formula opportunities.</div></div>
-            <div class="filter-bar">
-              <label class="field-inline"><span>Min edge %</span><input id="filter-min-edge" type="number" min="0" step="0.1" value="0"></label>
-              <label class="field-inline"><span>Alert threshold %</span><input id="alert-threshold" type="number" min="0" step="0.1" value="5" title="Browser notification when edge exceeds this %"></label>
-              <select id="confidence-filter" class="toolbar-control" aria-label="Confidence filter" style="min-width:120px"><option value="">All confidence</option><option value="trusted">Trusted only</option><option value="review">Review+</option><option value="risky">Risky only</option></select>
-              <button id="filter-reset" class="ghost-button" type="button">Reset</button>
-              <button id="export-csv" class="ghost-button" type="button">Export CSV</button>
-              <label class="field-inline" style="flex-direction:row;align-items:center;gap:6px"><input id="dense-view-toggle" type="checkbox"><span>Dense</span></label>
-            </div>
-            <div id="scanner-list" class="card-stack"></div>
-            <div class="page-header" style="margin-top:24px"><div><p class="page-kicker">History</p><h1>Arbitrage history</h1></div><div class="page-note">Logged arbitrage opportunities over time.</div></div>
-            <div class="filter-bar"><button id="arb-history-refresh" class="ghost-button" type="button">Refresh history</button><button id="arb-history-clear" class="ghost-button" type="button">Clear</button></div>
-            <div id="arb-history-list" class="card-stack"></div>
+      <main class="content" id="main-content" tabindex="-1" aria-busy="true">
+        <div class="system-states">
+          <section class="banner" id="warning" hidden role="status">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 3 2.5 20h19L12 3Z"></path><path d="M12 9v5M12 17.5v.5"></path></svg>
+            <div><strong id="warning-title">Avertizare feed</strong><span id="warning-text"></span></div>
           </section>
 
-          <section class="page page--hidden" data-page="value"><div class="page-header"><div><p class="page-kicker">Value</p><h1>Value bets</h1></div><div class="page-note">Consensus gaps with quick calculator handoff.</div></div><div id="value-list" class="card-grid"></div></section>
-          <section class="page page--hidden" data-page="ai"><div class="page-header"><div><p class="page-kicker">AI Picks</p><h1>Review queue</h1></div><div class="page-note">Shortlisted paper picks based on current value signals.</div></div><div id="ai-list" class="card-grid"></div></section>
+          <section class="state-panel state-panel--loading" id="loading" role="status" aria-live="polite">
+            <div class="state-panel__copy">
+              <span class="state-panel__eyebrow">Sincronizare</span>
+              <strong>Se deschide registrul de cote</strong>
+              <span>Colectăm evenimentele, verificările și oportunitățile curente.</span>
+            </div>
+            <div class="skeleton-stack" aria-hidden="true"><span></span><span></span><span></span></div>
+          </section>
 
-          <section class="page page--hidden" data-page="calculator">
-            <div class="page-header"><div><p class="page-kicker">Calculator</p><h1>Bet math toolkit</h1></div><div class="page-note">Load odds from the feed or test lines manually.</div></div>
-            <div id="calculator" class="calc-hero">
-              <div class="calc-card"><div class="calc-hero__label">Loaded odds</div><div class="calc-hero__odds" id="calc-odds">—</div><div class="calc-hero__meta" id="calc-context">No selection loaded yet.</div></div>
-              <div class="calc-card" style="display:flex;flex-direction:column;gap:10px;justify-content:center">
-                <label class="field-block"><span>Stake</span><input id="calc-stake" type="number" min="1" step="1" value="100"></label>
-                <div class="quick-stakes"><button class="ghost-button qs-btn" data-stake="50" type="button">50</button><button class="ghost-button qs-btn" data-stake="100" type="button">100</button><button class="ghost-button qs-btn" data-stake="250" type="button">250</button><button class="ghost-button qs-btn" data-stake="500" type="button">500</button></div>
-                <label class="field-block"><span>Bankroll</span><input id="calc-bankroll" type="number" min="1" step="1" value="1000"></label>
-                <div class="calc-hero__buttons"><button id="calc-save" class="primary-button" type="button" disabled>Save to journal</button></div>
+          <section class="state-panel state-panel--error" id="error" hidden role="alert">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v6M12 17h.01"></path></svg>
+            <div class="state-panel__copy"><span class="state-panel__eyebrow">Conexiune întreruptă</span><strong>Registrul nu a putut fi încărcat</strong><span id="error-msg">Sursa de cote nu răspunde.</span></div>
+            <button class="primary-button" id="retry-btn" type="button">Încearcă din nou</button>
+          </section>
+
+          <section class="state-panel" id="empty-state" hidden>
+            <div class="state-panel__copy"><span class="state-panel__eyebrow">Feed gol</span><strong>Niciun eveniment disponibil</strong><span>Actualizează sursele sau schimbă sportul selectat.</span></div>
+            <button class="ghost-button empty-refresh" id="empty-refresh" type="button">Actualizează</button>
+          </section>
+        </div>
+
+        <!-- 01 / Scanner -->
+        <section class="page" data-page="scanner" aria-hidden="false">
+          <header class="page-header">
+            <div class="page-header__title">
+              <div class="page-kicker"><span class="page-index">01</span><span>verificare în timp real</span></div>
+              <h1 id="scanner-title">Scanner de arbitraj</h1>
+            </div>
+            <div class="page-header__note">
+              <span class="desk-stamp">Cross-book only</span>
+              <p>Semnalele sunt separate după calitatea dovezii. Numai pozițiile validate pe case diferite intră în coada executabilă.</p>
+            </div>
+          </header>
+
+          <div class="scanner-overview" id="scanner-overview" aria-label="Indicatori scanner" aria-live="polite"></div>
+
+          <div class="scanner-policy">
+            <strong>Regula biroului</strong>
+            <span>Oportunitățile neverificate, same-book sau incomplete rămân blocate pentru execuție și sunt afișate separat pentru audit.</span>
+          </div>
+
+          <section class="scanner-controls" aria-label="Filtre scanner">
+            <div class="filter-bar">
+              <label class="field-block" for="filter-min-edge">
+                <span>Edge minim</span>
+                <span class="input-suffix"><input id="filter-min-edge" type="number" value="0" min="0" max="50" step="0.1"><span>%</span></span>
+              </label>
+
+              <label class="field-block" for="alert-threshold">
+                <span>Prag alertă</span>
+                <span class="input-suffix"><input id="alert-threshold" type="number" value="1" min="0" max="50" step="0.5"><span>%</span></span>
+              </label>
+
+              <label class="field-block" for="verification-filter">
+                <span>Dovadă</span>
+                <select id="verification-filter">
+                  <option value="">Toate nivelurile</option>
+                  <option value="verified">Verificat</option>
+                  <option value="review">Necesită revizuire</option>
+                  <option value="failed">Respins</option>
+                </select>
+              </label>
+
+              <div class="market-filter" id="scanner-market-filter">
+                <span class="control-label">Familii de formule</span>
+                <button class="market-filter__toggle" id="market-filter-toggle" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="market-filter-menu">
+                  <span class="market-filter__summary" id="market-filter-summary">Toate familiile</span>
+                  <svg class="market-filter__chevron" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m6 9 6 6 6-6"></path></svg>
+                </button>
+                <div class="market-filter__menu" id="market-filter-menu" hidden>
+                  <div class="market-filter__menu-head">
+                    <button class="text-button" type="button" data-market-filter-action="all">Selectează toate</button>
+                    <button class="text-button" type="button" data-market-filter-action="none">Șterge selecția</button>
+                  </div>
+                  <div class="market-filter__options" id="market-filter-options"></div>
+                </div>
+              </div>
+
+              <div class="filter-bar__actions">
+                <label class="density-toggle"><input id="dense-view-toggle" type="checkbox"> Compact</label>
+                <button class="ghost-button" id="filter-reset" type="button">Resetează</button>
+                <button class="ghost-button" id="export-csv" type="button">Export CSV</button>
               </div>
             </div>
-            <div class="calc-grid">
-              <section id="calc-prob-section" class="calc-card"><h2>Probability</h2><div id="calc-prob-output" class="stat-list"></div></section>
-              <section id="calc-kelly-section" class="calc-card"><h2>Kelly</h2><div id="calc-kelly-output" class="stat-list"></div></section>
-              <section id="calc-dutch-section" class="calc-card"><div class="calc-card__head"><h2>Dutching</h2><div class="row-actions"><button id="dutch-add-leg" class="ghost-button" type="button">Add leg</button><button id="dutch-clear" class="ghost-button" type="button">Clear</button></div></div><label class="field-block"><span>Total stake</span><input id="dutch-stake" type="number" min="1" step="1" value="100"></label><div id="dutch-legs" class="stack-sm"></div><div id="dutch-summary" class="summary-list"></div></section>
-              <section id="calc-arb-section" class="calc-card"><h2>3-way arbitrage</h2><div class="three-col"><label class="field-block"><span>Odds 1</span><input id="arb-odds-1" type="number" step="0.01"></label><label class="field-block"><span>Odds X</span><input id="arb-odds-2" type="number" step="0.01"></label><label class="field-block"><span>Odds 2</span><input id="arb-odds-3" type="number" step="0.01"></label></div><button id="arb-check-btn" class="ghost-button" type="button">Check arb</button><pre id="arb-check-result" class="result-box"></pre></section>
-              <section id="calc-tax-section" class="calc-card"><h2>Romanian tax</h2><div class="three-col"><label class="field-block"><span>Stake</span><input id="tax-stake" type="number" min="0" step="1" value="100"></label><label class="field-block"><span>Odds</span><input id="tax-odds" type="number" min="1.01" step="0.01" value="2.00"></label><label class="field-block"><span>YTD winnings</span><input id="tax-ytd" type="number" min="0" step="1" value="0"></label></div><pre id="tax-result" class="result-box"></pre></section>
-              <section id="calc-novig-section" class="calc-card"><h2>No-vig 1X2</h2><div class="three-col"><label class="field-block"><span>1</span><input id="novig-odds-1" type="number" step="0.01"></label><label class="field-block"><span>X</span><input id="novig-odds-x" type="number" step="0.01"></label><label class="field-block"><span>2</span><input id="novig-odds-2" type="number" step="0.01"></label></div><pre id="novig-results" class="result-box"></pre></section>
-              <section id="calc-novig-manual-section" class="calc-card"><h2>No-vig notes</h2><p class="support-copy">Fair probabilities are normalized from the raw implied total, then converted back into fair odds for a cleaner market view.</p></section>
-              <section id="calc-middle-section" class="calc-card"><h2>Middle</h2><div class="four-col"><label class="field-block"><span>Over line</span><input id="mid-over-line" type="number" step="0.25"></label><label class="field-block"><span>Over odds</span><input id="mid-over-odds" type="number" step="0.01"></label><label class="field-block"><span>Under line</span><input id="mid-under-line" type="number" step="0.25"></label><label class="field-block"><span>Under odds</span><input id="mid-under-odds" type="number" step="0.01"></label></div><button id="mid-check-btn" class="ghost-button" type="button">Check middle</button><pre id="mid-result" class="result-box"></pre></section>
-              <section id="calc-conv-section" class="calc-card"><h2>Odds converter</h2><label class="field-block"><span>Decimal odds</span><input id="conv-decimal" type="number" step="0.01" value="2.50"></label><pre id="conv-results" class="result-box"></pre></section>
-              <section id="calc-autostake-section" class="calc-card"><h2>Auto-stake allocation</h2><p class="support-copy" style="margin-bottom:8px">Split your bankroll across active arbitrage opportunities, proportional to edge and capped by Kelly.</p><label class="field-block"><span>Total bankroll</span><input id="autostake-bankroll" type="number" min="1" step="1" value="1000"></label><label class="field-block"><span>Max stake per arb (%)</span><input id="autostake-max-pct" type="number" min="1" max="100" step="1" value="25"></label><button id="autostake-compute" class="ghost-button" type="button">Compute allocation</button><div id="autostake-results" class="stat-list" style="margin-top:8px"></div></section>
+
+            <div class="scanner-tabs" id="scanner-tabs" role="tablist" aria-label="Cozi scanner">
+              <button class="scanner-tab is-active" type="button" role="tab" aria-selected="true" data-scanner-tab="actionable">Acționabile <span class="scanner-tab-count" id="scanner-actionable-count">0</span></button>
+              <button class="scanner-tab" type="button" role="tab" aria-selected="false" data-scanner-tab="review">De revizuit <span class="scanner-tab-count" id="scanner-review-count">0</span></button>
+              <button class="scanner-tab" type="button" role="tab" aria-selected="false" data-scanner-tab="rejected">Respinse <span class="scanner-tab-count" id="scanner-rejected-count">0</span></button>
+              <button class="scanner-tab" type="button" role="tab" aria-selected="false" data-scanner-tab="middles">Middles <span class="scanner-tab-count" id="scanner-middles-count">0</span></button>
             </div>
           </section>
 
-          <section class="page page--hidden" data-page="journal">
-            <div class="page-header"><div><p class="page-kicker">Journal</p><h1>Saved bets</h1></div><button id="journal-clear" class="ghost-button" type="button">Clear local</button></div>
-            <div class="filter-bar">
-              <input id="journal-search" class="toolbar-control" type="search" placeholder="Search bets…" style="min-width:180px">
-              <select id="journal-status-filter" class="toolbar-control"><option value="">All status</option><option value="pending">Pending</option><option value="won">Won</option><option value="lost">Lost</option></select>
-              <select id="journal-bookmaker-filter" class="toolbar-control"><option value="">All bookmakers</option></select>
-              <button id="journal-export" class="ghost-button" type="button">Export CSV</button>
-              <button id="journal-import" class="ghost-button" type="button">Import CSV</button>
-              <input id="journal-import-file" type="file" accept=".csv,text/csv" hidden>
+          <div class="scanner-workspace">
+            <div class="scanner-list" id="scanner-list" aria-live="polite">
+              <div class="state-panel scanner-empty"><div class="state-panel__copy"><span class="state-panel__eyebrow">În așteptare</span><strong>Scannerul pregătește semnalele</strong><span>Rezultatele verificate vor apărea aici.</span></div></div>
             </div>
-            <div id="journal-list" class="card-stack"></div>
-          </section>
 
-          <section class="page page--hidden" data-page="analytics"><div class="page-header"><div><p class="page-kicker">Analytics</p><h1>Performance overview</h1></div><div class="page-note">ROI, hit rate, CLV, and breakdowns by bookmaker and market.</div></div><div id="analytics-summary" class="card-grid"></div><div id="analytics-breakdown" class="card-stack" style="margin-top:16px"></div></section>
-          <section class="page page--hidden" data-page="movement"><div class="page-header"><div><p class="page-kicker">Movement</p><h1>Odds movement</h1></div><div class="page-note">Price changes between the latest and previous odds snapshots.</div></div><div id="movement-list" class="card-stack"></div></section>
-          <section class="page page--hidden" data-page="bookmakers"><div class="page-header"><div><p class="page-kicker">Bookmakers</p><h1>Coverage</h1></div><div class="page-note">Implemented and remaining provider status.</div></div><div id="bookmakers-list" class="bookmaker-grid"></div></section>
-          <section class="page page--hidden" data-page="matches">
-            <div class="page-header"><div><p class="page-kicker">Matches</p><h1>Odds feed</h1></div><div class="page-note">Current events with clickable prices.</div></div>
-            <div class="filter-bar">
-              <label class="field-inline" style="flex-direction:row;align-items:center;gap:6px"><input id="show-favorites-only" type="checkbox"><span>Favorites only</span></label>
-              <label class="field-inline" style="flex-direction:row;align-items:center;gap:6px"><input id="show-all-markets" type="checkbox"><span>Show all markets</span></label>
-              <span class="muted-line" id="favorites-hint">Use the row controls to pin or hide bookmakers.</span>
-            </div>
-            <div id="matches-list" class="match-stack"></div>
-          </section>
-        </main>
+            <aside class="scanner-rail" aria-label="Context scanner">
+              <section class="rail-panel">
+                <header class="rail-panel__header"><span class="section-code">Gate / 01</span><h2>Protocol de semnal</h2></header>
+                <div class="rail-panel__body signal-guide">
+                  <div class="signal-guide__row"><span class="status-marker status-marker--good"></span><span><strong>Acționabil</strong><br>toate picioarele sunt confirmate</span></div>
+                  <div class="signal-guide__row"><span class="status-marker status-marker--warn"></span><span><strong>Revizuire</strong><br>dovezi sau structură incomplete</span></div>
+                  <div class="signal-guide__row"><span class="status-marker status-marker--bad"></span><span><strong>Respins</strong><br>nu trece pragul de siguranță</span></div>
+                  <div class="signal-guide__row"><span class="status-marker status-marker--info"></span><span><strong>Middle</strong><br>scenariu de analiză, nu garanție</span></div>
+                </div>
+              </section>
 
-        <!-- Bet Slip Drawer (#3) -->
-        <aside id="bet-slip-drawer" class="bet-slip-drawer" data-open="false">
-          <button id="bet-slip-toggle" class="bet-slip-tab" type="button">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M4 4h16v16H4z"/><path d="M8 8h8"/><path d="M8 12h8"/><path d="M8 16h4"/></svg>
-            <span class="bet-slip-count" id="bet-slip-count">0</span>
-          </button>
-          <div class="bet-slip-content">
-            <div class="bet-slip-header"><h2>Active positions</h2></div>
-            <div id="bet-slip-list"></div>
+              <section class="rail-panel">
+                <header class="rail-panel__header"><span class="section-code">Log / live</span><h2>Activitate</h2></header>
+                <div class="rail-panel__body activity-timeline" id="activity-timeline">
+                  <span class="support-copy">Evenimentele sesiunii vor fi înregistrate aici.</span>
+                </div>
+              </section>
+            </aside>
           </div>
-        </aside>
 
-        <nav class="mobile-nav" aria-label="Mobile primary">
-          <button class="nav-link" data-nav="scanner" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/></svg>Scanner</button>
-          <button class="nav-link" data-nav="value" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"/><path d="M2 7h20"/><path d="M2 7l10-5 10 5"/><path d="M2 17l10 5 10-5"/></svg>Value</button>
-          <button class="nav-link" data-nav="ai" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="5"/><path d="M8 13.5a6 6 0 0 0 8 0"/><path d="M12 18v3"/><path d="M9 21h6"/></svg>AI</button>
-          <button class="nav-link" data-nav="calculator" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="10" y2="10"/><line x1="14" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="10" y2="14"/><line x1="14" y1="14" x2="16" y2="14"/><line x1="8" y1="18" x2="10" y2="18"/><line x1="14" y1="18" x2="16" y2="18"/></svg>Calc</button>
-          <button class="nav-link" data-nav="journal" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v16l-4-2-4 2-4-2-4 2z"/><path d="M8 6h8"/><path d="M8 10h8"/></svg>Journal</button>
-          <button class="nav-link" data-nav="matches" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v18"/><path d="M3 12h18"/></svg>Matches</button>
-        </nav>
-      </div>
+          <section aria-labelledby="arb-history-heading">
+            <header class="section-header">
+              <div><span class="section-code">Archive / session</span><h2 id="arb-history-heading">Istoric de scanare</h2></div>
+              <div class="page-header__actions">
+                <button class="ghost-button" id="arb-history-refresh" type="button">Reîncarcă</button>
+                <button class="text-button" id="arb-history-clear" type="button">Golește vizualizarea</button>
+              </div>
+            </header>
+            <div class="history-list" id="arb-history-list"><div class="state-panel"><div class="state-panel__copy"><strong>Nicio scanare înregistrată</strong><span>Istoricul sesiunii va apărea după prima actualizare.</span></div></div></div>
+          </section>
+        </section>
+
+        <!-- 02 / Value -->
+        <section class="page page--hidden" data-page="value" aria-hidden="true">
+          <header class="page-header">
+            <div class="page-header__title"><div class="page-kicker"><span class="page-index">02</span><span>diferențe față de consens</span></div><h1 id="value-title">Pariuri de valoare</h1></div>
+            <div class="page-header__note"><span class="desk-stamp">Price gap</span><p>Cote disponibile comparate cu linia de consens, ordonate pentru evaluarea rapidă a poziției.</p></div>
+          </header>
+          <div class="card-grid" id="value-list" aria-live="polite"><div class="state-panel"><div class="state-panel__copy"><strong>Se calculează diferențele</strong><span>Lista va fi populată după sincronizare.</span></div></div></div>
+        </section>
+
+        <!-- 03 / Assisted review -->
+        <section class="page page--hidden" data-page="ai" aria-hidden="true">
+          <header class="page-header">
+            <div class="page-header__title"><div class="page-kicker"><span class="page-index">03</span><span>listă scurtă pentru decizie</span></div><h1 id="ai-title">Revizuire asistată</h1></div>
+            <div class="page-header__note"><span class="desk-stamp">Human check</span><p>Candidați prioritizați pentru analiză umană. Semnalul asistat nu înlocuiește validarea cotei și a regulilor pieței.</p></div>
+          </header>
+          <div class="context-banner"><strong>Control uman obligatoriu.</strong><span>Verifică piața, limita, timestamp-ul și disponibilitatea înainte de a salva o poziție.</span></div>
+          <div class="card-grid" id="ai-list" aria-live="polite"><div class="state-panel"><div class="state-panel__copy"><strong>Se construiește lista scurtă</strong><span>Candidații apar după încărcarea piețelor.</span></div></div></div>
+        </section>
+
+        <!-- 04 / Movement -->
+        <section class="page page--hidden" data-page="movement" aria-hidden="true">
+          <header class="page-header">
+            <div class="page-header__title"><div class="page-kicker"><span class="page-index">04</span><span>schimbări de preț</span></div><h1 id="movement-title">Mișcarea cotelor</h1></div>
+            <div class="page-header__note"><span class="desk-stamp">Delta tape</span><p>Urmărește variațiile de preț între instantanee și identifică direcția lichidității.</p></div>
+          </header>
+          <div class="card-stack" id="movement-list" aria-live="polite"><div class="state-panel"><div class="state-panel__copy"><strong>Se compară instantaneele</strong><span>Schimbările vor apărea după cel puțin două actualizări.</span></div></div></div>
+        </section>
+
+        <!-- 05 / Matches -->
+        <section class="page page--hidden" data-page="matches" aria-hidden="true">
+          <header class="page-header">
+            <div class="page-header__title"><div class="page-kicker"><span class="page-index">05</span><span>registrul piețelor</span></div><h1 id="matches-title">Piețe și meciuri</h1></div>
+            <div class="page-header__note"><span class="desk-stamp">Market book</span><p>Compară selecțiile disponibile pe fiecare casă și trimite o cotă direct în calculator.</p></div>
+          </header>
+          <div class="match-tools">
+            <label class="check-control"><input id="show-favorites-only" type="checkbox"> Doar case fixate</label>
+            <label class="check-control"><input id="show-all-markets" type="checkbox"> Arată toate piețele</label>
+            <span class="match-tools__hint" id="favorites-hint">Fixează casele relevante pentru o citire mai rapidă.</span>
+          </div>
+          <div class="match-stack" id="matches-list" aria-live="polite"><div class="state-panel"><div class="state-panel__copy"><strong>Se încarcă registrul piețelor</strong><span>Evenimentele și selecțiile vor apărea aici.</span></div></div></div>
+        </section>
+
+        <!-- 06 / Calculator -->
+        <section class="page page--hidden" data-page="calculator" aria-hidden="true">
+          <header class="page-header">
+            <div class="page-header__title"><div class="page-kicker"><span class="page-index">06</span><span>instrumente de poziționare</span></div><h1 id="calculator-title">Laborator de cote</h1></div>
+            <div class="page-header__note"><span class="desk-stamp">Math desk</span><p>Probabilitate, Kelly, dutching, arbitraj, taxă, no-vig, middle și conversii într-un singur spațiu de lucru.</p></div>
+          </header>
+
+          <div id="calculator">
+            <section class="calc-hero" aria-labelledby="loaded-price-title">
+              <div class="calc-quote">
+                <span class="calc-hero__label" id="loaded-price-title">Cota încărcată</span>
+                <strong class="calc-hero__odds" id="calc-odds">—</strong>
+                <p class="calc-hero__meta">Selectează o cotă din pagina Piețe sau un candidat din pagina Valoare.</p>
+              </div>
+              <div class="calc-context">
+                <span class="section-code">Position / current</span>
+                <p class="calc-context__event" id="calc-context">Nicio selecție încărcată.</p>
+                <div class="calc-controls">
+                  <label class="field-block" for="calc-stake"><span>Miză RON</span><input id="calc-stake" type="number" value="100" min="0" step="10"></label>
+                  <label class="field-block" for="calc-bankroll"><span>Bankroll RON</span><input id="calc-bankroll" type="number" value="1000" min="0" step="100"></label>
+                </div>
+                <div class="quick-stakes" aria-label="Mize rapide">
+                  <button class="chip-button qs-btn" type="button" data-stake="50">50</button>
+                  <button class="chip-button qs-btn" type="button" data-stake="100">100</button>
+                  <button class="chip-button qs-btn" type="button" data-stake="250">250</button>
+                  <button class="chip-button qs-btn" type="button" data-stake="500">500</button>
+                </div>
+                <button class="primary-button" id="calc-save" type="button" disabled>Salvează în jurnal</button>
+              </div>
+            </section>
+
+            <div class="calc-grid">
+              <section class="calc-card" id="calc-prob-section">
+                <header class="calc-card__head"><div><span class="calc-card__index">01</span><h2>Probabilitate</h2></div></header>
+                <div class="stat-list" id="calc-prob-output"><div><span>Probabilitate implicită</span><strong>—</strong></div></div>
+              </section>
+
+              <section class="calc-card" id="calc-kelly-section">
+                <header class="calc-card__head"><div><span class="calc-card__index">02</span><h2>Kelly plafonat</h2></div></header>
+                <div class="stat-list" id="calc-kelly-output"><div><span>Fracție recomandată</span><strong>—</strong></div></div>
+              </section>
+
+              <section class="calc-card" id="calc-dutch-section">
+                <header class="calc-card__head"><div><span class="calc-card__index">03</span><h2>Dutching</h2></div></header>
+                <label class="field-block" for="dutch-stake"><span>Miză totală RON</span><input id="dutch-stake" type="number" value="100" min="0" step="10"></label>
+                <div id="dutch-legs"></div>
+                <div class="calc-card__actions"><button class="ghost-button" id="dutch-add-leg" type="button">Adaugă cotă</button><button class="text-button" id="dutch-clear" type="button">Golește</button></div>
+                <div class="summary-list" id="dutch-summary"><div><span>Randament garantat</span><strong>—</strong></div></div>
+              </section>
+
+              <section class="calc-card" id="calc-arb-section">
+                <header class="calc-card__head"><div><span class="calc-card__index">04</span><h2>Verificare 1–X–2</h2></div></header>
+                <div class="three-col">
+                  <label class="field-block" for="arb-odds-1"><span>Cota 1</span><input id="arb-odds-1" type="number" value="2.80" min="1.01" step="0.01"></label>
+                  <label class="field-block" for="arb-odds-2"><span>Cota X</span><input id="arb-odds-2" type="number" value="3.60" min="1.01" step="0.01"></label>
+                  <label class="field-block" for="arb-odds-3"><span>Cota 2</span><input id="arb-odds-3" type="number" value="3.10" min="1.01" step="0.01"></label>
+                </div>
+                <div class="calc-card__actions"><button class="primary-button" id="arb-check-btn" type="button">Verifică formula</button></div>
+                <pre class="result-box" id="arb-check-result" aria-live="polite">Introdu cele trei cote.</pre>
+              </section>
+
+              <section class="calc-card" id="calc-tax-section">
+                <header class="calc-card__head"><div><span class="calc-card__index">05</span><h2>Impozit pe câștig</h2></div></header>
+                <div class="three-col">
+                  <label class="field-block" for="tax-stake"><span>Miză RON</span><input id="tax-stake" type="number" value="100" min="0" step="10"></label>
+                  <label class="field-block" for="tax-odds"><span>Cotă</span><input id="tax-odds" type="number" value="2.00" min="1.01" step="0.01"></label>
+                  <label class="field-block" for="tax-ytd"><span>Câștig YTD</span><input id="tax-ytd" type="number" value="0" min="0" step="100"></label>
+                </div>
+                <pre class="result-box" id="tax-result" aria-live="polite"></pre>
+              </section>
+
+              <section class="calc-card" id="calc-novig-section">
+                <header class="calc-card__head"><div><span class="calc-card__index">06</span><h2>No-vig 1–X–2</h2></div></header>
+                <div id="calc-novig-manual-section" class="three-col">
+                  <label class="field-block" for="novig-odds-1"><span>Cota 1</span><input id="novig-odds-1" type="number" value="2.40" min="1.01" step="0.01"></label>
+                  <label class="field-block" for="novig-odds-x"><span>Cota X</span><input id="novig-odds-x" type="number" value="3.25" min="1.01" step="0.01"></label>
+                  <label class="field-block" for="novig-odds-2"><span>Cota 2</span><input id="novig-odds-2" type="number" value="3.00" min="1.01" step="0.01"></label>
+                </div>
+                <pre class="result-box" id="novig-results" aria-live="polite"></pre>
+              </section>
+
+              <section class="calc-card" id="calc-middle-section">
+                <header class="calc-card__head"><div><span class="calc-card__index">07</span><h2>Fereastră middle</h2></div></header>
+                <div class="four-col">
+                  <label class="field-block" for="mid-over-line"><span>Linie over</span><input id="mid-over-line" type="number" value="2.5" step="0.25"></label>
+                  <label class="field-block" for="mid-over-odds"><span>Cotă over</span><input id="mid-over-odds" type="number" value="2.05" min="1.01" step="0.01"></label>
+                  <label class="field-block" for="mid-under-line"><span>Linie under</span><input id="mid-under-line" type="number" value="3.5" step="0.25"></label>
+                  <label class="field-block" for="mid-under-odds"><span>Cotă under</span><input id="mid-under-odds" type="number" value="2.10" min="1.01" step="0.01"></label>
+                </div>
+                <div class="calc-card__actions"><button class="primary-button" id="mid-check-btn" type="button">Analizează fereastra</button></div>
+                <pre class="result-box" id="mid-result" aria-live="polite"></pre>
+              </section>
+
+              <section class="calc-card" id="calc-conv-section">
+                <header class="calc-card__head"><div><span class="calc-card__index">08</span><h2>Conversie cotă</h2></div></header>
+                <label class="field-block" for="conv-decimal"><span>Cotă zecimală</span><input id="conv-decimal" type="number" value="2.50" min="1.01" step="0.01"></label>
+                <pre class="result-box" id="conv-results" aria-live="polite"></pre>
+              </section>
+
+              <section class="calc-card calc-card--wide" id="calc-autostake-section">
+                <header class="calc-card__head"><div><span class="calc-card__index">09</span><h2>Alocare automată a mizei</h2></div></header>
+                <div class="two-col">
+                  <label class="field-block" for="autostake-bankroll"><span>Bankroll RON</span><input id="autostake-bankroll" type="number" value="1000" min="0" step="100"></label>
+                  <label class="field-block" for="autostake-max-pct"><span>Expunere maximă / poziție</span><span class="input-suffix"><input id="autostake-max-pct" type="number" value="25" min="1" max="100" step="1"><span>%</span></span></label>
+                </div>
+                <div class="calc-card__actions"><button class="primary-button" id="autostake-compute" type="button">Calculează alocarea</button></div>
+                <div class="summary-list" id="autostake-results"><div><span>Încarcă oportunități acționabile pentru o alocare.</span></div></div>
+              </section>
+            </div>
+          </div>
+        </section>
+
+        <!-- 07 / Journal -->
+        <section class="page page--hidden" data-page="journal" aria-hidden="true">
+          <header class="page-header">
+            <div class="page-header__title"><div class="page-kicker"><span class="page-index">07</span><span>registru de poziții</span></div><h1 id="journal-title">Jurnal de poziții</h1></div>
+            <div class="page-header__note"><span class="desk-stamp">Audit trail</span><p>Salvează, filtrează și decontează pozițiile într-un registru local cu rezultat și taxă.</p><div class="page-header__actions"><button class="danger-button" id="journal-clear" type="button">Golește jurnalul</button></div></div>
+          </header>
+          <div class="journal-tools">
+            <label class="field-block" for="journal-search"><span>Căutare</span><input id="journal-search" type="search" placeholder="Eveniment, piață sau selecție"></label>
+            <label class="field-block" for="journal-status-filter"><span>Stare</span><select id="journal-status-filter"><option value="">Toate stările</option><option value="pending">În așteptare</option><option value="won">Câștigat</option><option value="lost">Pierdut</option></select></label>
+            <label class="field-block" for="journal-bookmaker-filter"><span>Casă</span><select id="journal-bookmaker-filter"><option value="">Toate casele</option></select></label>
+            <button class="ghost-button" id="journal-export" type="button">Export CSV</button>
+            <button class="ghost-button" id="journal-import" type="button">Import CSV</button>
+            <input class="sr-only" id="journal-import-file" type="file" accept=".csv,text/csv" tabindex="-1">
+          </div>
+          <div class="card-stack" id="journal-list" aria-live="polite"><div class="state-panel"><div class="state-panel__copy"><span class="state-panel__eyebrow">Registru gol</span><strong>Nicio poziție salvată</strong><span>Trimite o cotă din calculator sau revizuire.</span></div></div></div>
+        </section>
+
+        <!-- 08 / Analytics -->
+        <section class="page page--hidden" data-page="analytics" aria-hidden="true">
+          <header class="page-header">
+            <div class="page-header__title"><div class="page-kicker"><span class="page-index">08</span><span>performanță și risc</span></div><h1 id="analytics-title">Analiza portofoliului</h1></div>
+            <div class="page-header__note"><span class="desk-stamp">After tax</span><p>Rezultatele jurnalului sunt agregate în expunere, profit, ROI, rată de succes și CLV.</p></div>
+          </header>
+          <div class="analytics-summary" id="analytics-summary" aria-live="polite"><div class="state-panel"><div class="state-panel__copy"><strong>Se calculează portofoliul</strong><span>Indicatorii vor fi disponibili după încărcarea jurnalului.</span></div></div></div>
+          <div class="analytics-breakdown" id="analytics-breakdown"></div>
+        </section>
+
+        <!-- 09 / Bookmakers -->
+        <section class="page page--hidden" data-page="bookmakers" aria-hidden="true">
+          <header class="page-header">
+            <div class="page-header__title"><div class="page-kicker"><span class="page-index">09</span><span>registru de surse</span></div><h1 id="bookmakers-title">Acoperire case</h1></div>
+            <div class="page-header__note"><span class="desk-stamp">Source audit</span><p>Vizibilitate asupra adaptoarelor, domeniilor și stării curente pentru fiecare sursă de cote.</p></div>
+          </header>
+          <div class="bookmaker-grid" id="bookmakers-list" aria-live="polite"><div class="state-panel"><div class="state-panel__copy"><strong>Se verifică sursele</strong><span>Acoperirea caselor va apărea după sincronizare.</span></div></div></div>
+        </section>
+      </main>
     </div>
+  </div>
 
-    <!-- Arb Detail Modal -->
-    <div id="arb-modal-overlay" class="modal-overlay" hidden>
-      <div class="modal">
-        <div class="modal__header"><div><h2 id="arb-modal-title">—</h2><div class="muted-line" id="arb-modal-subtitle"></div></div><button id="arb-modal-close" class="ghost-button" type="button">Close</button></div>
-        <div class="modal__body" id="arb-modal-body"></div>
-      </div>
+  <nav class="mobile-nav" aria-label="Navigație mobilă">
+    <button class="mobile-nav__item is-active" type="button" data-nav="scanner" aria-current="page"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 18V8M10 18V4M16 18v-6M22 18H2"></path></svg><span>Scanner</span></button>
+    <button class="mobile-nav__item" type="button" data-nav="value"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 17 9 12l4 3 7-9"></path><path d="M15 6h5v5"></path></svg><span>Valoare</span></button>
+    <button class="mobile-nav__item" type="button" data-nav="ai"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 3v3M5.6 5.6l2.1 2.1M3 12h3M18 12h3M16.3 7.7l2.1-2.1"></path><path d="M8 14a4 4 0 1 1 8 0c0 1.5-1 2.3-2 3v2h-4v-2c-1-.7-2-1.5-2-3Z"></path></svg><span>Revizuire</span></button>
+    <button class="mobile-nav__item" type="button" data-nav="movement"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 15l4-4 4 3 7-8"></path><path d="M15 6h4v4"></path></svg><span>Mișcare</span></button>
+    <button class="mobile-nav__item" type="button" data-nav="matches"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 5h16v14H4zM8 9h8M8 13h5"></path></svg><span>Piețe</span></button>
+    <button class="mobile-nav__item" type="button" data-nav="calculator"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="5" y="3" width="14" height="18" rx="1"></rect><path d="M8 7h8M8 11h2M12 11h2M16 11h.01M8 15h2M12 15h2M16 15h.01"></path></svg><span>Calcul</span></button>
+    <button class="mobile-nav__item" type="button" data-nav="journal"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M6 3h12v18H6zM9 7h6M9 11h6M9 15h4"></path></svg><span>Jurnal</span></button>
+    <button class="mobile-nav__item" type="button" data-nav="analytics"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"></path></svg><span>Analiză</span></button>
+    <button class="mobile-nav__item" type="button" data-nav="bookmakers"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 10h18M5 10v9M9 10v9M15 10v9M19 10v9M2 19h20M12 3l9 4H3l9-4Z"></path></svg><span>Case</span></button>
+  </nav>
+
+  <aside class="bet-slip-drawer" id="bet-slip-drawer" data-open="false" aria-label="Poziții active">
+    <button class="bet-slip-tab" id="bet-slip-toggle" type="button" aria-expanded="false" aria-controls="bet-slip-list" title="Deschide pozițiile active">
+      <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M6 4h12v16H6zM9 8h6M9 12h6"></path></svg>
+      <span class="bet-slip-count" id="bet-slip-count">0</span>
+    </button>
+    <div class="bet-slip-content">
+      <header class="bet-slip-header"><span class="section-code">Positions / live</span><h2>Poziții active</h2></header>
+      <div id="bet-slip-list"><div class="state-panel"><div class="state-panel__copy"><strong>Nicio poziție activă</strong><span>Pozițiile în așteptare vor apărea aici.</span></div></div></div>
     </div>
+  </aside>
 
-    <!-- Toast Container (#9) -->
-    <div id="toast-container" class="toast-container"></div>
-  </body>
+  <div class="modal-overlay" id="arb-modal-overlay" hidden role="presentation">
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="arb-modal-title" aria-describedby="arb-modal-subtitle">
+      <header class="modal__header">
+        <div><span class="section-code">Opportunity / detail</span><h2 id="arb-modal-title">Detalii oportunitate</h2><div class="muted-line" id="arb-modal-subtitle"></div></div>
+        <button class="icon-button" id="arb-modal-close" type="button" aria-label="Închide dialogul">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m6 6 12 12M18 6 6 18"></path></svg>
+        </button>
+      </header>
+      <div class="modal__body" id="arb-modal-body"></div>
+    </section>
+  </div>
+
+  <div class="toast-container" id="toast-container" aria-live="polite" aria-atomic="false"></div>
+
+  <script type="module" src="/js/app.js?v=18"></script>
+</body>
 </html>

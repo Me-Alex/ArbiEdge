@@ -2,7 +2,7 @@
  * Analytics page: performance overview, financials, and breakdown tables.
  */
 
-import { state, $, escapeHtml, formatMoney, formatPct } from '../state.js';
+import { state, $, escapeHtml, formatMoney, formatPct } from '../state.js?v=12';
 
 export function renderAnalytics() {
   if (!state.analytics) return;

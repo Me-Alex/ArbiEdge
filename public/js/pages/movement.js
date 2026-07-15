@@ -2,7 +2,7 @@
  * Movement page: odds price changes between snapshots.
  */
 
-import { state, $, escapeHtml, bookmakerDot } from '../state.js';
+import { state, $, escapeHtml, bookmakerDot } from '../state.js?v=12';
 
 export function renderMovement() {
   if (!state.movement || !state.movement.movements) {

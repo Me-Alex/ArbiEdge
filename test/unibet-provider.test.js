@@ -5,6 +5,7 @@ const {
   UNIBET_CONTEST_PAGE_URL,
   UnibetProvider,
   extractFootballCategoryRns,
+  normalizeUnibetMarkets,
   normalizeUnibetPayload,
 } = require('../src/providers/unibet-provider');
 
@@ -244,6 +245,32 @@ test('enriches Unibet lobby contests with contest-page markets', async () => {
   assert.deepEqual(markets.firstHalfTotalGoals_0_5, { over: 1.42, under: 2.75 });
   assert.deepEqual(markets.drawNoBet, { home: 1.16, away: 4.8 });
   assert.deepEqual(markets.market_total_goluri_home_1_5, { over: 2.15, under: 1.62 });
+});
+
+test('does not normalize missing Unibet total lines as zero-goal totals', () => {
+  const markets = normalizeUnibetMarkets([
+    {
+      propositionType: 'total',
+      status: 'Active',
+      name: 'Total Goluri',
+      options: [
+        { optionDisplayName: 'Peste', total: 0, price: 1.58 },
+        { optionDisplayName: 'Sub', total: 0, price: 2.3 },
+      ],
+    },
+    {
+      propositionType: 'total',
+      status: 'Active',
+      name: 'Total Goluri',
+      options: [
+        { optionDisplayName: 'Peste 2.5', total: 0, price: 1.58 },
+        { optionDisplayName: 'Sub 2.5', total: 0, price: 2.3 },
+      ],
+    },
+  ]);
+
+  assert.equal(markets.totalGoals_0, undefined);
+  assert.deepEqual(markets.totalGoals_2_5, { over: 1.58, under: 2.3 });
 });
 
 test('keeps direct Unibet detail payloads and retries only failed detail URLs in browser', async () => {

@@ -3,20 +3,23 @@
   "version": "2.0.0",
   "private": true,
   "description": "A local football odds dashboard with live API and demo fallback modes.",
-  "main": "src/server.js",
+  "main": "src/index.js",
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "find:formula": "node scripts/find-best-formula.js",
     "screenshot:calc": "node scripts/screenshot-calc.js",
     "test": "npm run test:unit && npm run test:calc",
-    "test:all": "npm run test:syntax && npm test && npm run test:ui",
+    "test:all": "npm run test:syntax && npm run test:functions && npm test && npm run test:ui",
     "test:calc": "node --test scripts/test-calc.js",
+    "test:functions": "node scripts/audit-function-tests.js",
     "test:syntax": "node scripts/check-js-syntax.js",
-    "test:unit": "node --test \"test/*.test.js\"",
+    "test:unit": "node --test \"test/*.test.js\" \"test/**/*.test.js\"",
     "test:ui": "node scripts/ui-smoke.js",
-    "test:watch": "node --test --watch \"test/*.test.js\"",
-    "verify:odds": "node scripts/verify-bookmaker-odds.js"
+    "test:watch": "node --test --watch \"test/*.test.js\" \"test/**/*.test.js\"",
+    "verify:odds": "node scripts/verify-bookmaker-odds.js",
+    "verify:fidelity": "node scripts/verify-odds-fidelity.js",
+    "audit:endpoints": "node scripts/audit-provider-endpoints.js"
   },
   "engines": {
     "node": ">=20"
@@ -24,7 +27,9 @@
   "license": "ISC",
   "dependencies": {
     "express": "^5.2.1",
+    "pg": "^8.16.3",
     "playwright-core": "^1.57.0",
-    "sharp": "^0.35.3"
+    "sharp": "^0.35.3",
+    "ws": "^8.21.0"
   }
 }

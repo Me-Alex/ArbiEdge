@@ -1,0 +1,125 @@
+/*
+ * Arb Desk / Signal Ledger
+ * A warm, editorial operating surface for verified market data.
+ * Version: V1 · 2026-07-14
+ */
+
+:root {
+  color-scheme: light;
+
+  --bg: #ece9e0;
+  --bg-grid: rgba(23, 26, 22, 0.045);
+  --surface: #f7f4eb;
+  --surface-2: #efebe1;
+  --surface-strong: #fffdf7;
+  --surface-inverse: #191b17;
+
+  --text-primary: #181b17;
+  --text-secondary: #50534c;
+  --text-tertiary: #74776f;
+  --text-inverse: #f5f1e7;
+
+  --border: #c9c5b9;
+  --line: var(--border);
+  --border-soft: #ddd8cb;
+  --border-strong: #7f8279;
+
+  --accent: #cf4a32;
+  --accent-hover: #b63b26;
+  --accent-active: #99311f;
+  --accent-on: #fffaf1;
+  --accent-soft: #f2d5cc;
+
+  --profit: #2e7148;
+  --profit-soft: #d9e7dc;
+  --warning: #866019;
+  --warning-soft: #eee2be;
+  --danger: #a7352a;
+  --danger-soft: #eed2cc;
+  --info: #275d9a;
+  --info-soft: #d9e3ef;
+
+  --font-display: "Archivo", "Bahnschrift", "Arial Narrow", sans-serif;
+  --font-body: "IBM Plex Sans", "Aptos", "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+
+  --text-2xs: 0.6875rem;
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.9375rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.375rem;
+  --text-2xl: clamp(1.75rem, 3vw, 2.5rem);
+  --text-display: clamp(2.45rem, 5vw, 4.75rem);
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 7px;
+  --radius-pill: 999px;
+
+  --shadow-float: 0 18px 48px rgba(31, 29, 24, 0.16);
+  --shadow-dialog: 0 32px 88px rgba(20, 20, 16, 0.28);
+  --focus-ring: 0 0 0 3px rgba(207, 74, 50, 0.28);
+
+  --motion-fast: 100ms;
+  --motion-base: 150ms;
+  --motion-enter: 220ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+
+  --sidebar-width: 132px;
+  --topbar-height: 68px;
+  --content-max: 1760px;
+}
+
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #151713;
+  --bg-grid: rgba(239, 235, 222, 0.035);
+  --surface: #1d1f1a;
+  --surface-2: #24261f;
+  --surface-strong: #2a2c24;
+  --surface-inverse: #efebe0;
+
+  --text-primary: #f0ece1;
+  --text-secondary: #bbb8ad;
+  --text-tertiary: #89877f;
+  --text-inverse: #171914;
+
+  --border: rgba(240, 236, 225, 0.16);
+  --line: var(--border);
+  --border-soft: rgba(240, 236, 225, 0.09);
+  --border-strong: rgba(240, 236, 225, 0.42);
+
+  --accent: #e66a50;
+  --accent-hover: #f17a60;
+  --accent-active: #c7543d;
+  --accent-on: #171914;
+  --accent-soft: #472a22;
+
+  --profit: #72b486;
+  --profit-soft: #20392a;
+  --warning: #d6ad54;
+  --warning-soft: #3e341d;
+  --danger: #e27a6e;
+  --danger-soft: #432623;
+  --info: #79a9db;
+  --info-soft: #24364a;
+
+  --shadow-float: 0 18px 50px rgba(0, 0, 0, 0.28);
+  --shadow-dialog: 0 34px 96px rgba(0, 0, 0, 0.52);
+  --focus-ring: 0 0 0 3px rgba(230, 106, 80, 0.36);
+}
+
+html[data-theme="light"] {
+  color-scheme: light;
+}

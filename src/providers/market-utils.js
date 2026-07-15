@@ -98,6 +98,9 @@ function canonicalMarketBase(value) {
     [new RegExp(`^(?:${firstHalf}${separator}${asianGoalTotal}|${asianGoalTotal}${separator}${firstHalf})${overUnder}$`), 'firstHalfAsianTotalGoals'],
     [new RegExp(`^(?:${secondHalf}${separator}${asianGoalTotal}|${asianGoalTotal}${separator}${secondHalf})${overUnder}$`), 'secondHalfAsianTotalGoals'],
     [/^(total_)?(goluri|goals)(_(peste_sub|over_under|over_sub|sub_peste|under_over))?$/, 'totalGoals'],
+    [/^(total_)?(puncte|points)(_(peste_sub|over_under|over_sub|sub_peste|under_over))?$/, 'totalPoints'],
+    [/^(total_)?(jocuri|games)(_(peste_sub|over_under|over_sub|sub_peste|under_over))?$/, 'totalGames'],
+    [/^(total_)?(seturi|sets)(_(peste_sub|over_under|over_sub|sub_peste|under_over))?$/, 'totalSets'],
     [/^(total_(goluri|goals)_(asiatice|asian)|asian_total_(goluri|goals))(_(peste_sub|over_under|over_sub|sub_peste|under_over))?$/, 'asianTotalGoals'],
     [/^(rezultat_)?(pauza|prima_repriza|repriza_1|1st_half|first_half|half_time)(_(rezultat|result|1x2))?$/, 'firstHalfH2h'],
     [/^(rezultat_)?(a_doua_repriza|repriza_a_doua|repriza_2|2nd_half|second_half)(_(rezultat|result|1x2))?$/, 'secondHalfH2h'],
@@ -157,6 +160,9 @@ function canonicalMarketBase(value) {
 function isDirectMarketBase(value) {
   return [
     'totalGoals',
+    'totalPoints',
+    'totalGames',
+    'totalSets',
     'asianTotalGoals',
     'h2h',
     'bothTeamsToScore',

@@ -5,6 +5,8 @@ const {
 
 const DEFAULT_MAX_EVENT_DETAIL_REQUESTS = 20;
 const DEFAULT_EVENT_DETAIL_CONCURRENCY = 2;
+const DEFAULT_SPORT_CONCURRENCY = 3;
+const DEFAULT_MAX_SPORTS = 8;
 
 class ProviderError extends Error {
   constructor(message, options = {}) {
@@ -24,6 +26,10 @@ class TheOddsApiProvider {
     eventMarketKeys = [],
     maxEventDetailRequests = DEFAULT_MAX_EVENT_DETAIL_REQUESTS,
     eventDetailConcurrency = DEFAULT_EVENT_DETAIL_CONCURRENCY,
+    discoverSports = false,
+    sportGroups = [],
+    maxSports = DEFAULT_MAX_SPORTS,
+    sportConcurrency = DEFAULT_SPORT_CONCURRENCY,
     fetchImpl = globalThis.fetch,
     timeoutMs = 8000,
   }) {
@@ -33,7 +39,7 @@ class TheOddsApiProvider {
 
     this.apiKey = apiKey;
     this.name = 'The Odds API';
-    this.sportKeys = sportKeys;
+    this.sportKeys = normalizeList(sportKeys);
     this.regions = normalizeList(regions);
     this.bookmakers = normalizeList(bookmakers);
     this.marketKeys = normalizeList(marketKeys);
@@ -46,23 +52,67 @@ class TheOddsApiProvider {
       eventDetailConcurrency,
       DEFAULT_EVENT_DETAIL_CONCURRENCY,
     );
+    this.discoverSports = Boolean(discoverSports);
+    this.sportGroups = normalizeList(sportGroups);
+    this.maxSports = normalizePositiveInteger(maxSports, DEFAULT_MAX_SPORTS);
+    this.sportConcurrency = normalizePositiveInteger(sportConcurrency, DEFAULT_SPORT_CONCURRENCY);
+    this.lastSportFailures = [];
     this.fetchImpl = fetchImpl;
     this.timeoutMs = timeoutMs;
   }
 
   async getOdds() {
-    const results = await Promise.all(
-      this.sportKeys.map((sportKey) => this.#fetchSport(sportKey)),
+    const sportKeys = await this.#resolveSportKeys();
+    const results = await mapWithConcurrency(
+      sportKeys,
+      this.sportConcurrency,
+      async (sportKey) => {
+        try {
+          return { ok: true, sportKey, events: await this.#fetchSport(sportKey) };
+        } catch (error) {
+          return { ok: false, sportKey, error };
+        }
+      },
     );
+    const successful = results.filter((result) => result.ok);
+    this.lastSportFailures = results
+      .filter((result) => !result.ok)
+      .map((result) => ({ sportKey: result.sportKey, error: result.error.message }));
+    if (successful.length === 0 && results.length > 0) throw results[0].error;
 
     const uniqueEvents = new Map();
-    for (const event of results.flat().map(normalizeEvent).filter(Boolean)) {
+    for (const event of successful.flatMap((result) => result.events).map(normalizeEvent).filter(Boolean)) {
       uniqueEvents.set(event.id, event);
     }
 
     return [...uniqueEvents.values()].sort(
       (left, right) => new Date(left.startsAt) - new Date(right.startsAt),
     );
+  }
+
+  async #resolveSportKeys() {
+    if (!this.discoverSports) return this.sportKeys.slice(0, this.maxSports);
+    const discovered = await this.#fetchActiveSports().catch(() => []);
+    const groups = new Set(this.sportGroups.map(normalizeSportGroup));
+    const matches = discovered
+      .filter((sport) => sport?.active !== false && typeof sport?.key === 'string')
+      .filter((sport) => groups.size === 0
+        || groups.has(normalizeSportGroup(sport.group))
+        || [...groups].some((group) => normalizeSportGroup(sport.key).startsWith(group)))
+      .map((sport) => sport.key);
+    return [...new Set([...this.sportKeys, ...matches])].slice(0, this.maxSports);
+  }
+
+  async #fetchActiveSports() {
+    const url = new URL('https://api.the-odds-api.com/v4/sports/');
+    url.search = new URLSearchParams({ apiKey: this.apiKey, all: 'false' });
+    const response = await this.fetchImpl(url, {
+      headers: { accept: 'application/json' },
+      signal: AbortSignal.timeout(this.timeoutMs),
+    });
+    if (!response.ok) return [];
+    const data = await response.json();
+    return Array.isArray(data) ? data : [];
   }
 
   async #fetchSport(sportKey) {
@@ -180,6 +230,10 @@ function normalizeList(value) {
     .split(',')
     .map((item) => item.trim())
     .filter(Boolean);
+}
+
+function normalizeSportGroup(value) {
+  return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
 }
 
 function normalizePositiveInteger(value, fallback) {
@@ -329,10 +383,11 @@ function normalizeEvent(event) {
     return null;
   }
 
+  const sport = sportFromOddsApiKey(event.sport_key);
   const bookmakers = Array.isArray(event.bookmakers)
     ? event.bookmakers
         .map((bookmaker) =>
-          normalizeBookmaker(bookmaker, event.home_team, event.away_team),
+          normalizeBookmaker(bookmaker, event.home_team, event.away_team, sport),
         )
         .filter(Boolean)
     : [];
@@ -343,8 +398,8 @@ function normalizeEvent(event) {
 
   return {
     id: event.id,
-    sport: 'Football',
-    competition: event.sport_title || event.sport_key || 'Football',
+    sport,
+    competition: event.sport_title || event.sport_key || sport,
     startsAt,
     homeTeam: event.home_team,
     awayTeam: event.away_team,
@@ -352,7 +407,7 @@ function normalizeEvent(event) {
   };
 }
 
-function normalizeBookmaker(bookmaker, homeTeam, awayTeam) {
+function normalizeBookmaker(bookmaker, homeTeam, awayTeam, sport = 'Football') {
   if (!bookmaker || typeof bookmaker.title !== 'string') {
     return null;
   }
@@ -379,6 +434,8 @@ function normalizeBookmaker(bookmaker, homeTeam, awayTeam) {
   const draw = h2hPrices.Draw;
   if ([home, draw, away].every(isDecimalOdds)) {
     markets.h2h = { home, draw, away };
+  } else if ([home, away].every(isDecimalOdds)) {
+    markets.h2h = { home, away };
   }
 
   for (const market of upstreamMarkets.filter((item) =>
@@ -395,7 +452,7 @@ function normalizeBookmaker(bookmaker, homeTeam, awayTeam) {
   for (const market of upstreamMarkets.filter((item) =>
     ['totals', 'alternate_totals'].includes(item?.key),
   )) {
-    const total = normalizeTotalsMarket(market);
+    const total = normalizeTotalsMarket(market, totalMarketPrefixForSport(sport));
     if (total) {
       for (const item of Array.isArray(total) ? total : [total]) {
         markets[item.key] = item.prices;
@@ -466,7 +523,7 @@ function normalizeSpreadMarket(market, homeTeam, awayTeam) {
   return markets.length === 1 ? markets[0] : markets.length ? markets : null;
 }
 
-function normalizeTotalsMarket(market) {
+function normalizeTotalsMarket(market, marketPrefix = 'totalGoals') {
   const grouped = new Map();
   for (const outcome of Array.isArray(market.outcomes) ? market.outcomes : []) {
     if (!isDecimalOdds(outcome?.price) || !Number.isFinite(outcome?.point)) {
@@ -493,7 +550,7 @@ function normalizeTotalsMarket(market) {
       isDecimalOdds(prices.over) && isDecimalOdds(prices.under),
     )
     .map(({ line, prices }) => ({
-      key: `totalGoals_${line.replace('.', '_')}`,
+      key: `${marketPrefix}_${line.replace('.', '_')}`,
       prices,
     }));
   return markets.length === 1 ? markets[0] : markets.length ? markets : null;
@@ -550,8 +607,30 @@ function toIsoDate(value) {
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
+function sportFromOddsApiKey(value) {
+  const key = String(value || '').toLowerCase();
+  if (key.startsWith('basketball_')) return 'Basketball';
+  if (key.startsWith('tennis_')) return 'Tennis';
+  if (key.startsWith('icehockey_')) return 'Ice Hockey';
+  if (key.startsWith('handball_')) return 'Handball';
+  if (key.startsWith('volleyball_')) return 'Volleyball';
+  if (key.startsWith('americanfootball_')) return 'American Football';
+  if (/^(?:esports_|csgo_|dota2_|leagueoflegends_)/.test(key)) return 'eSports';
+  return 'Football';
+}
+
+function totalMarketPrefixForSport(sport) {
+  if (sport === 'Basketball' || sport === 'American Football' || sport === 'Volleyball') {
+    return 'totalPoints';
+  }
+  if (sport === 'Tennis') return 'totalGames';
+  return 'totalGoals';
+}
+
 module.exports = {
   ProviderError,
   TheOddsApiProvider,
   normalizeEvent,
+  sportFromOddsApiKey,
+  totalMarketPrefixForSport,
 };

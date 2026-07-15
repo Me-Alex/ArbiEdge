@@ -7,12 +7,14 @@ const BOOKMAKER_FOOTBALL_URLS = {
   'Casa Pariurilor': 'https://www.casapariurilor.ro/pariuri-online/fotbal',
   CherryBet: 'https://cherrybet.ro/sports',
   EliteSlots: 'https://www.eliteslots.ro/sport',
+  Favbet: 'https://www.favbet.ro/ro/sports/sport/soccer',
   FortunaPalace: 'https://fortunapalace.ro/sports',
   Fortuna: 'https://efortuna.ro/pariuri-online/fotbal',
   GetsBet: 'https://www.getsbet.ro/sports',
   HotSpins: 'https://www.hotspins.ro/sport',
   LadyCasino: 'https://www.ladycasino.ro/sport',
   LasVegas: 'https://www.lasvegas.ro/sport',
+  Manhattan: 'https://www.manhattan.ro/ro/sports/pre-match',
   LuckySeven: 'https://luckyseven.ro/sports',
   MaxBet: 'https://www.maxbet.ro/ro/pariuri-sportive',
   MaxWin: 'https://maxwin.ro/sports',
@@ -22,6 +24,7 @@ const BOOKMAKER_FOOTBALL_URLS = {
   Pacanele: 'https://www.pacanele.ro/sport',
   Prowin: 'https://prowin.ro/sports',
   Superbet: 'https://superbet.ro/pariuri-sportive/fotbal',
+  Spin: 'https://spin.ro/sport',
   Stanleybet: 'https://www.stanleybet.ro/pariuri-sportive/fotbal',
   GameWorld: 'https://www.gameworld.ro/pariuri-sportive/fotbal',
   AdmiralBet: 'https://www.admiralbet.ro/pariuri-sportive/fotbal',
@@ -34,6 +37,7 @@ const BOOKMAKER_FOOTBALL_URLS = {
   VivaBet: 'https://vivabet.ro/sports',
   Winner: 'https://www.winner.ro/sport/fotbal',
   Winbet: 'https://winbet.ro/sports',
+  VictoryBet: 'https://www.victorybet.ro/rv/pre-match',
   888: 'https://www.888.ro/sport',
 };
 
@@ -92,6 +96,17 @@ function egtEventUrl(origin, event) {
   return absoluteEventUrl(
     `/sports/event/${slugPathPart(event.eventPath || event.eventTitle)}-${eventId}`,
     origin,
+  );
+}
+
+function favbetEventUrl(event) {
+  const eventId = event?.event_id || event?.eventId;
+  if (!eventId) {
+    return null;
+  }
+  return absoluteEventUrl(
+    `/ro/sports/event/soccer/${encodeURIComponent(eventId)}`,
+    'https://www.favbet.ro',
   );
 }
 
@@ -253,6 +268,7 @@ module.exports = {
   bookmakerLinkFields,
   digitainEventUrl,
   egtEventUrl,
+  favbetEventUrl,
   getsBetEventUrl,
   netbetEventUrl,
   slugPathPart,

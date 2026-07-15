@@ -1,15 +1,7 @@
 node_modules
-npm-debug.log*
 .git
 .env
-.DS_Store
-coverage
+data
 output
-tmp-*
+npm-debug.log*
 *.local
-.agents
-.codex
-docs
-test
-scripts
-skills-lock.json

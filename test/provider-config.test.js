@@ -13,6 +13,7 @@ const {
   parseBooleanFlag,
   parseCsv,
   parsePositiveInteger,
+  oddsApiSportKeysFromEnv,
   providerOptionsFromEnv,
 } = require('../src/provider-config');
 
@@ -42,16 +43,31 @@ test('default provider config loads every direct bookmaker from the coverage reg
   );
 });
 
+test('expands opt-in sport presets without overriding explicit sport keys', () => {
+  assert.deepEqual(oddsApiSportKeysFromEnv({ ODDS_SPORT_KEYS: 'basketball_nba' }), ['basketball_nba']);
+  const core = oddsApiSportKeysFromEnv({ ODDS_SPORT_KEYS: '', ODDS_SPORT_PRESET: 'core' });
+  assert.ok(core.includes('soccer_fifa_world_cup'));
+  assert.ok(core.includes('basketball_nba'));
+  assert.ok(core.includes('icehockey_nhl'));
+});
+
 test('optional provider config adds Betano and The Odds API when enabled', () => {
   const { configuredProviders, directProviders, liveProviderName } = buildProviderConfig({
     BETANO_BROWSER_ENABLED: '1',
     BETANO_BROWSER_HEADLESS: '0',
+    BETANO_BROWSER_SETTLE_MS: '2500',
+    BETANO_BROWSER_DETAIL_CONCURRENCY: '2',
+    BETANO_BROWSER_MAX_RESPONSE_BYTES: '1048576',
     ODDS_API_KEY: 'test-key',
     ODDS_API_BOOKMAKERS: 'pinnacle,betfair_ex_eu',
     ODDS_API_EVENT_MARKETS: 'btts,alternate_totals',
     ODDS_API_EVENT_DETAIL_CONCURRENCY: '3',
     ODDS_API_MARKETS: 'h2h,totals',
     ODDS_API_MAX_EVENT_DETAIL_REQUESTS_PER_SPORT: '12',
+    ODDS_API_DISCOVER_SPORTS: '1',
+    ODDS_API_SPORT_GROUPS: 'Soccer,Basketball',
+    ODDS_API_MAX_SPORTS: '6',
+    ODDS_API_SPORT_CONCURRENCY: '2',
     ODDS_SPORT_KEYS: 'soccer_a,soccer_b',
   });
   const names = bookmakerNamesForProviders(configuredProviders);
@@ -64,9 +80,16 @@ test('optional provider config adds Betano and The Odds API when enabled', () =>
   assert.equal(configuredProviders.length, directProviders.length + 1);
   assert.equal(betano.eventTarget, 1000);
   assert.equal(betano.transport.maxEvents, 1000);
+  assert.equal(betano.transport.settleMs, 2500);
+  assert.equal(betano.transport.detailConcurrency, 2);
+  assert.equal(betano.transport.maxResponseBytes, 1048576);
   assert.deepEqual(oddsApi.eventMarketKeys, ['btts', 'alternate_totals']);
   assert.equal(oddsApi.maxEventDetailRequests, 12);
   assert.equal(oddsApi.eventDetailConcurrency, 3);
+  assert.equal(oddsApi.discoverSports, true);
+  assert.deepEqual(oddsApi.sportGroups, ['Soccer', 'Basketball']);
+  assert.equal(oddsApi.maxSports, 6);
+  assert.equal(oddsApi.sportConcurrency, 2);
 });
 
 test('parses provider environment options defensively', () => {
@@ -107,6 +130,10 @@ test('parses provider environment options defensively', () => {
   assert.deepEqual(options.oddsApiEventMarketKeys, ['btts', 'alternate_spreads']);
   assert.equal(options.oddsApiMaxEventDetailRequests, 12);
   assert.equal(options.oddsApiEventDetailConcurrency, 3);
+  assert.equal(options.oddsApiDiscoverSports, false);
+  assert.deepEqual(options.oddsApiSportGroups, []);
+  assert.equal(options.oddsApiMaxSports, 8);
+  assert.equal(options.oddsApiSportConcurrency, 3);
   assert.equal(options.unibetDetailLimit, 1200);
   assert.equal(options.unibetRequestConcurrency, 12);
   assert.equal(options.xsportLookaheadDays, 180);

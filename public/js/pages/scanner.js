@@ -1,82 +1,281 @@
 /**
- * Scanner page: arbitrage opportunity rendering, arb change detection,
- * CSV export, and arb history display.
+ * Accuracy-first scanner: queue rendering, evidence display, market filters,
+ * CSV export, and the recent scan ledger.
  */
 
-import { state, renderRegistry, $, escapeHtml, formatTime, formatPct, formatMoney, bookmakerDot, arbId } from '../state.js';
-import { openArbModal, toast, logActivity } from '../ui-common.js';
-import { getFilteredOpportunities } from '../state.js';
-import { csvEscape } from '../state.js';
+import {
+  state, renderRegistry, $, $$, escapeHtml, formatTime, formatPct, bookmakerDot, arbId,
+  MARKET_TYPES, areAllMarketTypesSelected, classifyOpportunityMarketType, getScannerMarketTypeCounts,
+  getScannerTabBaseOpportunities, getScannerTabOpportunities, getScannerTabCounts,
+  getSelectedMarketTypes, csvEscape,
+} from '../state.js?v=12';
+import {
+  buildScannerCsvRows,
+  getOpportunityEligibility,
+  getOpportunityVerificationStatuses,
+  getScannerTabName,
+} from '../scanner-filters.js?v=12';
+import { openArbModal, toast } from '../ui-common.js?v=12';
+
+const QUEUE_LABELS = {
+  actionable: 'Actionable',
+  review: 'Review',
+  rejected: 'Rejected',
+  analysis: 'Analysis only',
+};
+
+const EVIDENCE_LABELS = {
+  verified: 'Verified',
+  mismatch: 'Mismatch',
+  not_found: 'Not found',
+  unverifiable: 'Unverifiable',
+  ambiguous: 'Ambiguous',
+  stale: 'Stale',
+  partial: 'Partial',
+  unverified: 'Unverified',
+};
+
+function renderScannerOverview() {
+  const overview = $('#scanner-overview');
+  if (!overview) return;
+  const counts = getScannerTabCounts();
+  const candidateCount = counts.actionable + counts.review + counts.rejected;
+  const items = [
+    { key: 'candidates', label: 'Formula candidates', value: candidateCount, hint: 'After schema validation' },
+    { key: 'actionable', label: 'Actionable', value: counts.actionable, hint: 'Verified and cross-book' },
+    { key: 'review', label: 'Needs evidence', value: counts.review, hint: 'Blocked until verified' },
+    { key: 'rejected', label: 'Rejected', value: counts.rejected, hint: 'Structural or fidelity failure' },
+  ];
+  overview.innerHTML = items.map((item) => `
+    <article class="scanner-metric scanner-metric--${item.key}">
+      <span>${escapeHtml(item.label)}</span>
+      <strong>${item.value}</strong>
+      <small>${escapeHtml(item.hint)}</small>
+    </article>`).join('');
+}
+
+function renderScannerTabs() {
+  const counts = getScannerTabCounts();
+  $$('.scanner-tab').forEach((button) => {
+    const tab = button.dataset.scannerTab;
+    const active = tab === state.scannerTab;
+    button.classList.toggle('is-active', active);
+    button.setAttribute('aria-selected', active ? 'true' : 'false');
+    const count = button.querySelector('.scanner-tab-count');
+    if (count) count.textContent = String(counts[tab] || 0);
+  });
+}
+
+function renderMarketFilter() {
+  const options = $('#market-filter-options');
+  const summary = $('#market-filter-summary');
+  const toggle = $('#market-filter-toggle');
+  const menu = $('#market-filter-menu');
+  if (!options || !summary) return;
+
+  const selected = getSelectedMarketTypes();
+  const counts = getScannerMarketTypeCounts();
+  summary.textContent = areAllMarketTypesSelected()
+    ? 'All'
+    : selected.size === 0
+      ? 'None'
+      : `${selected.size} selected`;
+  if (toggle && menu) toggle.setAttribute('aria-expanded', menu.hidden ? 'false' : 'true');
+
+  options.innerHTML = MARKET_TYPES.map((type) => `
+    <label class="market-filter__option">
+      <input type="checkbox" data-market-type="${escapeHtml(type.key)}" ${selected.has(type.key) ? 'checked' : ''}>
+      <span class="market-filter__label">${escapeHtml(type.label)}</span>
+      <span class="market-filter__count">${counts[type.key] || 0}</span>
+    </label>
+  `).join('');
+}
+
+function renderEmptyScanner(list, baseOpps) {
+  const tab = state.scannerTab;
+  const filteredOut = baseOpps.length > 0 && !areAllMarketTypesSelected();
+  const copy = {
+    actionable: {
+      eyebrow: 'Safety gate clear',
+      title: 'No verified arbitrage is actionable',
+      body: 'Candidates stay out of this queue until every leg is verified, cross-book, schema-safe, and below the edge ceiling.',
+    },
+    review: {
+      eyebrow: 'Evidence queue clear',
+      title: 'No candidates need verification',
+      body: 'Refresh the feed to check for new candidates with missing, stale, or ambiguous evidence.',
+    },
+    rejected: {
+      eyebrow: 'Audit queue clear',
+      title: 'No rejected candidates match',
+      body: 'Rejected signals include same-book pricing, failed evidence, unsupported settlement, and edge outliers.',
+    },
+    middles: {
+      eyebrow: 'Analysis queue clear',
+      title: 'No middle windows match',
+      body: 'Middles are tracked separately because their upside window is not a guaranteed arbitrage.',
+    },
+  }[tab];
+  const body = filteredOut
+    ? 'No signals matched the selected market types. Widen the market filter to continue.'
+    : copy.body;
+  list.innerHTML = `<div class="state-panel scanner-empty"><div class="state-panel__copy"><span class="state-panel__eyebrow">${escapeHtml(copy.eyebrow)}</span><strong>${escapeHtml(copy.title)}</strong><span>${escapeHtml(body)}</span></div></div>`;
+}
+
+function evidenceClass(status) {
+  if (status === 'verified') return 'evidence-badge--verified';
+  if (['mismatch', 'not_found', 'unverifiable'].includes(status)) return 'evidence-badge--failed';
+  return 'evidence-badge--review';
+}
+
+function renderLeg(leg) {
+  const status = String(leg.verificationStatus || 'unverified').toLowerCase();
+  const bookmaker = leg.url
+    ? `<a href="${escapeHtml(leg.url)}" target="_blank" rel="noopener" class="leg-link">${bookmakerDot(leg.bookmaker)}${escapeHtml(leg.bookmaker)}</a>`
+    : `<span class="leg-bookmaker">${bookmakerDot(leg.bookmaker)}${escapeHtml(leg.bookmaker)}</span>`;
+  return `
+    <li>
+      <span class="leg-label">${escapeHtml(leg.label)}</span>
+      ${bookmaker}
+      <strong class="leg-price">${Number(leg.price).toFixed(2)}</strong>
+      <span class="evidence-badge ${evidenceClass(status)}">${escapeHtml(EVIDENCE_LABELS[status] || status)}</span>
+    </li>`;
+}
+
+function renderReasons(opportunity, eligibility) {
+  if (eligibility === 'actionable') {
+    const verified = Number(opportunity.verifiedLegCount || opportunity.legs?.length || 0);
+    return `<div class="scanner-verdict scanner-verdict--actionable"><strong>Passed safety gate</strong><span>${verified} verified legs · cross-book · approved market structure</span></div>`;
+  }
+  const reasons = opportunity.eligibilityReasons?.length
+    ? opportunity.eligibilityReasons
+    : ['Evidence is incomplete. This candidate cannot be treated as actionable.'];
+  return `
+    <div class="scanner-verdict scanner-verdict--${eligibility}">
+      <strong>${eligibility === 'rejected' ? 'Blocked by scanner' : eligibility === 'analysis' ? 'Analysis only' : 'Action blocked'}</strong>
+      <ul>${reasons.map((reason) => `<li>${escapeHtml(reason)}</li>`).join('')}</ul>
+    </div>`;
+}
+
+function renderOpportunityCard(opportunity) {
+  const id = arbId(opportunity);
+  const marketType = classifyOpportunityMarketType(opportunity);
+  const eligibility = getOpportunityEligibility(opportunity);
+  const isPinned = state.pinnedArbs.has(id);
+  const article = document.createElement('article');
+  article.className = `arb-card arb-card--${eligibility}${isPinned ? ' arb-card--pinned' : ''}`;
+  article.dataset.opportunityType = opportunity.type || '';
+  article.dataset.marketType = marketType;
+  article.dataset.eligibility = eligibility;
+
+  const isMiddle = eligibility === 'analysis';
+  const profitLabel = eligibility === 'actionable'
+    ? 'Guaranteed profit / 100 RON'
+    : isMiddle ? 'Model result / 100 RON' : 'Unverified model profit / 100 RON';
+  const primaryLabel = eligibility === 'actionable'
+    ? 'Review stakes'
+    : isMiddle ? 'Inspect middle' : 'Inspect evidence';
+
+  article.innerHTML = `
+    <div class="arb-card__top">
+      <div>
+        <div class="arb-card__heading-line">
+          <h2 class="arb-card__title">${escapeHtml(opportunity.eventName)}</h2>
+          <span class="queue-pill queue-pill--${eligibility}">${escapeHtml(QUEUE_LABELS[eligibility])}</span>
+        </div>
+        <div class="muted-line">${escapeHtml(opportunity.marketLabel || opportunity.marketKey)} · ${escapeHtml(opportunity.competition || '')}</div>
+      </div>
+      <div class="verification-summary" aria-label="Verification summary">
+        <strong>${Number(opportunity.verifiedLegCount || 0)}/${Number(opportunity.legCount || opportunity.legs?.length || 0)}</strong>
+        <span>legs verified</span>
+      </div>
+    </div>
+    <ol class="legs-list">${(opportunity.legs || []).map(renderLeg).join('')}</ol>
+    <div class="arb-card__signal">
+      <div class="value-card__metric"><span>Model edge</span><strong>${formatPct(opportunity.edge)}</strong></div>
+      <div class="value-card__metric"><span>${escapeHtml(profitLabel)}</span><strong class="${eligibility === 'actionable' ? 'arb-card__profit' : ''}">${Number(opportunity.profit) >= 0 ? '+' : ''}${Number(opportunity.profit).toFixed(2)} RON</strong></div>
+      <div class="value-card__metric"><span>Bookmakers</span><strong>${opportunity.sameBook ? '1 · blocked' : new Set((opportunity.legs || []).map((leg) => leg.bookmaker)).size}</strong></div>
+    </div>
+    ${renderReasons(opportunity, eligibility)}
+    <div class="arb-card__footer">
+      <button class="${eligibility === 'actionable' ? 'primary-button' : 'ghost-button'} arb-detail-btn" type="button">${primaryLabel}</button>
+      <button class="ghost-button arb-pin-btn" type="button">${isPinned ? 'Pinned' : 'Pin for review'}</button>
+    </div>`;
+
+  article.querySelector('.arb-detail-btn').addEventListener('click', (event) => openArbModal(opportunity, event.currentTarget));
+  article.querySelector('.arb-pin-btn').addEventListener('click', () => {
+    if (state.pinnedArbs.has(id)) {
+      state.pinnedArbs.delete(id);
+      toast('Signal unpinned');
+    } else {
+      state.pinnedArbs.add(id);
+      toast('Signal pinned for review');
+    }
+    renderRegistry.scanner();
+  });
+  return article;
+}
 
 export function renderScanner() {
   const list = $('#scanner-list');
-  const opps = getFilteredOpportunities();
+  if (!list) return;
+  renderScannerOverview();
+  renderScannerTabs();
+  renderMarketFilter();
+  const baseOpps = getScannerTabBaseOpportunities();
+  const opportunities = getScannerTabOpportunities();
   list.innerHTML = '';
-  if (opps.length === 0) {
-    list.innerHTML = '<div class="state-panel">No arbitrage opportunities matched the current filter. Try lowering the min edge or refreshing.</div>';
+  if (opportunities.length === 0) {
+    renderEmptyScanner(list, baseOpps);
     return;
   }
-  opps.forEach((opp) => {
-    const id = arbId(opp);
-    const isPinned = state.pinnedArbs.has(id);
-    const cc = opp.confidence === 'trusted' ? 'pill--good' : opp.confidence === 'risky' ? 'pill--warn' : '';
-    const legs = (opp.legs || []).map((leg) => {
-      const url = leg.url || '';
-      const link = url
-        ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="leg-link">${bookmakerDot(leg.bookmaker)} ${escapeHtml(leg.bookmaker)}</a>`
-        : `${bookmakerDot(leg.bookmaker)} ${escapeHtml(leg.bookmaker)}`;
-      return `<li>${escapeHtml(leg.label)} - ${link} @ ${Number(leg.price).toFixed(2)}</li>`;
-    }).join('');
-    const article = document.createElement('article');
-    article.className = `arb-card${isPinned ? ' arb-card--pinned' : ''}`;
-    article.innerHTML = `
-      <div class="arb-card__top"><div><h2 class="arb-card__title">${escapeHtml(opp.eventName)}</h2><div class="muted-line">${escapeHtml(opp.marketLabel || opp.marketKey)} · ${escapeHtml(opp.competition || '')}</div></div><span class="pill ${cc}">${escapeHtml(opp.confidence || 'review')}</span></div>
-      <div class="value-card__metric"><span>Edge</span><strong>${formatPct(opp.edge)}</strong></div>
-      <div class="value-card__metric"><span>Profit on 100 RON</span><strong class="arb-card__profit">+${Number(opp.profit).toFixed(2)} RON</strong></div>
-      <ol class="legs-list">${legs}</ol>
-      <div class="arb-card__footer">
-        <button class="ghost-button arb-detail-btn" type="button">Details</button>
-        <button class="ghost-button arb-pin-btn" type="button">${isPinned ? 'Pinned' : 'Pin'}</button>
-      </div>`;
-    article.querySelector('.arb-detail-btn').addEventListener('click', () => openArbModal(opp));
-    article.querySelector('.arb-pin-btn').addEventListener('click', () => {
-      if (state.pinnedArbs.has(id)) { state.pinnedArbs.delete(id); toast('Arb unpinned'); }
-      else { state.pinnedArbs.add(id); toast('Arb pinned'); }
+
+  opportunities.slice(0, state.scannerVisibleLimit).forEach((opportunity) => {
+    list.appendChild(renderOpportunityCard(opportunity));
+  });
+
+  if (opportunities.length > state.scannerVisibleLimit) {
+    const remaining = opportunities.length - state.scannerVisibleLimit;
+    const button = document.createElement('button');
+    button.className = 'ghost-button scanner-load-more';
+    button.type = 'button';
+    button.textContent = `Show next ${Math.min(50, remaining)} · ${remaining} remaining`;
+    button.addEventListener('click', () => {
+      state.scannerVisibleLimit += 50;
       renderRegistry.scanner();
     });
+    list.appendChild(button);
+  }
+}
+
+export function renderArbHistory() {
+  const list = $('#arb-history-list');
+  if (!list) return;
+  if (!state.arbHistory?.records?.length) {
+    list.innerHTML = '<div class="state-panel"><div class="state-panel__copy"><strong>No scans logged yet</strong><span>Refresh the scanner to start the session ledger.</span></div></div>';
+    return;
+  }
+  list.innerHTML = '';
+  state.arbHistory.records.forEach((record) => {
+    const article = document.createElement('article');
+    article.className = 'arb-card';
+    article.innerHTML = `
+      <div class="arb-card__top"><div><h2 class="arb-card__title">${record.count} ${record.count === 1 ? 'signal' : 'signals'}</h2><div class="muted-line">${formatTime(record.loggedAt)}</div></div></div>
+      ${(record.opportunities || []).slice(0, 5).map((opportunity) => `<div class="muted-line">${escapeHtml(opportunity.eventName)} · ${formatPct(opportunity.edge)} · ${escapeHtml(opportunity.marketLabel || opportunity.marketKey)} · ${(opportunity.legs || []).map((leg) => `${escapeHtml(leg.label)} @ ${escapeHtml(leg.bookmaker)}`).join(', ')}</div>`).join('')}`;
     list.appendChild(article);
   });
 }
 
-export function renderArbHistory() {
-  const l = $('#arb-history-list');
-  if (!state.arbHistory || !state.arbHistory.records || state.arbHistory.records.length === 0) {
-    l.innerHTML = '<div class="state-panel">No arb history yet. Opportunities are logged when you refresh the scanner.</div>';
-    return;
-  }
-  l.innerHTML = '';
-  state.arbHistory.records.forEach((r) => {
-    const a = document.createElement('article');
-    a.className = 'arb-card';
-    a.innerHTML = `<div class="arb-card__top"><div><h2 class="arb-card__title">${r.count} opportunity${r.count === 1 ? '' : 'ies'}</h2><div class="muted-line">${formatTime(r.loggedAt)}</div></div></div>${(r.opportunities || []).slice(0, 5).map((o) => `<div class="muted-line">${escapeHtml(o.eventName)} · ${formatPct(o.edge)} · ${escapeHtml(o.marketLabel || o.marketKey)} · ${(o.legs || []).map((l) => `${escapeHtml(l.label)}@${escapeHtml(l.bookmaker)}`).join(', ')}</div>`).join('')}`;
-    l.appendChild(a);
-  });
-}
-
 export async function exportCsv() {
-  const response = await fetch(`/api/opportunities?minEdge=${encodeURIComponent(state.minEdge)}&sort=edge`);
-  if (!response.ok) return;
-  const payload = await response.json();
-  const rows = [['Event', 'Market', 'Edge', 'Profit', 'Legs']];
-  (payload.opportunities || []).forEach((o) => rows.push([
-    o.eventName || '', o.marketLabel || o.marketKey || '', `${(Number(o.edge) * 100).toFixed(1)}%`,
-    Number(o.profit || 0).toFixed(2), (o.legs || []).map((l) => `${l.label}@${l.bookmaker}`).join(' | '),
-  ]));
-  const csv = rows.map((r) => r.map(csvEscape).join(',')).join('\n');
+  const rows = buildScannerCsvRows(getScannerTabOpportunities());
+  const csv = rows.map((row) => row.map(csvEscape).join(',')).join('\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = 'surebets.csv';
-  document.body.appendChild(a); a.click(); a.remove();
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = `scanner-${getScannerTabName(state.scannerTab)}.csv`;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
   URL.revokeObjectURL(url);
 }

@@ -396,11 +396,22 @@ function normalizeGetsBetMarket(market, selections, match) {
   }
 
   if (bettingTypeId === '47' && label.includes('total peste sub')) {
-    return lineMarket(lineBaseKey(market, 'totalGoals', 'asianTotalGoals'), selections, market);
+    return lineMarket(periodLineBaseKey(market, label, {
+      fulltime: ['totalGoals', 'asianTotalGoals'],
+      firstHalf: ['firstHalfTotalGoals', 'firstHalfAsianTotalGoals'],
+      secondHalf: ['secondHalfTotalGoals', 'secondHalfAsianTotalGoals'],
+    }), selections, market);
   }
 
   if (label.includes('cornere peste sub')) {
-    return lineMarket('totalCorners', selections, market);
+    if (teamSideFromMarket(market, match)) {
+      return genericGetsBetMarket(market, selections, match);
+    }
+    return lineMarket(periodLineBaseKey(market, label, {
+      fulltime: ['totalCorners', 'asianTotalCorners'],
+      firstHalf: ['firstHalfTotalCorners', 'firstHalfAsianTotalCorners'],
+      secondHalf: ['secondHalfTotalCorners', 'secondHalfAsianTotalCorners'],
+    }), selections, market);
   }
 
   if (bettingTypeId === '77' && label.includes('total peste sub')) {
@@ -468,9 +479,25 @@ function lineMarket(baseKey, selections, market) {
   };
 }
 
+function periodLineBaseKey(market, label, bases) {
+  const period = periodFromMarketLabel(label);
+  const [regularKey, asianKey] = bases[period] || bases.fulltime;
+  return lineBaseKey(market, regularKey, asianKey);
+}
+
 function lineBaseKey(market, regularKey, asianKey) {
   const line = numericLine(market.paramFloat1 ?? market.paramFloat2);
   return Number.isFinite(line) && isHalfLine(line) ? regularKey : asianKey;
+}
+
+function periodFromMarketLabel(label) {
+  if (/\b(prima repriza|repriza 1|repriza i|pauza|first half|1st half|half time)\b/.test(label)) {
+    return 'firstHalf';
+  }
+  if (/\b(a doua repriza|repriza a doua|repriza 2|repriza ii|second half|2nd half)\b/.test(label)) {
+    return 'secondHalf';
+  }
+  return 'fulltime';
 }
 
 function handicapMarkets(baseKey, selections) {

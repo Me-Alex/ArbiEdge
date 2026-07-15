@@ -3,9 +3,9 @@
  * middle bets, odds converter, and auto-stake allocation.
  */
 
-import { state, renderRegistry, $, $$, escapeHtml, formatMoney, formatPct, gcd } from '../state.js';
-import { toast } from '../ui-common.js';
-import { TAX_THRESHOLD_RON, TAX_RATE } from '../state.js';
+import { state, renderRegistry, $, $$, escapeHtml, formatMoney, formatPct, gcd } from '../state.js?v=12';
+import { toast } from '../ui-common.js?v=12';
+import { TAX_THRESHOLD_RON, TAX_RATE } from '../state.js?v=12';
 
 export function loadSelectionIntoCalculator(s) {
   state.selectedOdds = { ...s, stake: Number($('#calc-stake').value || 100) };
@@ -58,9 +58,11 @@ export function renderAutoStake() {
   const br = Number($('#autostake-bankroll').value || 0);
   const mp = Number($('#autostake-max-pct').value || 25) / 100;
   const mx = br * mp;
-  const os = state.opportunities.filter((o) => o.edge > 0).slice(0, 20);
+  const os = state.opportunities
+    .filter((opportunity) => opportunity.eligibility === 'actionable' && opportunity.edge > 0)
+    .slice(0, 20);
   const out = $('#autostake-results');
-  if (os.length === 0 || br <= 0) { out.innerHTML = '<div><span>Enter bankroll and ensure opportunities are loaded.</span></div>'; return; }
+  if (os.length === 0 || br <= 0) { out.innerHTML = '<div><span>Enter a bankroll and ensure verified actionable opportunities are loaded.</span></div>'; return; }
   const te = os.reduce((s, o) => s + o.edge, 0);
   if (te <= 0) { out.innerHTML = '<div><span>No positive-edge opportunities.</span></div>'; return; }
   let al = 0;

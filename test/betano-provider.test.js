@@ -1,7 +1,14 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { BetanoProvider } = require('../src/providers/betano-provider');
+const {
+  BetanoProvider,
+  isActiveBetanoMarket,
+  isActiveBetanoSelection,
+  normalizeBetanoEvent,
+  resolveBetanoTeams,
+  teamNamesCompatible,
+} = require('../src/providers/betano-provider');
 
 test('normalizes browser-collected Betano markets', async () => {
   const provider = new BetanoProvider({
@@ -150,4 +157,40 @@ test('reports an unavailable browser session when Betano returns no events', asy
   });
 
   await assert.rejects(provider.getOdds(), /no events/i);
+});
+
+test('Betano normalization rejects contradictory team identity and inactive markets', () => {
+  assert.equal(teamNamesCompatible('Paris SG', 'Paris SG'), true);
+  assert.equal(teamNamesCompatible('Paris', 'Paris SG'), true);
+  assert.equal(teamNamesCompatible('Paris', 'London'), false);
+  assert.deepEqual(resolveBetanoTeams({
+    name: 'Paris - London',
+    homeTeam: 'Paris',
+    awayTeam: 'London',
+  }), ['Paris', 'London']);
+  assert.deepEqual(resolveBetanoTeams({
+    name: 'Paris - London',
+    homeTeam: 'Madrid',
+    awayTeam: 'Rome',
+  }), []);
+  assert.equal(isActiveBetanoMarket({ suspended: true }), false);
+  assert.equal(isActiveBetanoMarket({ status: 'open' }), true);
+  assert.equal(isActiveBetanoSelection({ active: false }), false);
+  assert.equal(isActiveBetanoSelection({ status: 'open' }), true);
+
+  const event = normalizeBetanoEvent({
+    id: 'blocked-market',
+    name: 'Paris - London',
+    startTime: '2027-01-15T08:00:00Z',
+    markets: [{
+      type: 'MRES',
+      suspended: true,
+      selections: [
+        { name: '1', price: 2.1 },
+        { name: 'X', price: 3.2 },
+        { name: '2', price: 3.6 },
+      ],
+    }],
+  }, '2026-07-14T12:00:00Z');
+  assert.equal(event, null);
 });

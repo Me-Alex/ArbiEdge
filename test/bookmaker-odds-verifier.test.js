@@ -34,7 +34,7 @@ test('selectCandidate picks a bookmaker event with matching market prices', () =
     homeTeam: 'Elfsborg',
     awayTeam: 'Hammarby',
     competition: 'Sweden Allsvenskan',
-    startsAt: '2026-07-10T17:00:00Z',
+    startsAt: '2026-07-20T17:00:00Z',
     bookmakers: [
       {
         name: 'GetsBet',
@@ -123,4 +123,19 @@ test('collectPriceChecks prioritizes h2h when no market filter is provided', () 
   });
 
   assert.deepEqual(checks.map((check) => check.marketKey), ['h2h', 'h2h']);
+});
+
+test('collectPriceChecks accepts comma-separated market filters', () => {
+  const checks = collectPriceChecks({
+    markets: {
+      totalCards_4_5: { over: 2.5, under: 1.55 },
+      h2h: { home: 2.1, draw: 3.2, away: 3.4 },
+      totalGoals_2_5: { over: 1.8, under: 2.05 },
+    },
+  }, {
+    marketFilter: 'totalGoals,totalCorners',
+    maxPrices: 4,
+  });
+
+  assert.deepEqual(checks.map((check) => check.marketKey), ['totalGoals_2_5', 'totalGoals_2_5']);
 });

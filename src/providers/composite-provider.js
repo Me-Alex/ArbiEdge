@@ -1,30 +1,79 @@
+const { annotateFeedGroups } = require('./feed-groups');
+const { stampQuoteMetadata } = require('../core/quote-metadata');
+
 class CompositeProvider {
-  constructor(providers, { name = 'Romanian bookmakers' } = {}) {
+  constructor(providers, {
+    name = 'Romanian bookmakers',
+    now = () => new Date(),
+    concurrency = 2,
+    progressEvery = 4,
+  } = {}) {
     this.name = name;
     this.providers = providers.filter(Boolean);
+    this.now = now;
+    this.concurrency = positiveInteger(concurrency, 2);
+    this.progressEvery = positiveInteger(progressEvery, 4);
   }
 
   async getOdds() {
-    const settled = await Promise.all(this.providers.map(collectProviderResult));
-    return compositeResult(settled, this.providers.length);
+    const merged = [];
+    const statuses = new Array(this.providers.length);
+
+    for (let start = 0; start < this.providers.length; start += this.concurrency) {
+      const batch = this.providers.slice(start, start + this.concurrency);
+      const results = await Promise.all(
+        batch.map((provider) => collectProviderResult(provider, { now: this.now })),
+      );
+      for (const [offset, result] of results.entries()) {
+        statuses[start + offset] = result.status;
+        mergeEventsInto(merged, result.events);
+        result.events.length = 0;
+      }
+    }
+
+    return compositeResultFromMerged(merged, statuses, this.providers.length);
   }
 
   async *getOddsProgress() {
     const pending = new Map();
-    const settled = new Array(this.providers.length);
+    const statuses = new Array(this.providers.length);
+    const merged = [];
+    let nextIndex = 0;
+    let done = 0;
 
-    for (const [index, provider] of this.providers.entries()) {
+    const startNext = () => {
+      if (nextIndex >= this.providers.length) return;
+      const index = nextIndex;
+      const provider = this.providers[index];
+      nextIndex += 1;
       let promise;
-      promise = collectProviderResult(provider).then((result) => ({ index, promise, result }));
+      promise = collectProviderResult(provider, { now: this.now })
+        .then((result) => ({ index, promise, result }));
       pending.set(promise, promise);
+    };
+
+    while (pending.size < this.concurrency && nextIndex < this.providers.length) {
+      startNext();
     }
 
     while (pending.size > 0) {
       const { index, promise, result } = await Promise.race(pending.values());
       pending.delete(promise);
-      settled[index] = result;
-      yield compositeResult(settled.filter(Boolean), this.providers.length, {
+      statuses[index] = result.status;
+      mergeEventsInto(merged, result.events);
+      result.events.length = 0;
+      done += 1;
+      startNext();
+      if (
+        done !== 1
+        && done < this.providers.length
+        && done % this.progressEvery !== 0
+      ) {
+        continue;
+      }
+      yield compositeResultFromMerged(merged, statuses, this.providers.length, {
         includeProgress: true,
+        done,
       });
     }
   }
@@ -54,7 +103,7 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function collectProviderResult(provider) {
+async function collectProviderResult(provider, { now = () => new Date() } = {}) {
   const startedAt = performanceNow();
   const maxAttempts = RETRY_DELAYS_MS.length + 1;
   let lastError;
@@ -62,9 +111,14 @@ async function collectProviderResult(provider) {
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
       const events = await provider.getOdds();
+      const stampedEvents = stampQuoteMetadata(events, {
+        observedAt: now(),
+        provider: provider.name,
+        clone: 'shallow',
+      });
       return {
-        status: providerStatus(provider, true, events.length, null, elapsedMs(startedAt)),
-        events,
+        status: providerStatus(provider, true, stampedEvents.length, null, elapsedMs(startedAt)),
+        events: stampedEvents,
       };
     } catch (error) {
       lastError = error;
@@ -83,18 +137,41 @@ async function collectProviderResult(provider) {
 }
 
 function compositeResult(settled, totalProviders, { includeProgress = false } = {}) {
+  const merged = [];
+  for (const result of settled) {
+    mergeEventsInto(merged, result.events);
+  }
+  return compositeResultFromMerged(
+    merged,
+    settled.map((result) => result.status),
+    totalProviders,
+    { includeProgress, done: settled.length },
+  );
+}
+
+function compositeResultFromMerged(
+  merged,
+  statuses,
+  totalProviders,
+  { includeProgress = false, done = statuses.filter(Boolean).length } = {},
+) {
   const result = {
-    events: mergeEvents(settled.flatMap((result) => result.events)),
-    providers: settled.map((result) => result.status),
+    events: annotateFeedGroups(sortMergedEvents(merged)),
+    providers: statuses.filter(Boolean),
   };
   if (includeProgress) {
     result.progress = {
-      done: settled.length,
+      done,
       total: totalProviders,
-      complete: settled.length >= totalProviders,
+      complete: done >= totalProviders,
     };
   }
   return result;
+}
+
+function positiveInteger(value, fallback) {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
 }
 
 function providerStatus(provider, ok, events, error, durationMs = null) {
@@ -126,6 +203,7 @@ const NON_UNIQUE_EXTERNAL_ID_KEYS = new Set([
 const STRICT_ID_MATCH_BOOKMAKERS = new Set([
   'Prowin',
 ]);
+const MAX_FIXTURE_KICKOFF_SKEW_MS = 5 * 60 * 1000;
 
 const TEAM_OUTCOME_SWAP = {
   home: 'away',
@@ -138,10 +216,15 @@ const TEAM_OUTCOME_SWAP = {
 
 function mergeEvents(events) {
   const merged = [];
+  mergeEventsInto(merged, events);
+  return sortMergedEvents(merged);
+}
+
+function mergeEventsInto(merged, events, { cloneIncoming = true } = {}) {
   for (const event of events) {
     const match = findMergeTarget(merged, event);
     if (!match) {
-      merged.push(structuredClone(event));
+      merged.push(cloneIncoming ? structuredClone(event) : event);
       continue;
     }
 
@@ -153,12 +236,17 @@ function mergeEvents(events) {
       const alignedBookmaker = alignBookmakerOrientation(
         bookmaker,
         evidence.orientation,
+        { clone: cloneIncoming },
       );
       bookmakers.set(alignedBookmaker.name, alignedBookmaker);
     }
     target.bookmakers = [...bookmakers.values()];
     target.externalIds = { ...target.externalIds, ...event.externalIds };
     target.matchConfidence = evidence.label;
+    target.maxSourceKickoffSkewMs = Math.max(
+      Number(target.maxSourceKickoffSkewMs) || 0,
+      evidence.startTimeSkewMs,
+    );
     target.matchEvidence = uniqueStrings([
       ...(target.matchEvidence || []),
       evidence.label,
@@ -166,13 +254,17 @@ function mergeEvents(events) {
     ]);
   }
 
+  return merged;
+}
+
+function sortMergedEvents(merged) {
   return merged.sort(
     (left, right) => new Date(left.startsAt) - new Date(right.startsAt),
   );
 }
 
-function alignBookmakerOrientation(bookmaker, orientation = 'direct') {
-  const aligned = structuredClone(bookmaker);
+function alignBookmakerOrientation(bookmaker, orientation = 'direct', { clone = true } = {}) {
+  const aligned = clone ? structuredClone(bookmaker) : bookmaker;
   if (orientation !== 'reversed') {
     return aligned;
   }
@@ -252,10 +344,16 @@ function isSameFixture(left, right) {
 }
 
 function fixtureMatchEvidence(left, right) {
+  const timing = fixtureKickoffEvidence(left, right);
+  if (!timing || timing.distanceMs > MAX_FIXTURE_KICKOFF_SKEW_MS) {
+    return null;
+  }
+
   if (hasMatchingExternalId(left, right)) {
     return {
       label: matchingExternalIdLabel(left, right),
       orientation: fixtureOrientation(left, right),
+      startTimeSkewMs: timing.distanceMs,
     };
   }
 
@@ -279,16 +377,7 @@ function fixtureMatchEvidence(left, right) {
     return null;
   }
 
-  const leftTime = new Date(left.startsAt).getTime();
-  const rightTime = new Date(right.startsAt).getTime();
-  const timeDistance = Math.abs(leftTime - rightTime);
-  if (
-    Number.isNaN(leftTime) ||
-    Number.isNaN(rightTime) ||
-    timeDistance > 90 * 60 * 1000
-  ) {
-    return null;
-  }
+  const timeDistance = timing.distanceMs;
 
   const similarity = fixtureSimilarityDetails(left, right);
   if (similarity.weakest < 0.72) {
@@ -297,19 +386,30 @@ function fixtureMatchEvidence(left, right) {
 
   if (timeDistance <= 2 * 60 * 1000) {
     return similarity.score >= 0.82
-      ? { label: 'fuzzy team/time', orientation: similarity.orientation }
+      ? { label: 'fuzzy team/time', orientation: similarity.orientation, startTimeSkewMs: timeDistance }
       : null;
   }
 
   if (timeDistance <= 15 * 60 * 1000) {
     return similarity.score >= 0.88
-      ? { label: 'fuzzy team/time', orientation: similarity.orientation }
+      ? { label: 'fuzzy team/time', orientation: similarity.orientation, startTimeSkewMs: timeDistance }
       : null;
   }
 
   return similarity.score >= 0.92
-    ? { label: 'fuzzy team/time', orientation: similarity.orientation }
+    ? { label: 'fuzzy team/time', orientation: similarity.orientation, startTimeSkewMs: timeDistance }
     : null;
+}
+
+function fixtureKickoffEvidence(left, right) {
+  const leftTime = new Date(left?.startsAt).getTime();
+  const rightTime = new Date(right?.startsAt).getTime();
+  if (!Number.isFinite(leftTime) || !Number.isFinite(rightTime)) return null;
+  return {
+    leftStartsAt: new Date(leftTime).toISOString(),
+    rightStartsAt: new Date(rightTime).toISOString(),
+    distanceMs: Math.abs(leftTime - rightTime),
+  };
 }
 
 function hasMatchingExternalId(left, right) {

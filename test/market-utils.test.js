@@ -64,6 +64,8 @@ test('canonicalizes period, corner, and card markets to scanner keys', () => {
   assert.equal(genericMarketKey('Second half double chance'), 'secondHalfDoubleChance');
   assert.equal(genericMarketKey('Total goals second half', { line: 1.5 }), 'secondHalfTotalGoals_1_5');
   assert.equal(genericMarketKey('Total goals 2.5'), 'totalGoals_2_5');
+  assert.equal(genericMarketKey('Total points 224.5'), 'totalPoints_224_5');
+  assert.equal(genericMarketKey('Total games 22.5'), 'totalGames_22_5');
   assert.equal(genericMarketKey('Total goluri peste/sub', { line: 2.5 }), 'totalGoals_2_5');
   assert.equal(genericMarketKey('Prima repriza total goluri peste/sub', { line: 1.5 }), 'firstHalfTotalGoals_1_5');
   assert.equal(genericMarketKey('Asian total goals 2.25'), 'asianTotalGoals_2_25');
@@ -73,6 +75,8 @@ test('canonicalizes period, corner, and card markets to scanner keys', () => {
   assert.equal(genericMarketKey('Total corners', { line: 9.5 }), 'totalCorners_9_5');
   assert.equal(genericMarketKey('Cornere peste/sub', { line: 9.5 }), 'totalCorners_9_5');
   assert.equal(genericMarketKey('First half total corners', { line: 4.5 }), 'firstHalfTotalCorners_4_5');
+  assert.equal(genericMarketKey('Prima repriza total cornere peste/sub', { line: 6.5 }), 'firstHalfTotalCorners_6_5');
+  assert.equal(genericMarketKey('A doua repriza total cornere peste/sub', { line: 4.5 }), 'secondHalfTotalCorners_4_5');
   assert.equal(genericMarketKey('Asian total corners 9.25'), 'asianTotalCorners_9_25');
   assert.equal(genericMarketKey('First half Asian total corners', { line: 4.25 }), 'firstHalfAsianTotalCorners_4_25');
   assert.equal(genericMarketKey('Asian total corners second half', { line: 4.25 }), 'secondHalfAsianTotalCorners_4_25');

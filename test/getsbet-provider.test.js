@@ -84,9 +84,24 @@ const records = [
   market('total-225', 47, 'Total Peste/Sub 2.25 Timp regulamentar.', 2.25),
   ...outcome('total-225-over', 'total-225', 'Peste 2.25', 'over', 1.74),
   ...outcome('total-225-under', 'total-225', 'Sub 2.25', 'under', 2.06),
+  market('first-half-total-15', 47, 'Total Peste/Sub 1.5 - Repriza 1.', 1.5),
+  ...outcome('first-half-total-15-over', 'first-half-total-15', 'Peste 1.5', 'over', 2.2),
+  ...outcome('first-half-total-15-under', 'first-half-total-15', 'Sub 1.5', 'under', 1.6),
   market('home-total', 77, 'Brazilia Total Peste/Sub 1.5 - Timp regulamentar.', 1.5),
   ...outcome('home-total-over', 'home-total', 'Brazilia Peste 1.5', 'over', 1.86),
   ...outcome('home-total-under', 'home-total', 'Brazilia Sub 1.5', 'under', 1.85),
+  market('corners-ft-75', 901, 'Cornere Peste/Sub - Timp regulamentar.', 7.5),
+  ...outcome('corners-ft-75-over', 'corners-ft-75', 'Peste 7.5', 'over', 1.27),
+  ...outcome('corners-ft-75-under', 'corners-ft-75', 'Sub 7.5', 'under', 3.3),
+  market('corners-1h-65', 902, 'Cornere Peste/Sub - Repriza 1.', 6.5),
+  ...outcome('corners-1h-65-over', 'corners-1h-65', 'Peste 6.5', 'over', 4.25),
+  ...outcome('corners-1h-65-under', 'corners-1h-65', 'Sub 6.5', 'under', 1.15),
+  market('corners-2h-45', 904, 'Cornere Peste/Sub - Repriza 2.', 4.5),
+  ...outcome('corners-2h-45-over', 'corners-2h-45', 'Peste 4.5', 'over', 1.87),
+  ...outcome('corners-2h-45-under', 'corners-2h-45', 'Sub 4.5', 'under', 1.77),
+  market('away-corners-ft-45', 903, 'Japonia cornere Peste/Sub - Timp regulamentar.', 4.5),
+  ...outcome('away-corners-ft-45-over', 'away-corners-ft-45', 'Peste 4.5', 'over', 1.65),
+  ...outcome('away-corners-ft-45-under', 'away-corners-ft-45', 'Sub 4.5', 'under', 2.11),
   market('dnb', 1, 'Egal - Pariul se ramburseaza - Timp regulamentar.'),
   ...outcome('dnb-home', 'dnb', 'Brazilia', 'home', 1.33),
   ...outcome('dnb-away', 'dnb', 'Japonia', 'away', 3.2),
@@ -121,10 +136,35 @@ test('normalizes GetsBet records and prefers normal 1X2 over Mega Cota', () => {
     over: 1.74,
     under: 2.06,
   });
+  assert.deepEqual(events[0].bookmakers[0].markets.firstHalfTotalGoals_1_5, {
+    over: 2.2,
+    under: 1.6,
+  });
   assert.deepEqual(events[0].bookmakers[0].markets.market_total_goluri_home_1_5, {
     over: 1.86,
     under: 1.85,
   });
+  assert.deepEqual(events[0].bookmakers[0].markets.totalCorners_7_5, {
+    over: 1.27,
+    under: 3.3,
+  });
+  assert.deepEqual(events[0].bookmakers[0].markets.firstHalfTotalCorners_6_5, {
+    over: 4.25,
+    under: 1.15,
+  });
+  assert.deepEqual(events[0].bookmakers[0].markets.secondHalfTotalCorners_4_5, {
+    over: 1.87,
+    under: 1.77,
+  });
+  assert.equal(events[0].bookmakers[0].markets.totalCorners_6_5, undefined);
+  assert.equal(events[0].bookmakers[0].markets.totalCorners_4_5, undefined);
+  assert.deepEqual(
+    events[0].bookmakers[0].markets.market_away_cornere_peste_sub_minus_timp_regulamentar_4_5,
+    {
+      over: 1.65,
+      under: 2.11,
+    },
+  );
   assert.deepEqual(events[0].bookmakers[0].markets.drawNoBet, {
     home: 1.33,
     away: 3.2,

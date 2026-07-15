@@ -6,12 +6,23 @@ const path = require('node:path');
 const { buildDirectProviders, providerOptionsFromEnv } = require('../src/provider-config');
 const { getMarketLabel, getOutcomeLabel } = require('../src/formula-engine');
 const { launchBrowser } = require('./ui-smoke');
+const {
+  DEFAULT_MARKET_FILTERS,
+  DEFAULT_PRICE_TOLERANCE,
+  FIDELITY_STATUSES,
+  buildExpectedOddRecord,
+  marketMatchesFilter,
+  parseMarketList,
+  summarizeFidelityRecords,
+  verifyRecordsAgainstText,
+} = require('./odds-fidelity-core');
 
 const DEFAULT_BOOKMAKER = 'GetsBet';
 const DEFAULT_EVENT_TARGET = 40;
 const DEFAULT_MAX_PRICES = 8;
 const DEFAULT_MIN_HOURS = 0;
 const DEFAULT_TIMEOUT_MS = 30_000;
+const DEFAULT_EVENTS_PER_BOOKMAKER = 3;
 const OUTPUT_DIR = path.join(process.cwd(), 'output', 'playwright');
 
 async function main() {
@@ -24,14 +35,44 @@ async function main() {
   const bookmakerTarget = stringOption(args.bookmaker, process.env.VERIFY_BOOKMAKER, DEFAULT_BOOKMAKER);
   const providerTarget = stringOption(args.provider, process.env.VERIFY_PROVIDER, bookmakerTarget);
   const eventFilter = stringOption(args.event, process.env.VERIFY_EVENT, '');
-  const marketFilter = stringOption(args.market, process.env.VERIFY_MARKET, '');
+  const marketFilter = stringOption(args.markets, args.market, process.env.VERIFY_MARKETS, process.env.VERIFY_MARKET, '');
   const maxPrices = positiveInteger(args.prices || process.env.VERIFY_MAX_PRICES, DEFAULT_MAX_PRICES);
   const minHours = nonNegativeNumber(args.minHours || process.env.VERIFY_MIN_HOURS, DEFAULT_MIN_HOURS);
   const timeoutMs = positiveInteger(args.timeoutMs || process.env.VERIFY_TIMEOUT_MS, DEFAULT_TIMEOUT_MS);
+  const strictContext = booleanOption(args.strictContext || process.env.VERIFY_STRICT_CONTEXT, false);
+  const priceTolerance = nonNegativeNumber(
+    args.priceTolerance || process.env.VERIFY_PRICE_TOLERANCE,
+    DEFAULT_PRICE_TOLERANCE,
+  );
   const eventTarget = positiveInteger(
     args.eventTarget || process.env.VERIFY_EVENT_TARGET || process.env.BOOKMAKER_EVENT_TARGET,
     DEFAULT_EVENT_TARGET,
   );
+
+  if (normalizeText(bookmakerTarget) === 'all') {
+    const { runFidelityVerification } = require('./verify-odds-fidelity');
+    const report = await runFidelityVerification({
+      bookmakerTarget,
+      providerTarget: args.provider ? providerTarget : 'all',
+      eventFilter,
+      marketFilters: parseMarketList(marketFilter, DEFAULT_MARKET_FILTERS),
+      maxPrices,
+      minHours,
+      timeoutMs,
+      eventTarget,
+      eventsPerBookmaker: positiveInteger(
+        args.eventsPerBookmaker || process.env.VERIFY_EVENTS_PER_BOOKMAKER,
+        DEFAULT_EVENTS_PER_BOOKMAKER,
+      ),
+      strictContext: true,
+      priceTolerance,
+    });
+    console.log(JSON.stringify(report, null, 2));
+    if (!report.ok) {
+      process.exitCode = 1;
+    }
+    return;
+  }
 
   const provider = selectProvider(providerTarget, eventTarget, timeoutMs);
   const events = await withTimeout(
@@ -58,7 +99,11 @@ async function main() {
 
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 
-  const report = await verifyCandidateWithPlaywright(candidate, { timeoutMs });
+  const report = await verifyCandidateWithPlaywright(candidate, {
+    timeoutMs,
+    strictContext,
+    priceTolerance,
+  });
 
   const reportPath = path.join(
     OUTPUT_DIR,
@@ -114,14 +159,19 @@ Verify scraped bookmaker odds against the rendered bookmaker page.
 Usage:
   node scripts/verify-bookmaker-odds.js --bookmaker GetsBet
   node scripts/verify-bookmaker-odds.js --bookmaker BetOne --event "Elfsborg" --market totalGoals
+  node scripts/verify-bookmaker-odds.js --bookmaker all --events-per-bookmaker 3 --markets h2h,totalGoals,totalCorners,bothTeamsToScore --strict-context
 
 Options:
   --provider <name>       Provider to fetch from. Defaults to the bookmaker name.
-  --bookmaker <name>      Bookmaker brand to verify. Defaults to ${DEFAULT_BOOKMAKER}.
+  --bookmaker <name|all>  Bookmaker brand to verify. Defaults to ${DEFAULT_BOOKMAKER}.
   --event <text>          Optional home/away/competition filter.
   --market <key/text>     Optional market key filter, such as h2h or totalGoals.
+  --markets <csv>         Market families for batch checks. Defaults to ${DEFAULT_MARKET_FILTERS.join(',')}.
   --prices <number>       Max prices to check on the page. Defaults to ${DEFAULT_MAX_PRICES}.
+  --events-per-bookmaker  Events per bookmaker when --bookmaker all is used.
   --min-hours <number>    Skip events closer than this many hours to kickoff.
+  --strict-context        Require event + market + period + line + outcome + price context.
+  --price-tolerance <n>   Decimal price tolerance. Defaults to ${DEFAULT_PRICE_TOLERANCE}.
   --event-target <number> Provider event target. Defaults to ${DEFAULT_EVENT_TARGET}.
   --timeout-ms <number>   Fetch and browser timeout. Defaults to ${DEFAULT_TIMEOUT_MS}.
 `.trim());
@@ -203,16 +253,17 @@ function eventMeetsMinHours(event, minStartsAt) {
 }
 
 function collectPriceChecks(bookmaker, { marketFilter, maxPrices }) {
-  const normalizedMarketFilter = normalizeText(marketFilter);
-  const compactMarketFilter = compactText(marketFilter);
+  const marketFilters = parseVerifierMarketFilters(marketFilter);
   const checks = [];
   const marketEntries = Object.entries(bookmaker.markets || {})
     .filter(([marketKey]) => {
-      if (!normalizedMarketFilter) return true;
-      return normalizeText(marketKey).includes(normalizedMarketFilter)
-        || normalizeText(getMarketLabel(marketKey)).includes(normalizedMarketFilter)
-        || compactText(marketKey).includes(compactMarketFilter)
-        || compactText(getMarketLabel(marketKey)).includes(compactMarketFilter);
+      if (marketFilters.length === 0) return true;
+      return marketFilters.some((filter) =>
+        marketMatchesFilter(marketKey, [filter])
+        || normalizeText(marketKey).includes(normalizeText(filter))
+        || normalizeText(getMarketLabel(marketKey)).includes(normalizeText(filter))
+        || compactText(marketKey).includes(compactText(filter))
+        || compactText(getMarketLabel(marketKey)).includes(compactText(filter)));
     })
     .sort(compareMarketPriority);
 
@@ -250,7 +301,7 @@ function marketPriority(marketKey) {
   return 10;
 }
 
-async function verifyCandidateWithPlaywright(candidate, { timeoutMs }) {
+async function verifyCandidateWithPlaywright(candidate, options = {}) {
   const browser = await launchBrowser();
   try {
     const context = await browser.newContext({
@@ -260,62 +311,314 @@ async function verifyCandidateWithPlaywright(candidate, { timeoutMs }) {
     });
     const page = await context.newPage();
     try {
-      await page.goto(candidate.bookmaker.url, {
-        waitUntil: 'domcontentloaded',
-        timeout: timeoutMs,
-      });
-      await acceptCookiePrompt(page);
-      await page.waitForLoadState('networkidle', { timeout: 12_000 }).catch(() => {});
-      await page.waitForTimeout(1_000);
-
-      const text = await page.locator('body').innerText({ timeout: 5_000 }).catch(() => '');
-      const html = await page.content().catch(() => '');
-      const visibleText = normalizeWhitespace(text);
-      const screenshotPath = path.join(
-        OUTPUT_DIR,
-        `${slug(candidate.bookmaker.name)}-odds-verification.png`,
-      );
-      await page.screenshot({ path: screenshotPath, fullPage: true }).catch(() => {});
-
-      const teamEvidence = {
-        homeTeam: candidate.event.homeTeam,
-        awayTeam: candidate.event.awayTeam,
-        homeFound: containsText(visibleText, candidate.event.homeTeam),
-        awayFound: containsText(visibleText, candidate.event.awayTeam),
-      };
-      const priceChecks = candidate.prices.map((check) => ({
-        ...check,
-        variants: decimalPriceVariants(check.price),
-        found: textContainsPrice(visibleText, check.price),
-        foundInHtml: textContainsPrice(html, check.price),
-      }));
-      const missingPrices = priceChecks.filter((check) => !check.found);
-      const ok = teamEvidence.homeFound
-        && teamEvidence.awayFound
-        && missingPrices.length === 0
-        && priceChecks.length > 0;
-
-      return {
-        ok,
-        checkedAt: new Date().toISOString(),
-        bookmaker: candidate.bookmaker,
-        event: {
-          homeTeam: candidate.event.homeTeam,
-          awayTeam: candidate.event.awayTeam,
-          competition: candidate.event.competition,
-          startsAt: candidate.event.startsAt,
-        },
-        teamEvidence,
-        priceChecks,
-        missingPrices,
-        screenshotPath,
-        pageTextSample: visibleText.slice(0, 500),
-      };
+      return await verifyCandidateOnPage(page, candidate, options);
     } finally {
       await context.close().catch(() => {});
     }
   } finally {
     await browser.close().catch(() => {});
+  }
+}
+
+async function verifyCandidateOnPage(page, candidate, {
+  timeoutMs,
+  strictContext = false,
+  priceTolerance = DEFAULT_PRICE_TOLERANCE,
+  outputDir = OUTPUT_DIR,
+  screenshotPath = '',
+} = {}) {
+  const networkEvidence = createNetworkEvidenceCollector(page, candidate);
+  try {
+    await page.goto(candidate.bookmaker.url, {
+      waitUntil: 'domcontentloaded',
+      timeout: timeoutMs,
+    });
+    await acceptCookiePrompt(page);
+    await page.waitForLoadState('networkidle', { timeout: 12_000 }).catch(() => {});
+    await page.waitForTimeout(1_000);
+  } finally {
+    networkEvidence.stop();
+  }
+
+  const pageEvidence = await extractPageEvidence(page, candidate, {
+    networkRows: await networkEvidence.rows(),
+  });
+  const visibleText = normalizeWhitespace(pageEvidence.text);
+  const html = pageEvidence.html;
+  const resolvedScreenshotPath = screenshotPath || path.join(
+    outputDir,
+    `${slug(candidate.bookmaker.name)}-odds-verification.png`,
+  );
+  fs.mkdirSync(path.dirname(resolvedScreenshotPath), { recursive: true });
+  await page.screenshot({ path: resolvedScreenshotPath, fullPage: true }).catch(() => {});
+
+  const teamEvidence = {
+    homeTeam: candidate.event.homeTeam,
+    awayTeam: candidate.event.awayTeam,
+    homeFound: containsText(visibleText, candidate.event.homeTeam),
+    awayFound: containsText(visibleText, candidate.event.awayTeam),
+  };
+  const priceChecks = strictContext
+    ? strictPriceChecks(candidate, pageEvidence, { priceTolerance })
+    : loosePriceChecks(candidate, visibleText, html);
+  const missingPrices = priceChecks.filter((check) => !check.found);
+  const fidelitySummary = summarizeFidelityRecords(priceChecks);
+  const ok = teamEvidence.homeFound
+    && teamEvidence.awayFound
+    && priceChecks.length > 0
+    && (strictContext
+      ? priceChecks.every((check) => check.status === FIDELITY_STATUSES.verified)
+      : missingPrices.length === 0);
+
+  return {
+    ok,
+    checkedAt: new Date().toISOString(),
+    strictContext,
+    priceTolerance,
+    pageAdapter: pageEvidence.adapterId,
+    bookmaker: candidate.bookmaker,
+    event: {
+      id: candidate.event.id || null,
+      homeTeam: candidate.event.homeTeam,
+      awayTeam: candidate.event.awayTeam,
+      competition: candidate.event.competition,
+      startsAt: candidate.event.startsAt,
+    },
+    teamEvidence,
+    fidelitySummary,
+    priceChecks,
+    missingPrices,
+    screenshotPath: resolvedScreenshotPath,
+    evidenceSummary: {
+      structuredRows: pageEvidence.structuredRows?.length || 0,
+      networkRows: pageEvidence.networkRows?.length || 0,
+    },
+    pageTextSample: visibleText.slice(0, 500),
+  };
+}
+
+async function extractPageEvidence(page, candidate, options = {}) {
+  const adapter = selectPageAdapter(candidate?.bookmaker?.name);
+  const extracted = await adapter.extract(page, options);
+  const networkRows = options.networkRows || [];
+  return {
+    adapterId: adapter.id,
+    ...extracted,
+    networkRows,
+    structuredRows: [
+      ...(extracted.structuredRows || []),
+      ...networkRows,
+    ].map((row) => ({
+      adapterId: row.adapterId || adapter.id,
+      ...row,
+    })),
+  };
+}
+
+function selectPageAdapter(bookmakerName) {
+  const normalized = normalizeText(bookmakerName);
+  if (/unibet|superbet|getsbet/.test(normalized)) {
+    return {
+      id: 'spa-dom',
+      extract: extractDomTextEvidence,
+    };
+  }
+  return {
+    id: 'generic-text-table',
+    extract: extractDomTextEvidence,
+  };
+}
+
+async function extractDomTextEvidence(page) {
+  const structuredRows = await page.evaluate(() => {
+    const isVisible = (element) => {
+      const style = window.getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+      return style &&
+        style.visibility !== 'hidden' &&
+        style.display !== 'none' &&
+        rect.width > 0 &&
+        rect.height > 0;
+    };
+    const clean = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+    const hasOddsNumber = (value) => /(^|[^0-9])([1-9][0-9]?[.,][0-9]{1,2})(?=[^0-9]|$)/.test(value);
+    const selectorFor = (element) => {
+      const tag = element.tagName ? element.tagName.toLowerCase() : 'node';
+      const id = element.id ? `#${element.id}` : '';
+      const cls = String(element.className || '')
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 3)
+        .map((item) => `.${item}`)
+        .join('');
+      return `${tag}${id}${cls}`;
+    };
+    const rows = [];
+    const push = (element, source) => {
+      if (!element || !isVisible(element)) return;
+      const text = clean(element.innerText || element.textContent);
+      if (!text || text.length < 6 || text.length > 1200 || !hasOddsNumber(text)) return;
+      rows.push({
+        source,
+        selector: selectorFor(element),
+        text,
+      });
+    };
+
+    document.querySelectorAll('tr,[role="row"]').forEach((element) => push(element, 'table-row'));
+    document
+      .querySelectorAll('article,li,section,[data-testid*="market" i],[data-testid*="odd" i],[class*="market" i],[class*="odd" i],[class*="selection" i]')
+      .forEach((element) => push(element, 'dom-row'));
+
+    const seen = new Set();
+    return rows.filter((row) => {
+      const key = `${row.source}|${row.selector}|${row.text}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    }).slice(0, 500);
+  }).catch(() => []);
+
+  return {
+    text: await page.locator('body').innerText({ timeout: 5_000 }).catch(() => ''),
+    html: await page.content().catch(() => ''),
+    structuredRows,
+  };
+}
+
+function loosePriceChecks(candidate, visibleText, html) {
+  return candidate.prices.map((check) => {
+    const found = textContainsPrice(visibleText, check.price);
+    return {
+      ...check,
+      variants: decimalPriceVariants(check.price),
+      endpointPrice: check.price,
+      websitePrice: found ? Number(Number(check.price).toFixed(2)) : null,
+      status: found ? FIDELITY_STATUSES.verified : FIDELITY_STATUSES.notFound,
+      found,
+      foundInHtml: textContainsPrice(html, check.price),
+    };
+  });
+}
+
+function strictPriceChecks(candidate, pageEvidence, { priceTolerance }) {
+  const records = candidate.prices.map((check) =>
+    buildExpectedOddRecord({
+      event: candidate.event,
+      bookmaker: candidate.bookmaker,
+      check,
+    }));
+  return verifyRecordsAgainstText(records, normalizeWhitespace(pageEvidence.text), {
+    priceTolerance,
+    contextRows: pageEvidence.structuredRows || [],
+  })
+    .map((record, index) => ({
+      ...candidate.prices[index],
+      ...record,
+      price: candidate.prices[index].price,
+      variants: decimalPriceVariants(candidate.prices[index].price),
+      found: record.status === FIDELITY_STATUSES.verified,
+      foundInHtml: null,
+    }));
+}
+
+function createNetworkEvidenceCollector(page, candidate) {
+  const rows = [];
+  const pending = [];
+  const targetHostname = safeHostname(candidate?.bookmaker?.url);
+  const handler = (response) => {
+    const task = collectNetworkRows(response, candidate, targetHostname)
+      .then((items) => rows.push(...items))
+      .catch(() => {});
+    pending.push(task);
+  };
+  page.on('response', handler);
+  return {
+    stop() {
+      page.off?.('response', handler);
+    },
+    async rows() {
+      await Promise.allSettled(pending);
+      return rows.slice(0, 200);
+    },
+  };
+}
+
+async function collectNetworkRows(response, candidate, targetHostname) {
+  if (!targetHostname || response.status() >= 400) return [];
+  const url = response.url();
+  const hostname = safeHostname(url);
+  if (!hostname || hostname !== targetHostname) return [];
+  const headers = response.headers();
+  const contentType = headers['content-type'] || '';
+  const length = Number(headers['content-length'] || 0);
+  if (length > 2_000_000 || !/json|javascript|text/.test(contentType)) return [];
+  const body = await response.text().catch(() => '');
+  if (!body || body.length > 2_000_000 || !networkBodyMatchesCandidate(body, candidate)) return [];
+  return extractNetworkRowsFromBody(body, candidate, url);
+}
+
+function networkBodyMatchesCandidate(body, candidate) {
+  const normalized = normalizeText(body);
+  const homeFound = containsText(normalized, candidate?.event?.homeTeam);
+  const awayFound = containsText(normalized, candidate?.event?.awayTeam);
+  const priceFound = (candidate?.prices || []).some((check) => textContainsPrice(body, check.price));
+  return homeFound && awayFound && priceFound;
+}
+
+function extractNetworkRowsFromBody(body, candidate, url) {
+  const parsed = tryParseJson(body);
+  const rows = [];
+  const maybePush = (text) => {
+    const normalized = normalizeWhitespace(text);
+    if (!normalized || normalized.length < 12 || normalized.length > 2500) return;
+    if (!(candidate.prices || []).some((check) => textContainsPrice(normalized, check.price))) return;
+    rows.push({
+      source: 'network-payload',
+      adapterId: 'network-payload',
+      networkUrl: url,
+      text: normalized,
+    });
+  };
+
+  if (parsed) {
+    visitJsonNodes(parsed, (node) => {
+      if (node && typeof node === 'object') {
+        maybePush(JSON.stringify(node));
+      }
+    });
+  } else {
+    maybePush(body.slice(0, 2500));
+  }
+
+  return rows.slice(0, 80);
+}
+
+function visitJsonNodes(node, visit, depth = 0) {
+  if (depth > 8 || node === null || node === undefined) return;
+  visit(node);
+  if (Array.isArray(node)) {
+    node.forEach((item) => visitJsonNodes(item, visit, depth + 1));
+    return;
+  }
+  if (typeof node === 'object') {
+    Object.values(node).forEach((item) => visitJsonNodes(item, visit, depth + 1));
+  }
+}
+
+function tryParseJson(value) {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+}
+
+function safeHostname(value) {
+  try {
+    return new URL(value).hostname;
+  } catch {
+    return '';
   }
 }
 
@@ -349,6 +652,16 @@ function decimalPriceVariants(price) {
     trimmed,
     trimmed.replace('.', ','),
   ])];
+}
+
+function parseVerifierMarketFilters(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item || '').trim()).filter(Boolean);
+  }
+  return String(value || '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
 }
 
 function textContainsPrice(value, price) {
@@ -403,6 +716,23 @@ function stringOption(...values) {
   return '';
 }
 
+function booleanOption(value, fallback = false) {
+  if (value === undefined || value === null || value === '') {
+    return fallback;
+  }
+  if (typeof value === 'boolean') {
+    return value;
+  }
+  const normalized = String(value).trim().toLowerCase();
+  if (['1', 'true', 'yes', 'on'].includes(normalized)) {
+    return true;
+  }
+  if (['0', 'false', 'no', 'off'].includes(normalized)) {
+    return false;
+  }
+  return fallback;
+}
+
 function slug(value) {
   const normalized = normalizeText(value)
     .replace(/[^a-z0-9]+/g, '-')
@@ -418,18 +748,22 @@ function withTimeout(promise, timeoutMs, label) {
   return Promise.race([promise, timer]).finally(() => clearTimeout(timeout));
 }
 
-if (require.main === module) {
-  main().catch((error) => {
-    console.error(error);
-    process.exitCode = 1;
-  });
-}
-
 module.exports = {
   collectPriceChecks,
   decimalPriceVariants,
   eventMeetsMinHours,
   providerMatches,
   selectCandidate,
+  slug,
   textContainsPrice,
+  verifyCandidateOnPage,
+  verifyCandidateWithPlaywright,
+  withTimeout,
 };
+
+if (require.main === module) {
+  main().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  });
+}

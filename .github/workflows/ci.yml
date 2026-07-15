@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: odds_test
+          POSTGRES_USER: odds_test
+          POSTGRES_PASSWORD: odds_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U odds_test -d odds_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      CHROME_PATH: /usr/bin/chromium
+      TEST_DATABASE_URL: postgres://odds_test:odds_test@127.0.0.1:5432/odds_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: sudo apt-get update && sudo apt-get install -y chromium
+      - run: npm ci
+      - run: npm run test:all
+      - run: node --test test/postgres-autonomy-store.test.js

@@ -106,8 +106,7 @@ test('detectArbitrage rejects edge above MAX_ARB_EDGE', () => {
   assert.strictEqual(detectArbitrage(event, 'market_exotic'), null);
 });
 
-test('detectArbitrage accepts generic market with reasonable edge', () => {
-  // Generic 2-way market with a real edge (~4.8%)
+test('detectArbitrage rejects generic market without a proven outcome schema', () => {
   const event = makeEvent({
     bookmakers: [
       { name: 'BookA', markets: { market_custom: { home: 2.1, away: 2.1 } } },
@@ -115,9 +114,32 @@ test('detectArbitrage accepts generic market with reasonable edge', () => {
     ],
   });
 
-  const arb = detectArbitrage(event, 'market_custom');
-  assert.ok(arb, 'should detect arb on generic market with reasonable edge');
-  assert.ok(arb.edge > 0 && arb.edge <= 0.25);
+  assert.strictEqual(detectArbitrage(event, 'market_custom'), null);
+});
+
+test('detectArbitrage only accepts half-point totals without push settlement', () => {
+  const event = makeEvent({
+    bookmakers: [
+      { name: 'BookA', markets: {
+        totalGoals_2: { over: 2.1, under: 2.1 },
+        totalGoals_2_5: { over: 2.1, under: 2.1 },
+      } },
+    ],
+  });
+
+  assert.strictEqual(detectArbitrage(event, 'totalGoals_2'), null);
+  assert.ok(detectArbitrage(event, 'totalGoals_2_5'));
+});
+
+test('detectArbitrage rejects non-positive total line markets', () => {
+  const event = makeEvent({
+    bookmakers: [
+      { name: 'Unibet', markets: { totalGoals_0: { over: 1.58, under: 2.3 } } },
+      { name: 'BookB', markets: { totalGoals_0: { over: 1.6, under: 2.35 } } },
+    ],
+  });
+
+  assert.strictEqual(detectArbitrage(event, 'totalGoals_0'), null);
 });
 
 test('detectArbitrage rejects result-like generic market with missing draw outcome', () => {
@@ -252,6 +274,68 @@ test('detectMiddleBets preserves decimal lines and does not mix market families'
   );
 });
 
+test('detectMiddleBets does not mix full-time and first-half corner totals', () => {
+  const event = makeEvent({
+    homeTeam: 'Brommapojkarna',
+    awayTeam: 'GAIS',
+    competition: 'Allsvenskan',
+    bookmakers: [
+      {
+        name: 'GetsBet',
+        markets: {
+          firstHalfTotalCorners_6_5: { over: 4.25, under: 1.15 },
+          totalCorners_7_5: { over: 1.27, under: 3.3 },
+        },
+      },
+    ],
+  });
+
+  const results = detectMiddleBets(event);
+
+  assert.equal(
+    results.some((result) => result.marketLabel === 'Corners Middle: Over 6.5 / Under 7.5'),
+    false,
+    'should not pair first-half over corners with full-time under corners',
+  );
+  assert.equal(
+    results.some((result) =>
+      result.marketKey.includes('firstHalfTotalCorners') &&
+      result.marketKey.includes('totalCorners')),
+    false,
+    'should not emit any middle that crosses first-half and full-time corner keys',
+  );
+});
+
+test('detectMiddleBets ignores zero total lines from bad provider normalization', () => {
+  const event = makeEvent({
+    homeTeam: 'Arsenal',
+    awayTeam: 'Coventry',
+    competition: 'Anglia Premier League',
+    bookmakers: [
+      {
+        name: 'Unibet',
+        markets: {
+          totalGoals_0: { over: 1.58, under: 2.3 },
+        },
+      },
+      {
+        name: 'Superbet',
+        markets: {
+          totalGoals_0_5: { over: 1.01, under: 16 },
+        },
+      },
+    ],
+  });
+
+  const results = detectMiddleBets(event);
+
+  assert.equal(
+    results.some((result) => result.marketLabel === 'Goals Middle: Over 0 / Under 0.5'),
+    false,
+    'should not build a middle from a zero total-goals line',
+  );
+});
+
 test('detectMiddleBets names card and corner market families', () => {
   const event = makeEvent({
     bookmakers: [
@@ -293,6 +377,18 @@ test('detectValueBet identifies outlier price', () => {
   assert.strictEqual(vb.outcome, 'away');
   assert.strictEqual(vb.bookmaker, 'BookD');
   assert.ok(vb.gap > 0, 'gap should be positive');
+});
+
+test('detectValueBet rejects non-positive total line markets', () => {
+  const event = makeEvent({
+    bookmakers: [
+      { name: 'BookA', markets: { totalGoals_0: { over: 1.58, under: 2.3 } } },
+      { name: 'BookB', markets: { totalGoals_0: { over: 1.59, under: 2.32 } } },
+      { name: 'BookC', markets: { totalGoals_0: { over: 2.2, under: 2.31 } } },
+    ],
+  });
+
+  assert.strictEqual(detectValueBet(event, 'totalGoals_0'), null);
 });
 
 test('detectValueBet returns null when only one bookmaker', () => {
@@ -385,6 +481,184 @@ test('getAllOpportunities aggregates from multiple events', () => {
   const opps = getAllOpportunities(events);
   assert.ok(opps.length > 0, 'should find at least one opportunity');
   assert.ok(opps.every((o) => o.eventName), 'every opp should have eventName');
+});
+
+test('getAllOpportunities rejects an arbitrage when selected bookmaker kickoffs disagree', () => {
+  const event = makeEvent({
+    bookmakers: [
+      {
+        name: 'BookA',
+        feedGroup: 'bookmaker:book-a',
+        sourceStartsAt: '2026-07-15T18:00:00Z',
+        observedAt: '2026-07-14T12:00:00Z',
+        markets: { h2h: { home: 2.5, draw: 3.2, away: 3.0 } },
+        verification: { markets: { h2h: { home: 'verified' } } },
+      },
+      {
+        name: 'BookB',
+        feedGroup: 'bookmaker:book-b',
+        sourceStartsAt: '2026-07-15T18:10:00Z',
+        observedAt: '2026-07-14T12:00:05Z',
+        markets: { h2h: { home: 2.4, draw: 3.5, away: 3.8 } },
+        verification: { markets: { h2h: { draw: 'verified', away: 'verified' } } },
+      },
+    ],
+  });
+
+  const opportunity = getAllOpportunities([event], {
+    now: new Date('2026-07-14T12:00:10Z'),
+  }).find((item) => item.marketKey === 'h2h');
+
+  assert.ok(opportunity, 'the mathematical edge remains visible for diagnosis');
+  assert.equal(opportunity.kickoffTiming.status, 'mismatched');
+  assert.equal(opportunity.kickoffTiming.skewMs, 10 * 60_000);
+  assert.equal(opportunity.kickoffsMatched, false);
+  assert.equal(opportunity.eligibility, 'rejected');
+  assert.ok(opportunity.eligibilityReasonCodes.includes('kickoff_mismatch'));
+});
+
+test('getAllOpportunities caps confidence when a selected leg has failed fidelity verification', () => {
+  const event = makeEvent({
+    bookmakers: [
+      {
+        name: 'BookA',
+        markets: { h2h: { home: 2.5, draw: 3.2, away: 3.0 } },
+      },
+      {
+        name: 'BookB',
+        markets: { h2h: { home: 2.4, draw: 3.5, away: 3.8 } },
+        verification: {
+          markets: {
+            h2h: {
+              draw: { status: 'mismatch' },
+              away: { status: 'verified' },
+            },
+          },
+        },
+      },
+    ],
+  });
+
+  const opportunity = getAllOpportunities([event])
+    .find((item) => item.marketKey === 'h2h');
+
+  assert.ok(opportunity, 'should still detect the mathematical opportunity');
+  assert.equal(opportunity.confidence, 'risky');
+  assert.equal(opportunity.eligibility, 'rejected');
+  assert.ok(opportunity.eligibilityReasonCodes.includes('verification_failed'));
+  assert.deepEqual(opportunity.verificationStatuses, ['unverified', 'mismatch', 'verified']);
+  assert.equal(
+    opportunity.legs.find((leg) => leg.outcome === 'draw').verificationStatus,
+    'mismatch',
+  );
+});
+
+test('getAllOpportunities caps ambiguous fidelity at review without promoting weaker confidence', () => {
+  const event = makeEvent({
+    bookmakers: [
+      {
+        name: 'BookA',
+        markets: { h2h: { home: 2.5, draw: 3.2, away: 3.0 } },
+      },
+      {
+        name: 'BookB',
+        markets: { h2h: { home: 2.4, draw: 3.5, away: 3.8 } },
+        verification: {
+          markets: {
+            h2h: {
+              draw: { status: 'ambiguous' },
+              away: { status: 'verified' },
+            },
+          },
+        },
+      },
+    ],
+  });
+
+  const opportunity = getAllOpportunities([event])
+    .find((item) => item.marketKey === 'h2h');
+
+  assert.ok(opportunity);
+  assert.equal(opportunity.confidence, 'review');
+  assert.equal(opportunity.eligibility, 'review');
+  assert.ok(opportunity.eligibilityReasonCodes.includes('verification_missing'));
+});
+
+test('getAllOpportunities caps missing fidelity verification at review', () => {
+  const event = makeEvent({
+    bookmakers: [
+      {
+        name: 'BookA',
+        markets: { h2h: { home: 2.5, draw: 3.2, away: 3.0 } },
+      },
+      {
+        name: 'BookB',
+        markets: { h2h: { home: 2.4, draw: 3.5, away: 3.8 } },
+      },
+    ],
+  });
+
+  const opportunity = getAllOpportunities([event])
+    .find((item) => item.marketKey === 'h2h');
+
+  assert.ok(opportunity);
+  assert.equal(opportunity.confidence, 'review');
+  assert.equal(opportunity.eligibility, 'review');
+  assert.equal(opportunity.allLegsVerified, false);
+  assert.deepEqual(opportunity.verificationStatuses, ['unverified']);
+});
+
+test('getAllOpportunities rejects edge outliers above the actionability ceiling', () => {
+  const event = makeEvent({
+    bookmakers: [
+      {
+        name: 'BookA',
+        markets: { h2h: { home: 3, draw: 3, away: 3 } },
+        verification: { markets: { h2h: { home: 'verified' } } },
+      },
+      {
+        name: 'BookB',
+        markets: { h2h: { home: 2.9, draw: 4, away: 4 } },
+        verification: { markets: { h2h: { draw: 'verified', away: 'verified' } } },
+      },
+    ],
+  });
+
+  const opportunity = getAllOpportunities([event]).find((item) => item.marketKey === 'h2h');
+  assert.ok(opportunity);
+  assert.ok(opportunity.edge > 0.08);
+  assert.equal(opportunity.eligibility, 'rejected');
+  assert.ok(opportunity.eligibilityReasonCodes.includes('edge_outlier'));
+});
+
+test('sport-aware h2h scanning accepts two-way basketball outcomes', () => {
+  const event = makeEvent({
+    sport: 'basketball',
+    bookmakers: [
+      { name: 'BookA', markets: { h2h: { home: 2.1, away: 2.1 } } },
+    ],
+  });
+
+  assert.ok(detectArbitrage(event, 'h2h', 'basketball'));
+});
+
+test('classic scanning supports half-line point totals in non-football sports', () => {
+  const event = {
+    id: 'basketball-total',
+    sport: 'Basketball',
+    competition: 'NBA',
+    startsAt: '2026-07-15T18:00:00Z',
+    homeTeam: 'Home',
+    awayTeam: 'Away',
+    bookmakers: [
+      { name: 'BookA', markets: { totalPoints_224_5: { over: 2.1, under: 1.8 } } },
+      { name: 'BookB', markets: { totalPoints_224_5: { over: 1.8, under: 2.1 } } },
+    ],
+  };
+  const arb = detectArbitrage(event, 'totalPoints_224_5', event.sport);
+  assert.ok(arb);
+  assert.equal(arb.marketLabel, 'O/U 224.5 Points');
+  assert.equal(arb.legs.length, 2);
 });
 
 test('getValueBets returns sorted by Kelly', () => {

@@ -1,5 +1,6 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 const { chromium } = require('playwright-core');
 const { createApp } = require('../src/app');
@@ -22,6 +23,7 @@ const ROUTES = {
 
 async function main() {
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+  const smokeDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'odds-ui-smoke-'));
 
   const app = createApp({
     oddsService: new OddsService({
@@ -30,6 +32,9 @@ async function main() {
       cacheTtlMs: 1,
     }),
     liveConfigured: false,
+    aiPickLogPath: path.join(smokeDataDir, 'ai-picks.jsonl'),
+    betLogPath: path.join(smokeDataDir, 'bets.jsonl'),
+    arbLogPath: path.join(smokeDataDir, 'arbs.jsonl'),
   });
   const server = await listen(app);
   const baseUrl = `http://127.0.0.1:${server.address().port}`;
@@ -42,6 +47,7 @@ async function main() {
   } finally {
     await browser.close().catch(() => {});
     await closeServer(server);
+    fs.rmSync(smokeDataDir, { recursive: true, force: true });
   }
 }
 
@@ -72,6 +78,7 @@ function closeServer(server) {
 
 async function launchBrowser() {
   const candidates = [
+    ...(process.env.CHROME_PATH ? [{ executablePath: process.env.CHROME_PATH }] : []),
     { channel: 'msedge' },
     { channel: 'chrome' },
     { executablePath: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe' },
@@ -178,13 +185,16 @@ async function runMobileSmoke(browser, baseUrl) {
           : 0,
         searchWidth: rect(document.querySelector('#search'))?.width || 0,
         cards: document.querySelectorAll('.arb-card').length,
+        scannerEmptyStates: document.querySelectorAll('#scanner-list .scanner-empty').length,
+        actionableCount: Number(document.querySelector('#scanner-actionable-count')?.textContent || 0),
       };
     });
 
     assert.equal(report.page, 'scanner');
     assert.equal(report.mobileNavDisplay, 'flex');
     assert.equal(report.sidebarDisplay, 'none');
-    assert.ok(report.cards > 0, 'mobile scanner should render opportunity cards');
+    assert.ok(report.cards > 0 || report.scannerEmptyStates > 0, 'mobile scanner should render a queue result or its safety-gate empty state');
+    assert.equal(report.actionableCount, 0, 'unverified demo opportunities must not enter the mobile Actionable queue');
     assert.ok(report.overflowX <= 3, `mobile should not overflow horizontally (${report.overflowX}px)`);
     assert.ok(report.filterControlCount > 0, 'mobile filters should render controls');
     assert.ok(report.filterOverflowX <= 3, `mobile filters should not require side-scrolling (${report.filterOverflowX}px)`);
@@ -327,54 +337,207 @@ async function smokeAiActions(page, baseUrl) {
 }
 
 async function smokeScannerControls(page, baseUrl) {
+  const opportunities = [
+    {
+      eventName: 'Fixture Arb vs Team',
+      marketLabel: 'Winner, 1X2',
+      marketKey: 'h2h',
+      competition: 'Smoke League',
+      type: 'classic',
+      confidence: 'trusted',
+      eligibility: 'actionable',
+      verifiedLegCount: 2,
+      legCount: 2,
+      allLegsVerified: true,
+      sameBook: false,
+      edge: 0.073,
+      profit: 12.34,
+      legs: [
+        { label: 'Home', bookmaker: 'Book One', price: 2.2, verificationStatus: 'verified' },
+        { label: 'Away', bookmaker: 'Book Two', price: 2.1, verificationStatus: 'verified' },
+      ],
+    },
+    {
+      eventName: 'Fixture Goals vs Team',
+      marketLabel: 'O/U 2.5 Goals',
+      marketKey: 'totalGoals_2_5',
+      competition: 'Smoke League',
+      type: 'classic',
+      confidence: 'trusted',
+      eligibility: 'actionable',
+      verifiedLegCount: 2,
+      legCount: 2,
+      allLegsVerified: true,
+      sameBook: false,
+      edge: 0.064,
+      profit: 6.4,
+      legs: [
+        { label: 'Over 2.5', bookmaker: 'Book Goals A', price: 2.1, marketKey: 'totalGoals_2_5', verificationStatus: 'verified' },
+        { label: 'Under 2.5', bookmaker: 'Book Goals B', price: 2.05, marketKey: 'totalGoals_2_5', verificationStatus: 'verified' },
+      ],
+    },
+    {
+      eventName: 'Fixture Cross vs Team',
+      marketLabel: 'Cross-market total',
+      marketKey: 'cross_total',
+      competition: 'Smoke League',
+      type: 'cross-market',
+      confidence: 'review',
+      eligibility: 'review',
+      verifiedLegCount: 0,
+      legCount: 2,
+      sameBook: false,
+      eligibilityReasons: ['Every leg must be verified; current evidence: unverified.'],
+      edge: 0.02,
+      profit: 2,
+      legs: [
+        { label: 'Over', bookmaker: 'Book Three', price: 2.02, verificationStatus: 'unverified' },
+        { label: 'Under', bookmaker: 'Book Four', price: 2.02, verificationStatus: 'unverified' },
+      ],
+    },
+    {
+      eventName: 'Fixture Rejected vs Team',
+      marketLabel: 'Winner, 1X2',
+      marketKey: 'h2h',
+      competition: 'Smoke League',
+      type: 'classic',
+      confidence: 'risky',
+      eligibility: 'rejected',
+      verifiedLegCount: 0,
+      legCount: 2,
+      sameBook: true,
+      eligibilityReasons: ['All best prices come from one bookmaker; the scanner requires cross-book execution.'],
+      edge: 0.04,
+      profit: 4,
+      legs: [
+        { label: 'Home', bookmaker: 'Book Same', price: 2.1, verificationStatus: 'unverified' },
+        { label: 'Away', bookmaker: 'Book Same', price: 2.1, verificationStatus: 'unverified' },
+      ],
+    },
+    {
+      eventName: 'Dinamo "A", Bucuresti\nRapid',
+      marketLabel: 'Goals Middle, 2.5/3.5',
+      marketKey: 'middle_total_goals',
+      competition: 'Smoke League',
+      type: 'middle',
+      confidence: 'review',
+      eligibility: 'analysis',
+      verifiedLegCount: 0,
+      legCount: 2,
+      sameBook: false,
+      eligibilityReasons: ['A middle has an upside window but is not a guaranteed arbitrage.'],
+      edge: 0.063,
+      profit: 6.78,
+      legs: [
+        { label: 'Over "red"', bookmaker: 'Book, One', price: 1.95, marketKey: 'totalGoals_2_5', verificationStatus: 'unverified' },
+        { label: 'Under', bookmaker: 'Book Two', price: 1.95, marketKey: 'totalGoals_3_5', verificationStatus: 'unverified' },
+      ],
+    },
+  ];
   await page.goto(`${baseUrl}/scanner`, { waitUntil: 'domcontentloaded' });
   await waitForBoard(page);
-  const initialCards = await page.locator('.arb-card').count();
-  assert.ok(initialCards > 0, 'Scanner should render arbitrage cards');
+  await page.evaluate(async (fixture) => {
+    const [{ state, resetSelectedMarketTypes }, { renderScanner }] = await Promise.all([
+      import('/js/state.js?v=12'),
+      import('/js/pages/scanner.js?v=12'),
+    ]);
+    state.stream?.abort?.();
+    state.stream = null;
+    state.opportunities = fixture;
+    state.minEdge = 0;
+    state.search = '';
+    state.scannerVerificationFilter = '';
+    state.scannerTab = 'actionable';
+    resetSelectedMarketTypes();
+    document.querySelector('#filter-min-edge').value = '0';
+    document.querySelector('#verification-filter').value = '';
+    document.querySelector('#search').value = '';
+    renderScanner();
+  }, opportunities);
 
-  await page.locator('#filter-min-edge').fill('5');
-  await page.waitForTimeout(100);
-  const filteredCards = await page.locator('.arb-card').count();
-  assert.ok(filteredCards <= initialCards, 'Min edge filter should not increase cards');
+  const initialCards = await page.locator('#scanner-list .arb-card').count();
+  assert.equal(initialCards, 2, 'Actionable tab should render only verified opportunities');
+  const initialTypes = await page.locator('#scanner-list .arb-card').evaluateAll((cards) => cards.map((card) => card.dataset.opportunityType));
+  assert.ok(initialTypes.every((type) => type !== 'middle'), 'Actionable tab should exclude middle opportunities');
+  assert.equal(await page.locator('#scanner-actionable-count').innerText(), '2');
+  assert.equal(await page.locator('#scanner-review-count').innerText(), '1');
+  assert.equal(await page.locator('#scanner-rejected-count').innerText(), '1');
+  assert.equal(await page.locator('#scanner-middles-count').innerText(), '1');
 
-  const opportunityRoute = /\/api\/opportunities\?/;
-  const routeCsvOpportunity = async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        opportunities: [{
-          eventName: 'Dinamo "A", Bucuresti\nRapid',
-          marketLabel: 'Winner, 1X2',
-          edge: 0.123,
-          profit: 45.67,
-          legs: [
-            { label: 'Home "red"', bookmaker: 'Book, One' },
-            { label: 'Away', bookmaker: 'Book Two' },
-          ],
-        }],
-      }),
-    });
-  };
-  await page.route(opportunityRoute, routeCsvOpportunity);
+  await page.locator('#scanner-list .arb-card[data-eligibility="actionable"] .arb-detail-btn').first().click();
+  assert.equal(await page.locator('#arb-modal-body .modal-copy-btn').count(), 2, 'Actionable details should expose stake actions');
+  assert.equal(await page.locator('#arb-modal-body .modal-journal-btn').count(), 2, 'Actionable details should expose journal actions');
+  await page.locator('#arb-modal-close').click();
+
+  await page.locator('[data-scanner-tab="review"]').click();
+  assert.equal(await page.locator('#scanner-list .arb-card[data-eligibility="review"]').count(), 1, 'Review queue should isolate evidence-blocked candidates');
+  assert.equal(await page.locator('#scanner-list .evidence-badge--review').count(), 2, 'Review legs should show evidence badges');
+  await page.locator('#scanner-list .arb-card[data-eligibility="review"] .arb-detail-btn').click();
+  assert.equal(await page.locator('#arb-modal-body .modal-copy-btn').count(), 0, 'Review details must lock stake actions');
+  assert.equal(await page.locator('#arb-modal-body .modal-journal-btn').count(), 0, 'Review details must lock journal actions');
+  assert.equal(await page.locator('#arb-modal-body').getByText('Position actions locked until actionable.').count(), 2);
+  await page.locator('#arb-modal-close').click();
+  await page.locator('[data-scanner-tab="rejected"]').click();
+  assert.equal(await page.locator('#scanner-list .arb-card[data-eligibility="rejected"]').count(), 1, 'Rejected queue should isolate blocked candidates');
+  assert.match(await page.locator('#scanner-list .scanner-verdict').innerText(), /cross-book execution/i);
+  await page.locator('[data-scanner-tab="actionable"]').click();
+
+  await page.locator('#market-filter-toggle').click();
+  await page.locator('[data-market-filter-action="none"]').click();
+  await page.locator('#market-filter-options input[data-market-type="goalsTotals"]').check();
+  const marketFilteredCards = await page.locator('#scanner-list .arb-card').count();
+  assert.equal(marketFilteredCards, 1, 'Market filter should isolate Goals Totals in Actionable');
+  assert.deepEqual(
+    await page.locator('#scanner-list .arb-card').evaluateAll((cards) => cards.map((card) => card.dataset.marketType)),
+    ['goalsTotals'],
+    'Visible Actionable cards should expose the selected market type',
+  );
+  assert.equal(await page.locator('#scanner-actionable-count').innerText(), '1');
+  assert.equal(await page.locator('#scanner-middles-count').innerText(), '1');
+
+  await page.locator('[data-scanner-tab="middles"]').click();
+  const middleCards = await page.locator('#scanner-list .arb-card').count();
+  assert.equal(middleCards, 1, 'Middles tab should render middle opportunity cards matching the selected market type');
+  assert.deepEqual(
+    await page.locator('#scanner-list .arb-card').evaluateAll((cards) => cards.map((card) => card.dataset.opportunityType)),
+    ['middle'],
+    'Middles tab should contain only middle opportunities',
+  );
+  assert.deepEqual(
+    await page.locator('#scanner-list .arb-card').evaluateAll((cards) => cards.map((card) => card.dataset.marketType)),
+    ['goalsTotals'],
+    'Market filter should persist when switching to Middles',
+  );
+
   const download = await Promise.all([
     page.waitForEvent('download'),
     page.locator('#export-csv').click(),
   ]).then(([item]) => item);
-  await page.unroute(opportunityRoute, routeCsvOpportunity);
-  assert.match(download.suggestedFilename(), /^surebets\.csv$/);
+  assert.match(download.suggestedFilename(), /^scanner-middle\.csv$/);
   const csvPath = await download.path();
   assert.ok(csvPath, 'CSV download should have a readable temporary path');
   const csvText = fs.readFileSync(csvPath, 'utf8');
-  assert.match(csvText, /^Event,Market,Edge,Profit,Legs/);
+  assert.match(csvText, /^Event,Market,Queue,Edge,Model Profit,Evidence,Reasons,Legs/);
   assert.match(
     csvText,
-    /"Dinamo ""A"", Bucuresti\nRapid","Winner, 1X2",12\.3%,45\.67,"Home ""red""@Book, One \| Away@Book Two"/,
+    /"Dinamo ""A"", Bucuresti\nRapid","Goals Middle, 2\.5\/3\.5",analysis,6\.3%,6\.78,unverified,A middle has an upside window but is not a guaranteed arbitrage\.,"Over ""red""@Book, One:unverified \| Under@Book Two:unverified"/,
     'CSV export should escape quotes, commas, and embedded newlines',
   );
+  assert.doesNotMatch(csvText, /Fixture Arb vs Team/, 'CSV export should follow the active scanner tab');
+  assert.doesNotMatch(csvText, /Fixture Goals vs Team/, 'CSV export should not leak Actionable cards into Middles');
 
   await page.locator('#filter-reset').click();
-  return { initialCards, filteredCards };
+  await page.locator('[data-scanner-tab="actionable"]').click();
+  await page.locator('#filter-min-edge').fill('5');
+  await page.waitForTimeout(100);
+  const filteredCards = await page.locator('#scanner-list .arb-card').count();
+  assert.ok(filteredCards <= initialCards, 'Min edge filter should not increase cards');
+  assert.equal(filteredCards, 2, 'Min edge filter should apply inside the active Actionable tab');
+  assert.equal(await page.locator('#scanner-actionable-count').innerText(), '2');
+  assert.equal(await page.locator('#scanner-middles-count').innerText(), '1');
+
+  await page.locator('#filter-reset').click();
+  return { initialCards, marketFilteredCards, filteredCards, middleCards };
 }
 
 async function smokeCalculatorTools(page, baseUrl) {
@@ -442,6 +605,7 @@ async function readSummary(page, selector) {
 async function smokeJournal(page, baseUrl) {
   await page.goto(`${baseUrl}/journal`, { waitUntil: 'domcontentloaded' });
   await waitForBoard(page);
+  await clearJournal(page);
   const emptyText = await page.locator('#journal-list').innerText();
   assert.match(emptyText, /No bets logged yet|No saved entries yet/i);
 
@@ -483,13 +647,22 @@ async function smokeJournal(page, baseUrl) {
 }
 
 async function clearJournal(page) {
-  const clear = page.locator('#journal-clear');
-  if (await clear.count()) {
-    await clear.click();
-    await page.waitForFunction(() => !document.querySelector('#journal-clear')?.disabled, null, {
-      timeout: 10_000,
-    }).catch(() => {});
-  }
+  await page.evaluate(async (key) => {
+    localStorage.setItem(key, '[]');
+    const [{ state, renderRegistry }] = await Promise.all([
+      import('/js/state.js?v=12'),
+    ]);
+    const response = await fetch('/api/bets');
+    const payload = response.ok ? await response.json() : { bets: [] };
+    for (const bet of payload.bets || []) {
+      if (bet.id) await fetch(`/api/bets/${encodeURIComponent(bet.id)}`, { method: 'DELETE' });
+    }
+    state.localJournal = [];
+    state.serverJournal = [];
+    state.analytics = null;
+    renderRegistry.journal?.();
+    renderRegistry.betSlip?.();
+  }, BET_JOURNAL_KEY);
 }
 
 async function smokeJournalDeleteFailure(page) {

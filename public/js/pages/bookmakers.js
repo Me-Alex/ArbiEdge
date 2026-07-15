@@ -2,7 +2,7 @@
  * Bookmakers page: coverage registry display.
  */
 
-import { state, $, escapeHtml, bookmakerDot } from '../state.js';
+import { state, $, escapeHtml, bookmakerDot } from '../state.js?v=12';
 
 export function renderBookmakers() {
   const list = $('#bookmakers-list');

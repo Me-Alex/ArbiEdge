@@ -4,6 +4,30 @@
  * This is the single source of truth for all page modules.
  */
 
+import {
+  MARKET_TYPES,
+  MARKET_TYPE_KEYS,
+  classifyOpportunityMarketType,
+  marketTypeLabel,
+} from './market-types.js?v=12';
+import {
+  areAllMarketTypesSelected as scannerAreAllMarketTypesSelected,
+  getFilteredScannerOpportunities,
+  getScannerMarketTypeCounts as scannerMarketTypeCounts,
+  getScannerTabBaseOpportunities as scannerTabBaseOpportunities,
+  getScannerTabCounts as scannerTabCounts,
+  getScannerTabOpportunities as scannerTabOpportunities,
+  getSelectedMarketTypes as scannerSelectedMarketTypes,
+  isMarketTypeSelected as scannerIsMarketTypeSelected,
+  isMiddleOpportunity,
+  resetSelectedMarketTypes as scannerResetSelectedMarketTypes,
+  setSelectedMarketTypes as scannerSetSelectedMarketTypes,
+  toggleMarketTypeSelection as scannerToggleMarketTypeSelection,
+} from './scanner-filters.js?v=12';
+
+export { MARKET_TYPES, MARKET_TYPE_KEYS, classifyOpportunityMarketType, marketTypeLabel };
+export { isMiddleOpportunity };
+
 export const BET_JOURNAL_KEY = 'arbDeskBetJournal';
 export const THEME_KEY = 'arbDeskTheme';
 export const FAVORITES_KEY = 'arbDeskBookmakerFavorites';
@@ -25,7 +49,9 @@ export const BOOKMAKER_COLORS = {
 
 export const state = {
   page: 'scanner', mode: 'loading', fetchedAt: null, warnings: [], search: '', sport: '',
-  minEdge: 0, alertThreshold: 5, confidenceFilter: '', denseView: false,
+  minEdge: 0, alertThreshold: 1, scannerVerificationFilter: '', scannerTab: 'actionable', denseView: false,
+  scannerVisibleLimit: 50,
+  selectedMarketTypes: new Set(MARKET_TYPE_KEYS),
   events: [], opportunities: [], prevOppIds: new Set(), valueBets: [], bookmakerCoverage: null,
   localJournal: [], serverJournal: [], analytics: null, movement: null, arbHistory: null,
   selectedOdds: null, refreshIntervalMs: 60000, refreshTimer: null, stream: null, lastLoadOk: false,
@@ -82,15 +108,47 @@ export function activeSearchMatch(...p) { return !state.search || normalizeText(
 export function getFilteredEvents() { return state.events.filter((e) => activeSearchMatch(e.homeTeam, e.awayTeam, e.competition, e.sport)); }
 
 export function getFilteredOpportunities() {
-  let opps = state.opportunities.filter((o) => o.edge * 100 >= state.minEdge && activeSearchMatch(o.eventName, o.marketLabel, o.competition));
-  if (state.confidenceFilter === 'trusted') opps = opps.filter((o) => o.confidence === 'trusted');
-  else if (state.confidenceFilter === 'review') opps = opps.filter((o) => ['trusted', 'review'].includes(o.confidence));
-  return opps.sort((a, b) => {
-    const ap = state.pinnedArbs.has(arbId(a)) ? 1 : 0;
-    const bp = state.pinnedArbs.has(arbId(b)) ? 1 : 0;
-    if (ap !== bp) return bp - ap;
-    return b.edge - a.edge;
-  });
+  return getFilteredScannerOpportunities(state);
+}
+
+export function getSelectedMarketTypes() {
+  return scannerSelectedMarketTypes(state);
+}
+
+export function setSelectedMarketTypes(keys) {
+  scannerSetSelectedMarketTypes(state, keys);
+}
+
+export function resetSelectedMarketTypes() {
+  scannerResetSelectedMarketTypes(state);
+}
+
+export function toggleMarketTypeSelection(key, selected) {
+  scannerToggleMarketTypeSelection(state, key, selected);
+}
+
+export function areAllMarketTypesSelected() {
+  return scannerAreAllMarketTypesSelected(state);
+}
+
+export function isMarketTypeSelected(key) {
+  return scannerIsMarketTypeSelected(state, key);
+}
+
+export function getScannerTabBaseOpportunities(tab = state.scannerTab) {
+  return scannerTabBaseOpportunities(state, tab);
+}
+
+export function getScannerTabOpportunities(tab = state.scannerTab, { includeMarketTypeFilter = true } = {}) {
+  return scannerTabOpportunities(state, tab, { includeMarketTypeFilter });
+}
+
+export function getScannerTabCounts() {
+  return scannerTabCounts(state);
+}
+
+export function getScannerMarketTypeCounts(tab = state.scannerTab) {
+  return scannerMarketTypeCounts(state, tab);
 }
 
 export function getFilteredValueBets() { return state.valueBets.filter((b) => activeSearchMatch(b.eventName, b.marketLabel, b.bookmaker)); }

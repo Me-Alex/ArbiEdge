@@ -1,0 +1,149 @@
+'use strict';
+
+const test = require('node:test');
+const assert = require('node:assert/strict');
+
+const {
+  attachOpportunityEligibility,
+  evaluateOpportunityEligibility,
+  isHalfLineMarket,
+  isSupportedClassicMarket,
+  isSupportedHandicapMarket,
+  normalizeVerificationStatus,
+} = require('../src/engine/opportunity-eligibility');
+
+function verifiedOpportunity(overrides = {}) {
+  return {
+    type: 'classic',
+    marketKey: 'bothTeamsToScore',
+    edge: 0.03,
+    legs: [
+      { bookmaker: 'Book A', verificationStatus: 'verified' },
+      { bookmaker: 'Book B', verificationStatus: 'verified' },
+    ],
+    ...overrides,
+  };
+}
+
+test('normalizeVerificationStatus uses a conservative unverified fallback', () => {
+  assert.equal(normalizeVerificationStatus(), 'unverified');
+  assert.equal(normalizeVerificationStatus('Verified'), 'verified');
+  assert.equal(normalizeVerificationStatus('not found'), 'not_found');
+  assert.equal(normalizeVerificationStatus('not-found'), 'not_found');
+});
+
+test('isHalfLineMarket accepts half lines and rejects integer or quarter lines', () => {
+  assert.equal(isHalfLineMarket('totalGoals_2_5'), true);
+  assert.equal(isHalfLineMarket('totalGoals_2'), false);
+  assert.equal(isHalfLineMarket('asianTotalGoals_2_25'), false);
+});
+
+test('isSupportedClassicMarket only approves explicit exhaustive schemas', () => {
+  assert.equal(isSupportedClassicMarket('h2h'), true);
+  assert.equal(isSupportedClassicMarket('totalGoals_2_5'), true);
+  assert.equal(isSupportedClassicMarket('doubleChance'), false);
+  assert.equal(isSupportedClassicMarket('market_custom'), false);
+  assert.equal(isSupportedClassicMarket('totalPoints_224_5'), true);
+  assert.equal(isSupportedClassicMarket('totalGames_22_5'), true);
+});
+
+test('isSupportedHandicapMarket only approves two-way half lines', () => {
+  assert.equal(isSupportedHandicapMarket('asianHandicap_plus_0_5'), true);
+  assert.equal(isSupportedHandicapMarket('handicap_minus_1'), false);
+});
+
+test('evaluateOpportunityEligibility separates actionable, review, and rejected candidates', () => {
+  assert.equal(evaluateOpportunityEligibility(verifiedOpportunity()).eligibility, 'actionable');
+  assert.equal(evaluateOpportunityEligibility(verifiedOpportunity({
+    legs: [
+      { bookmaker: 'Book A' },
+      { bookmaker: 'Book B', verificationStatus: 'verified' },
+    ],
+  })).eligibility, 'review');
+  const rejected = evaluateOpportunityEligibility(verifiedOpportunity({
+    legs: [
+      { bookmaker: 'Book A', verificationStatus: 'verified' },
+      { bookmaker: 'Book A', verificationStatus: 'verified' },
+    ],
+  }));
+  assert.equal(rejected.eligibility, 'rejected');
+  assert.ok(rejected.eligibilityReasonCodes.includes('same_book'));
+});
+
+test('evaluateOpportunityEligibility approves only complete settlement formula matrices', () => {
+  const settlementFormula = verifiedOpportunity({
+    type: 'settlement-formula',
+    marketKey: 'formula_ah1_0_x_2',
+    stake: 100,
+    minimumReturn: 103,
+    settlementModel: 'score-state-matrix-v1',
+    coverageVerified: true,
+    scenarioReturns: [
+      { scenario: 'home', returnAmount: 103 },
+      { scenario: 'draw', returnAmount: 104 },
+      { scenario: 'away', returnAmount: 103 },
+    ],
+    legs: [
+      { bookmaker: 'Book A', verificationStatus: 'verified' },
+      { bookmaker: 'Book B', verificationStatus: 'verified' },
+      { bookmaker: 'Book C', verificationStatus: 'verified' },
+    ],
+  });
+  assert.equal(evaluateOpportunityEligibility(settlementFormula).eligibility, 'actionable');
+
+  const incomplete = evaluateOpportunityEligibility({
+    ...settlementFormula,
+    scenarioReturns: [],
+  });
+  assert.equal(incomplete.eligibility, 'rejected');
+  assert.ok(incomplete.eligibilityReasonCodes.includes('incomplete_settlement_matrix'));
+});
+
+test('attachOpportunityEligibility writes decision metadata and confidence', () => {
+  const opportunity = attachOpportunityEligibility(verifiedOpportunity());
+  assert.equal(opportunity.eligibility, 'actionable');
+  assert.equal(opportunity.confidence, 'trusted');
+  assert.equal(opportunity.verifiedLegCount, 2);
+});
+
+test('correlated brand labels do not count as independent price evidence', () => {
+  const result = evaluateOpportunityEligibility(verifiedOpportunity({
+    legs: [
+      { bookmaker: 'Stanleybet', feedGroup: 'nsoft:stanleybet-family', verificationStatus: 'verified' },
+      { bookmaker: 'GameWorld', feedGroup: 'nsoft:stanleybet-family', verificationStatus: 'verified' },
+    ],
+  }));
+  assert.equal(result.eligibility, 'rejected');
+  assert.equal(result.independentFeedCount, 1);
+  assert.ok(result.eligibilityReasonCodes.includes('same_feed'));
+});
+
+test('stale or unsynchronized verified quotes stay in review', () => {
+  const stale = evaluateOpportunityEligibility(verifiedOpportunity({
+    quoteTiming: { status: 'stale', actionable: false, maxAgeMs: 60_000, skewMs: 1_000 },
+  }));
+  assert.equal(stale.eligibility, 'review');
+  assert.ok(stale.eligibilityReasonCodes.includes('quote_stale'));
+
+  const skewed = evaluateOpportunityEligibility(verifiedOpportunity({
+    quoteTiming: { status: 'skewed', actionable: false, maxAgeMs: 5_000, skewMs: 30_000 },
+  }));
+  assert.equal(skewed.eligibility, 'review');
+  assert.ok(skewed.eligibilityReasonCodes.includes('quote_time_skew'));
+});
+
+test('missing kickoff evidence stays in review and mismatched kickoffs are rejected', () => {
+  const missing = evaluateOpportunityEligibility(verifiedOpportunity({
+    kickoffTiming: { status: 'missing', actionable: false },
+  }));
+  assert.equal(missing.eligibility, 'review');
+  assert.equal(missing.kickoffsMatched, false);
+  assert.ok(missing.eligibilityReasonCodes.includes('kickoff_missing'));
+
+  const mismatched = evaluateOpportunityEligibility(verifiedOpportunity({
+    kickoffTiming: { status: 'mismatched', actionable: false, skewMs: 600_000 },
+  }));
+  assert.equal(mismatched.eligibility, 'rejected');
+  assert.equal(mismatched.kickoffsMatched, false);
+  assert.ok(mismatched.eligibilityReasonCodes.includes('kickoff_mismatch'));
+});

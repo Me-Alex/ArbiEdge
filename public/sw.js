@@ -1,78 +1,79 @@
-// Arb Desk Service Worker — caches static assets and last odds payload for offline use
-const CACHE_VERSION = 'arb-desk-v1';
+// Arb Desk offline shell. Bump this key whenever the frontend bundle changes.
+const CACHE_VERSION = 'arb-desk-v18';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
-  '/app.js',
-  '/css/style.css',
+  '/css/design-tokens.css?v=18',
+  '/css/components.css?v=18',
+  '/css/style.css?v=18',
+  '/js/app.js?v=18',
   '/manifest.json',
 ];
 
-// Install: cache static assets
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_VERSION).then((cache) => cache.addAll(STATIC_ASSETS)).catch(() => {})
+    caches.open(CACHE_VERSION)
+      .then((cache) => cache.addAll(STATIC_ASSETS))
+      .catch(() => {}),
   );
   self.skipWaiting();
 });
 
-// Activate: clean up old caches
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((key) => key !== CACHE_VERSION).map((key) => caches.delete(key)))
-    )
+    caches.keys().then((keys) => Promise.all(
+      keys.filter((key) => key !== CACHE_VERSION).map((key) => caches.delete(key)),
+    )),
   );
   self.clients.claim();
 });
 
-// Fetch strategy:
-// - Static assets: cache-first, network fallback
-// - API requests: network-first, cache fallback (stale data is better than no data)
-// - Everything else: network-first, cache fallback
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
-
-  // Skip non-GET requests
-  if (event.request.method !== 'GET') return;
-
-  // Skip cross-origin requests
-  if (url.origin !== self.location.origin) return;
-
-  // Skip the odds stream endpoint (can't cache SSE)
+  if (event.request.method !== 'GET' || url.origin !== self.location.origin) return;
   if (url.pathname === '/api/odds/stream') return;
 
-  // API requests: network-first with cache fallback
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(
       fetch(event.request)
         .then((response) => {
           if (response.ok) {
             const clone = response.clone();
-            caches.open(CACHE_VERSION).then((cache) => {
-              cache.put(event.request, clone);
-            });
+            caches.open(CACHE_VERSION).then((cache) => cache.put(event.request, clone));
           }
           return response;
         })
-        .catch(() => caches.match(event.request))
+        .catch(() => caches.match(event.request)),
     );
     return;
   }
 
-  // Static assets: cache-first
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_VERSION).then((cache) => cache.put('/index.html', clone));
+          }
+          return response;
+        })
+        .catch(() => caches.match('/index.html')),
+    );
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request).then((cached) => {
-      if (cached) return cached;
-      return fetch(event.request).then((response) => {
-        if (response.ok) {
-          const clone = response.clone();
-          caches.open(CACHE_VERSION).then((cache) => {
-            cache.put(event.request, clone);
-          });
-        }
-        return response;
-      });
-    })
+      const networkUpdate = fetch(event.request)
+        .then((response) => {
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_VERSION).then((cache) => cache.put(event.request, clone));
+          }
+          return response;
+        });
+      return cached || networkUpdate;
+    }),
   );
 });

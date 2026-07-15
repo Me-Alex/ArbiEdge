@@ -71,6 +71,7 @@ test('marketOutcomes returns expected outcomes per sport', () => {
   // Basketball h2h has 2 outcomes (no draw)
   const bkH2h = marketOutcomes('basketball', 'h2h');
   assert.deepEqual(bkH2h, ['home', 'away']);
+  assert.deepEqual(marketOutcomes('Basketball', 'h2h'), ['home', 'away']);
 
   // Tennis h2h has 2 outcomes
   const tnH2h = marketOutcomes('tennis', 'h2h');

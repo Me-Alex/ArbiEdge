@@ -48,11 +48,34 @@ test('merges bookmaker quotes for the same Sportradar fixture', async () => {
     ['First', 'Second'],
   );
   assert.equal(result.events[0].matchConfidence, 'shared sportradar');
+  assert.deepEqual(
+    result.events[0].bookmakers.map((bookmaker) => bookmaker.sourceStartsAt),
+    ['2026-06-22T10:00:00.000Z', '2026-06-22T10:00:00.000Z'],
+  );
   assert.deepEqual(stripDurations(result.providers), [
     { name: 'First', ok: true, events: 1 },
     { name: 'Second', ok: true, events: 1 },
   ]);
   assertProviderDurations(result.providers);
+});
+
+test('does not merge fixtures with a shared id when kickoff times disagree', async () => {
+  const first = structuredClone(baseEvent);
+  first.externalIds = { sportradar: 'sr:match:kickoff-check' };
+  first.startsAt = '2026-06-22T10:00:00.000Z';
+
+  const second = structuredClone(baseEvent);
+  second.id = 'second:kickoff-mismatch';
+  second.externalIds = { sportradar: 'sr:match:kickoff-check' };
+  second.startsAt = '2026-06-22T10:10:00.000Z';
+  second.bookmakers[0].name = 'Second';
+
+  const result = await new CompositeProvider([
+    { name: 'First', getOdds: async () => [first] },
+    { name: 'Second', getOdds: async () => [second] },
+  ]).getOdds();
+
+  assert.equal(result.events.length, 2);
 });
 
 test('streams composite provider snapshots as each provider finishes', async () => {
@@ -657,4 +680,61 @@ test('does not fuzzy-merge two events from the same bookmaker without a shared i
   const result = await provider.getOdds();
 
   assert.equal(result.events.length, 2);
+});
+
+test('bounds simultaneous provider collections for full scans', async () => {
+  let active = 0;
+  let maxActive = 0;
+  const providers = Array.from({ length: 7 }, (_, index) => ({
+    name: `Provider ${index}`,
+    getOdds: async () => {
+      active += 1;
+      maxActive = Math.max(maxActive, active);
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      active -= 1;
+      const event = structuredClone(baseEvent);
+      event.id = `bounded:${index}`;
+      event.externalIds = { providerEvent: `bounded:${index}` };
+      event.homeTeam = `Home ${index}`;
+      event.awayTeam = `Away ${index}`;
+      event.bookmakers[0].name = `Provider ${index}`;
+      return [event];
+    },
+  }));
+
+  const result = await new CompositeProvider(providers, { concurrency: 2 }).getOdds();
+
+  assert.equal(maxActive, 2);
+  assert.equal(result.providers.length, 7);
+  assert.equal(result.events.length, 7);
+});
+
+test('bounds simultaneous provider collections for progressive scans', async () => {
+  let active = 0;
+  let maxActive = 0;
+  const providers = Array.from({ length: 5 }, (_, index) => ({
+    name: `Progress ${index}`,
+    getOdds: async () => {
+      active += 1;
+      maxActive = Math.max(maxActive, active);
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      active -= 1;
+      const event = structuredClone(baseEvent);
+      event.id = `progress:${index}`;
+      event.externalIds = { providerEvent: `progress:${index}` };
+      event.homeTeam = `Progress Home ${index}`;
+      event.awayTeam = `Progress Away ${index}`;
+      event.bookmakers[0].name = `Progress ${index}`;
+      return [event];
+    },
+  }));
+
+  const snapshots = [];
+  for await (const snapshot of new CompositeProvider(providers, { concurrency: 2 }).getOddsProgress()) {
+    snapshots.push(snapshot);
+  }
+
+  assert.equal(maxActive, 2);
+  assert.equal(snapshots.length, 3);
+  assert.deepEqual(snapshots.at(-1).progress, { done: 5, total: 5, complete: true });
 });
