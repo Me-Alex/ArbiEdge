@@ -1181,10 +1181,13 @@ function finalizeOpportunity(opportunity, event, eventName, {
     const bookmakerKickoff = firstValidIsoDate([
       bookmaker.sourceStartsAt,
       bookmaker.startsAt,
+      event.startsAt,
     ]);
     if (bookmakerKickoff) {
       leg.kickoff = bookmakerKickoff;
-      leg.kickoffSource = 'bookmaker';
+      leg.kickoffSource = bookmaker.sourceStartsAt || bookmaker.startsAt
+        ? 'bookmaker'
+        : 'event';
     }
   }
   if (hasQuoteTimestamp) {

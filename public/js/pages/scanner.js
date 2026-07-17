@@ -41,17 +41,20 @@ function renderScannerOverview() {
   const counts = getScannerTabCounts();
   const candidateCount = counts.actionable + counts.review + counts.rejected;
   const items = [
-    { key: 'candidates', label: 'Formula candidates', value: candidateCount, hint: 'After schema validation' },
-    { key: 'actionable', label: 'Actionable', value: counts.actionable, hint: 'Verified and cross-book' },
-    { key: 'review', label: 'Needs evidence', value: counts.review, hint: 'Blocked until verified' },
-    { key: 'rejected', label: 'Rejected', value: counts.rejected, hint: 'Structural or fidelity failure' },
+    { key: 'candidates', label: 'Total semnale', value: candidateCount, hint: 'După validare formulă' },
+    { key: 'actionable', label: 'Acționabile', value: counts.actionable, hint: 'Fidelity verified pe website' },
+    { key: 'review', label: 'Candidați', value: counts.review, hint: 'Arbitraj matematic, neverificat pe site' },
+    { key: 'rejected', label: 'Respinse', value: counts.rejected, hint: 'Same-book / edge outlier / invalid' },
   ];
   overview.innerHTML = items.map((item) => `
     <article class="scanner-metric scanner-metric--${item.key}">
       <span>${escapeHtml(item.label)}</span>
       <strong>${item.value}</strong>
       <small>${escapeHtml(item.hint)}</small>
-    </article>`).join('');
+    </article>`).join('')
+    + (counts.actionable === 0 && counts.review > 0
+      ? `<div class="context-banner scanner-fidelity-banner" style="grid-column:1/-1"><strong>${counts.review} candidați matematici.</strong><span>Niciunul nu e „acționabil” până nu există dovadă browser (fidelity) pe fiecare picior. Deschide tab-ul <em>Candidați</em> ca să le vezi.</span></div>`
+      : '');
 }
 
 function renderScannerTabs() {
@@ -98,12 +101,12 @@ function renderEmptyScanner(list, baseOpps) {
     actionable: {
       eyebrow: 'Poartă de siguranță',
       title: 'Niciun arbitraj verificat acționabil',
-      body: 'Majoritatea semnalelor stau la „De revizuit” până când fiecare picior are dovadă fidelity pe website (verified). Deschide tab-ul De revizuit pentru candidați.',
+      body: 'Aici apar doar surebet-urile cu fidelity pe website pe fiecare picior. Candidații matematici (neverificați) sunt în tab-ul „Candidați”.',
     },
     review: {
-      eyebrow: 'Coadă de dovezi',
-      title: 'Niciun candidat de revizuit',
-      body: 'Actualizează feed-ul ca să caute noi candidați cu dovezi lipsă, stale sau ambigue.',
+      eyebrow: 'Candidați matematici',
+      title: 'Niciun candidat de arbitraj',
+      body: 'Nu există încă combinații cross-book cu edge pozitiv. Apasă Scan, așteaptă colectarea live (30–90s) și verifică că modul e „live”, nu offline.',
     },
     rejected: {
       eyebrow: 'Audit queue clear',

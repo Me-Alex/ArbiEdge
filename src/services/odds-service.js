@@ -337,12 +337,18 @@ class OddsService {
   }
 
   async #demoPayload(fetchedAt, { warning }) {
+    const { stampQuoteMetadata } = require('../core/quote-metadata');
+    const events = stampQuoteMetadata(await this.demoProvider.getOdds(), {
+      observedAt: fetchedAt,
+      provider: 'Demo',
+      clone: 'shallow',
+    });
     return {
       mode: 'demo',
       source: 'Built-in demo data',
       fetchedAt,
       warning,
-      events: await this.demoProvider.getOdds(),
+      events,
     };
   }
 }

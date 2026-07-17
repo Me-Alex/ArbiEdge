@@ -123,6 +123,12 @@ async function loadData(refresh = false) {
     if (state.scannerTab === 'actionable' && actionable.length === 0 && review.length > 0) {
       state.scannerTab = 'review';
     }
+    if (state.opportunities.length > 0) {
+      logActivity(
+        `${state.opportunities.length} semnale · ${actionable.length} acționabile · ${review.length} candidați`,
+        'scanner',
+      );
+    }
 
     const changes = detectArbChanges(actionable);
     if (changes.appeared.length > 0) logActivity(`${changes.appeared.length} new actionable arb${changes.appeared.length === 1 ? '' : 's'}`, 'scanner');
