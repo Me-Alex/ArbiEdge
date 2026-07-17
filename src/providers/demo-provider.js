@@ -222,8 +222,8 @@ function createBookmaker(name, home, draw, away, baseTime, eventIndex, bookmaker
       under: round(1.22 + eventIndex * 0.02),
     };
     markets.toQualify = {
-      home: round(Math.max(1.08, home - 0.18)),
-      away: round(Math.max(1.08, away - 0.35)),
+      home: round(Math.max(1.08, home - 0.18 + bookmakerIndex * 0.04)),
+      away: round(Math.max(1.08, away - 0.35 + bookmakerIndex * 0.05)),
     };
     markets.market_total_goluri_impar_par = {
       odd: round(1.92 + bookmakerIndex * 0.06),

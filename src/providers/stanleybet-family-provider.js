@@ -190,8 +190,44 @@ function normalizeStanleybetFamilyMarkets(markets) {
       continue;
     }
 
+    if (marketKey === 'firstHalfH2h' || marketKey === 'secondHalfH2h') {
+      const prices = outcomePrices(market, {
+        home: 'home',
+        draw: 'draw',
+        away: 'away',
+      });
+      if (hasOutcomes(prices, ['home', 'draw', 'away']) && !normalized[marketKey]) {
+        normalized[marketKey] = prices;
+      }
+      continue;
+    }
+
+    if (
+      marketKey === 'doubleChance'
+      || marketKey === 'firstHalfDoubleChance'
+      || marketKey === 'secondHalfDoubleChance'
+    ) {
+      const doubleChance = outcomePrices(market, {
+        homeDraw: 'homeDraw',
+        homeAway: 'homeAway',
+        drawAway: 'drawAway',
+      });
+      if (hasOutcomes(doubleChance, ['homeDraw', 'homeAway', 'drawAway']) && !normalized[marketKey]) {
+        normalized[marketKey] = doubleChance;
+      }
+      continue;
+    }
+
+    if (marketKey === 'drawNoBet' || marketKey === 'firstHalfDrawNoBet') {
+      const prices = outcomePrices(market, { home: 'home', away: 'away' });
+      if (hasOutcomes(prices, ['home', 'away']) && !normalized[marketKey]) {
+        normalized[marketKey] = prices;
+      }
+      continue;
+    }
+
     if (isTotalGoalsMarket(marketKey, market)) {
-      addTotalGoalsMarket(normalized, market);
+      addTotalGoalsMarket(normalized, market, totalGoalsBaseKey(marketKey, market));
       continue;
     }
 
@@ -200,21 +236,30 @@ function normalizeStanleybetFamilyMarkets(markets) {
         yes: 'yes',
         no: 'no',
       });
-      if (hasOutcomes(prices, ['yes', 'no'])) {
-        normalized.bothTeamsToScore = prices;
+      const bttsKey = bothTeamsToScoreKey(marketKey, market);
+      if (hasOutcomes(prices, ['yes', 'no']) && !normalized[bttsKey]) {
+        normalized[bttsKey] = prices;
+      }
+      continue;
+    }
+
+    if (marketKey === 'market_total_goluri_impar_par' || isOddEvenGoalsMarket(market)) {
+      const prices = outcomePrices(market, { odd: 'odd', even: 'even' });
+      if (hasOutcomes(prices, ['odd', 'even']) && !normalized.market_total_goluri_impar_par) {
+        normalized.market_total_goluri_impar_par = prices;
       }
       continue;
     }
 
     const prices = genericOutcomePrices(market);
-    if (hasAnyCompleteMarket({ [marketKey]: prices })) {
+    if (marketKey && hasAnyCompleteMarket({ [marketKey]: prices }) && !normalized[marketKey]) {
       normalized[marketKey] = prices;
     }
   }
   return normalized;
 }
 
-function addTotalGoalsMarket(markets, market) {
+function addTotalGoalsMarket(markets, market, baseKey = 'totalGoals') {
   const pricesByLine = new Map();
   for (const outcome of activeOutcomes(market)) {
     const line = parseLine(outcome.name || outcome.shortcut || market.name);
@@ -230,9 +275,68 @@ function addTotalGoalsMarket(markets, market) {
 
   for (const [line, prices] of pricesByLine.entries()) {
     if (hasOutcomes(prices, ['over', 'under'])) {
-      markets[`totalGoals_${formatLine(line).replace('.', '_')}`] = prices;
+      markets[`${baseKey}_${formatLine(line).replace('.', '_')}`] = prices;
     }
   }
+}
+
+function totalGoalsBaseKey(marketKey, market) {
+  if ([
+    'totalGoals',
+    'asianTotalGoals',
+    'firstHalfTotalGoals',
+    'secondHalfTotalGoals',
+    'totalCorners',
+    'totalCards',
+    'firstHalfTotalCorners',
+    'secondHalfTotalCorners',
+  ].includes(marketKey)) {
+    return marketKey;
+  }
+  const key = labelKey(market?.name);
+  if (key.includes('cornere') || key.includes('corner')) {
+    if (key.includes('pauza') || key.includes('prima') || key.includes('1st')) return 'firstHalfTotalCorners';
+    if (key.includes('a_doua') || key.includes('2nd')) return 'secondHalfTotalCorners';
+    return 'totalCorners';
+  }
+  if (key.includes('cartonas') || key.includes('card') || key.includes('booking')) {
+    return 'totalCards';
+  }
+  if (key.includes('asiatic') || key.includes('asian')) return 'asianTotalGoals';
+  if (key.includes('pauza') || key.includes('prima_repriza') || key.includes('1st_half')) {
+    return 'firstHalfTotalGoals';
+  }
+  if (key.includes('a_doua') || key.includes('repriza_2') || key.includes('2nd_half')) {
+    return 'secondHalfTotalGoals';
+  }
+  return 'totalGoals';
+}
+
+function bothTeamsToScoreKey(marketKey, market) {
+  if (
+    marketKey === 'firstHalfBothTeamsToScore'
+    || marketKey === 'secondHalfBothTeamsToScore'
+    || marketKey === 'bothTeamsToScore'
+  ) {
+    return marketKey;
+  }
+  const key = labelKey(market?.name);
+  if (key.includes('pauza') || key.includes('prima') || key.includes('1st')) {
+    return 'firstHalfBothTeamsToScore';
+  }
+  if (key.includes('a_doua') || key.includes('2nd')) {
+    return 'secondHalfBothTeamsToScore';
+  }
+  return 'bothTeamsToScore';
+}
+
+function isOddEvenGoalsMarket(market) {
+  const key = labelKey(market?.name);
+  return (
+    (key.includes('par') && key.includes('impar'))
+    || key.includes('odd_even')
+    || key.includes('oddeven')
+  );
 }
 
 function outcomePrices(market, expectedKeys) {
@@ -338,10 +442,20 @@ function isTotalGoalsMarket(marketKey, market) {
 }
 
 function isBothTeamsToScoreMarket(marketKey, market) {
-  if (marketKey === 'bothTeamsToScore') {
+  if (
+    marketKey === 'bothTeamsToScore'
+    || marketKey === 'firstHalfBothTeamsToScore'
+    || marketKey === 'secondHalfBothTeamsToScore'
+  ) {
     return true;
   }
-  return ['ambele_inscriu', 'ambele_marcheaza'].includes(labelKey(market?.name));
+  const key = labelKey(market?.name);
+  return (
+    key.includes('ambele_inscriu')
+    || key.includes('ambele_marcheaza')
+    || key.includes('both_teams_to_score')
+    || key === 'gg_ng'
+  );
 }
 
 function parseLine(value) {

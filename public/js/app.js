@@ -75,13 +75,15 @@ async function loadData(refresh = false) {
   if (dataMode) dataMode.textContent = 'Încărcare';
   const detail = loading?.querySelector('.state-panel__copy > span:last-child');
   if (detail) {
-    detail.textContent = 'Colectăm cotele live de la case. Prima scanare poate dura 30–90 secunde.';
+    detail.textContent = refresh
+      ? 'Reîmprospătăm cache-ul de cote. Sursele live pot răspunde treptat (30–90s).'
+      : 'Colectăm cotele live de la case. Cache-ul de pe server pornește la boot — prima scanare poate dura 30–90s.';
   }
   slowLoadTimer = setTimeout(() => {
     if (detail) {
-      detail.textContent = 'Încă așteptăm sursele live. Nu reîncărca — colectarea rulează pe server și se cache-uiește.';
+      detail.textContent = 'Scan lung în curs. Nu reîncărca pagina — serverul încălzește cache-ul (ODDS_WARM_CACHE_ON_START) și reutilizează colectarea în curs.';
     }
-    if (dataMode) dataMode.textContent = 'Scan lung';
+    if (dataMode) dataMode.textContent = 'Scan lung · cache warm';
   }, 12_000);
 
   try {

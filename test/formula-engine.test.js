@@ -850,6 +850,17 @@ test('detectValueBet computes proper overround-based consensus fair odds', () =>
   assert.strictEqual(Number(vb.kelly.toFixed(4)), 0.0441);
 });
 
+test('detectCrossMarketArbitrage surfaces to-qualify vs match soft pairs', () => {
+  const event = makeEvent({
+    bookmakers: [
+      { name: 'BookA', markets: { toQualify: { home: 1.55, away: 2.4 }, h2h: { home: 2.1, draw: 3.2, away: 3.4 } } },
+      { name: 'BookB', markets: { toQualify: { home: 1.5, away: 2.6 }, h2h: { home: 2.05, draw: 3.1, away: 2.15 } } },
+    ],
+  });
+  const results = detectCrossMarketArbitrage(event);
+  assert.ok(results.some((item) => item.marketKey === 'cross_qualify_home_match_away'));
+});
+
 test('detectCrossMarketArbitrage finds BTTS No + Over 1.5 soft cover', () => {
   const event = makeEvent({
     bookmakers: [

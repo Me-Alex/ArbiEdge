@@ -764,7 +764,69 @@ function detectCrossMarketArbitrage(event) {
     ...detectPeriodCrossMarket(event, 'firstHalfH2h', 'firstHalfDoubleChance', '1H_', '1H'),
     ...detectPeriodCrossMarket(event, 'secondHalfH2h', 'secondHalfDoubleChance', '2H_', '2H'),
     ...detectBttsTotalsSoftCross(event),
+    ...detectQualifyVsH2hCross(event),
   ];
+}
+
+/**
+ * To-qualify (2-way) vs match 1X2 away/home is not exhaustive (draw / ET rules),
+ * but Home qualify + Away match-win is a common soft candidate when books price
+ * "to lift the cup" independently of 90-minute settlement. Kept as review-only
+ * unless later approved in SAFE_CROSS (currently unsupported_formula → review).
+ */
+function detectQualifyVsH2hCross(event) {
+  const results = [];
+  const qualify = findBestPrices(event, 'toQualify');
+  const h2h = findBestPrices(event, 'h2h');
+  if (!qualify.home || !qualify.away || !h2h.home || !h2h.away) return results;
+
+  // Soft pairs: qualify home vs match away (and inverse). Not guaranteed under
+  // extra-time qualification rules — eligibility keeps them non-actionable.
+  pushCrossMarketPair(results, {
+    marketKey: 'cross_qualify_home_match_away',
+    marketLabel: 'To Qualify Home + Match Away',
+    legA: {
+      outcome: 'home',
+      label: 'Qualify 1',
+      bookmaker: qualify.home.bookmaker,
+      price: qualify.home.price,
+      url: qualify.home.url,
+      marketKey: qualify.home.marketKey || 'toQualify',
+      verificationStatus: qualify.home.verificationStatus,
+    },
+    legB: {
+      outcome: 'away',
+      label: '2',
+      bookmaker: h2h.away.bookmaker,
+      price: h2h.away.price,
+      url: h2h.away.url,
+      marketKey: h2h.away.marketKey || 'h2h',
+      verificationStatus: h2h.away.verificationStatus,
+    },
+  });
+  pushCrossMarketPair(results, {
+    marketKey: 'cross_qualify_away_match_home',
+    marketLabel: 'To Qualify Away + Match Home',
+    legA: {
+      outcome: 'away',
+      label: 'Qualify 2',
+      bookmaker: qualify.away.bookmaker,
+      price: qualify.away.price,
+      url: qualify.away.url,
+      marketKey: qualify.away.marketKey || 'toQualify',
+      verificationStatus: qualify.away.verificationStatus,
+    },
+    legB: {
+      outcome: 'home',
+      label: '1',
+      bookmaker: h2h.home.bookmaker,
+      price: h2h.home.price,
+      url: h2h.home.url,
+      marketKey: h2h.home.marketKey || 'h2h',
+      verificationStatus: h2h.home.verificationStatus,
+    },
+  });
+  return results;
 }
 
 /**
@@ -880,7 +942,7 @@ function detectMiddleBets(event) {
 
   // Pair any lower Over with higher Under in the same family (not only adjacent
   // lines) so e.g. Over 2.5 / Under 3.5 is found when 3.0 sits between them.
-  const MAX_MIDDLE_GAP = 2.0;
+  const MAX_MIDDLE_GAP = 2.5;
   for (let i = 0; i < lineMarkets.length; i++) {
     const lower = lineMarkets[i];
     for (let j = i + 1; j < lineMarkets.length; j++) {

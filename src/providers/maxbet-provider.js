@@ -208,7 +208,11 @@ function normalizeMaxBetMarkets(markets) {
       continue;
     }
 
-    if (Number(market.b) === NSOFT_MARKETS.final) {
+    const marketId = Number(market.b);
+    const label = String(market.c || market.name || '').trim();
+    const labelKey = normalizeMaxBetLabel(label);
+
+    if (marketId === NSOFT_MARKETS.final || labelKey === 'final' || labelKey === 'rezultat final') {
       const prices = nsoftPrices(market, {
         '1': 'home',
         X: 'draw',
@@ -229,25 +233,92 @@ function normalizeMaxBetMarkets(markets) {
       continue;
     }
 
-    if (Number(market.b) === NSOFT_MARKETS.totalGoals) {
-      addMaxBetTotalGoals(normalized, market);
+    if (
+      labelKey === 'pauza'
+      || labelKey === 'prima repriza'
+      || labelKey === '1st half'
+      || labelKey === 'rezultat pauza'
+    ) {
+      const prices = nsoftPrices(market, {
+        '1': 'home',
+        X: 'draw',
+        '2': 'away',
+      });
+      if (hasOutcomes(prices, ['home', 'draw', 'away']) && !normalized.firstHalfH2h) {
+        normalized.firstHalfH2h = prices;
+      }
       continue;
     }
 
-    if (Number(market.b) === NSOFT_MARKETS.bothTeamsToScore) {
+    if (labelKey === 'sansa dubla' || labelKey === 'double chance') {
+      const doubleChance = nsoftPrices(market, {
+        '1X': 'homeDraw',
+        '12': 'homeAway',
+        X2: 'drawAway',
+      });
+      if (hasOutcomes(doubleChance, ['homeDraw', 'homeAway', 'drawAway'])) {
+        normalized.doubleChance = doubleChance;
+      }
+      continue;
+    }
+
+    if (
+      labelKey === 'fara egal'
+      || labelKey === 'draw no bet'
+      || labelKey.includes('egal pariu')
+    ) {
+      const prices = nsoftPrices(market, {
+        '1': 'home',
+        '2': 'away',
+      });
+      if (hasOutcomes(prices, ['home', 'away']) && !normalized.drawNoBet) {
+        normalized.drawNoBet = prices;
+      }
+      continue;
+    }
+
+    if (marketId === NSOFT_MARKETS.totalGoals || labelKey === 'total goluri' || labelKey === 'total goals') {
+      addMaxBetLineMarket(normalized, market, 'totalGoals');
+      continue;
+    }
+
+    if (
+      labelKey.includes('total goluri')
+      && (labelKey.includes('pauza') || labelKey.includes('prima'))
+    ) {
+      addMaxBetLineMarket(normalized, market, 'firstHalfTotalGoals');
+      continue;
+    }
+
+    if (labelKey === 'total cornere' || labelKey === 'total corners') {
+      addMaxBetLineMarket(normalized, market, 'totalCorners');
+      continue;
+    }
+
+    if (labelKey.includes('total cartonase') || labelKey.includes('total cards')) {
+      addMaxBetLineMarket(normalized, market, 'totalCards');
+      continue;
+    }
+
+    if (marketId === NSOFT_MARKETS.bothTeamsToScore || isMaxBetBttsLabel(labelKey)) {
       const prices = nsoftPrices(market, {
         Da: 'yes',
         Nu: 'no',
         Yes: 'yes',
         No: 'no',
       });
-      if (hasOutcomes(prices, ['yes', 'no'])) {
-        normalized.bothTeamsToScore = prices;
+      const bttsKey = labelKey.includes('pauza') || labelKey.includes('prima')
+        ? 'firstHalfBothTeamsToScore'
+        : labelKey.includes('a doua') || labelKey.includes('repriza 2')
+          ? 'secondHalfBothTeamsToScore'
+          : 'bothTeamsToScore';
+      if (hasOutcomes(prices, ['yes', 'no']) && !normalized[bttsKey]) {
+        normalized[bttsKey] = prices;
       }
       continue;
     }
 
-    if (Number(market.b) === NSOFT_MARKETS.oddEvenGoals) {
+    if (marketId === NSOFT_MARKETS.oddEvenGoals || labelKey.includes('par') && labelKey.includes('impar')) {
       const prices = nsoftPrices(market, {
         Par: 'even',
         Impar: 'odd',
@@ -258,12 +329,16 @@ function normalizeMaxBetMarkets(markets) {
       if (key && hasOutcomes(prices, ['odd', 'even'])) {
         normalized[key] = prices;
       }
+      continue;
     }
+
+    // Generic fallback — harvest any remaining complete 2/3-way markets by label.
+    addMaxBetGenericMarket(normalized, market, label);
   }
   return normalized;
 }
 
-function addMaxBetTotalGoals(markets, market) {
+function addMaxBetLineMarket(markets, market, baseKey) {
   const line = market.g?.[0] || market.h?.[0]?.f || market.h?.[0]?.e;
   const parsedLine = parseLine(line);
   if (parsedLine === null) {
@@ -279,8 +354,53 @@ function addMaxBetTotalGoals(markets, market) {
   }
 
   if (hasOutcomes(prices, ['over', 'under'])) {
-    markets[`totalGoals_${formatLine(parsedLine).replace('.', '_')}`] = prices;
+    markets[`${baseKey}_${formatLine(parsedLine).replace('.', '_')}`] = prices;
   }
+}
+
+function addMaxBetGenericMarket(markets, market, label) {
+  const key = genericMarketKey(label);
+  if (!key || markets[key]) return;
+
+  const line = market.g?.[0] || market.h?.[0]?.f || market.h?.[0]?.e;
+  const parsedLine = parseLine(line);
+  const prices = {};
+  for (const outcome of activeOutcomes(market)) {
+    const outcomeKey = normalizeOutcomeKey(outcome.e);
+    if (outcomeKey && isDecimalOdds(outcome.g)) {
+      prices[outcomeKey] = outcome.g;
+    }
+  }
+
+  if (parsedLine !== null && ['over', 'under'].every((side) => isDecimalOdds(prices[side]))) {
+    const lineKey = `${key}_${formatLine(parsedLine).replace('.', '_')}`;
+    if (!markets[lineKey]) markets[lineKey] = { over: prices.over, under: prices.under };
+    return;
+  }
+
+  const values = Object.values(prices);
+  if (values.length >= 2 && values.length <= 3 && values.every(isDecimalOdds) && !markets[key]) {
+    markets[key] = prices;
+  }
+}
+
+function normalizeMaxBetLabel(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+    .replace(/[^\p{Letter}\p{Number}+\-.]+/gu, ' ')
+    .trim();
+}
+
+function isMaxBetBttsLabel(labelKey) {
+  return (
+    labelKey === 'ambele marcheaza'
+    || labelKey === 'both teams to score'
+    || labelKey.includes('ambele marcheaza')
+    || labelKey.includes('both teams to score')
+    || labelKey === 'gg ng'
+  );
 }
 
 function nsoftPrices(market, outcomeMap) {
