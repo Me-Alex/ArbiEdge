@@ -767,7 +767,68 @@ function detectCrossMarketArbitrage(event) {
     ...detectQualifyVsH2hCross(event),
     ...detectTeamScoreVsCleanSheetCross(event),
     ...detectDnbVsDoubleChanceCross(event),
+    ...detectH2hVsDnbMirrorCross(event),
   ];
+}
+
+/**
+ * Soft 2-way: match Home vs Away DNB (and Away vs Home DNB).
+ * Draw pushes the DNB leg and loses the straight 1/2 — worst case is break-even
+ * on the DNB stake return, so classic dutch underestimates floor → review only.
+ */
+function detectH2hVsDnbMirrorCross(event) {
+  const results = [];
+  const h2h = findBestPrices(event, 'h2h');
+  const dnb = findBestPrices(event, 'drawNoBet');
+  if (h2h.home && dnb.away) {
+    pushCrossMarketPair(results, {
+      marketKey: 'cross_h2h_home_dnb_away',
+      marketLabel: '1 (1X2) + DNB Away',
+      legA: {
+        outcome: 'home',
+        label: '1',
+        bookmaker: h2h.home.bookmaker,
+        price: h2h.home.price,
+        url: h2h.home.url,
+        marketKey: h2h.home.marketKey || 'h2h',
+        verificationStatus: h2h.home.verificationStatus,
+      },
+      legB: {
+        outcome: 'away',
+        label: 'DNB 2',
+        bookmaker: dnb.away.bookmaker,
+        price: dnb.away.price,
+        url: dnb.away.url,
+        marketKey: dnb.away.marketKey || 'drawNoBet',
+        verificationStatus: dnb.away.verificationStatus,
+      },
+    });
+  }
+  if (h2h.away && dnb.home) {
+    pushCrossMarketPair(results, {
+      marketKey: 'cross_h2h_away_dnb_home',
+      marketLabel: '2 (1X2) + DNB Home',
+      legA: {
+        outcome: 'away',
+        label: '2',
+        bookmaker: h2h.away.bookmaker,
+        price: h2h.away.price,
+        url: h2h.away.url,
+        marketKey: h2h.away.marketKey || 'h2h',
+        verificationStatus: h2h.away.verificationStatus,
+      },
+      legB: {
+        outcome: 'home',
+        label: 'DNB 1',
+        bookmaker: dnb.home.bookmaker,
+        price: dnb.home.price,
+        url: dnb.home.url,
+        marketKey: dnb.home.marketKey || 'drawNoBet',
+        verificationStatus: dnb.home.verificationStatus,
+      },
+    });
+  }
+  return results;
 }
 
 /**
@@ -777,20 +838,43 @@ function detectCrossMarketArbitrage(event) {
  * Not promoted to SAFE_CROSS (push settlement) → stays review/candidate.
  */
 function detectDnbVsDoubleChanceCross(event) {
+  return [
+    ...detectDnbVsDcForScope(event, {
+      dnbKey: 'drawNoBet',
+      dcKey: 'doubleChance',
+      prefix: '',
+      labelPrefix: '',
+    }),
+    ...detectDnbVsDcForScope(event, {
+      dnbKey: 'firstHalfDrawNoBet',
+      dcKey: 'firstHalfDoubleChance',
+      prefix: '1H_',
+      labelPrefix: '1H ',
+    }),
+    ...detectDnbVsDcForScope(event, {
+      dnbKey: 'secondHalfDrawNoBet',
+      dcKey: 'secondHalfDoubleChance',
+      prefix: '2H_',
+      labelPrefix: '2H ',
+    }),
+  ];
+}
+
+function detectDnbVsDcForScope(event, { dnbKey, dcKey, prefix, labelPrefix }) {
   const results = [];
-  const dnb = findBestPrices(event, 'drawNoBet');
-  const dc = findBestPrices(event, 'doubleChance');
+  const dnb = findBestPrices(event, dnbKey);
+  const dc = findBestPrices(event, dcKey);
   if (dnb.home && dc.drawAway) {
     pushCrossMarketPair(results, {
-      marketKey: 'cross_dnb_home_x2',
-      marketLabel: 'DNB Home + X2 (DC)',
+      marketKey: `cross_${prefix}dnb_home_x2`,
+      marketLabel: `${labelPrefix}DNB Home + X2 (DC)`.trim(),
       legA: {
         outcome: 'home',
-        label: 'DNB 1',
+        label: `${labelPrefix}DNB 1`.trim(),
         bookmaker: dnb.home.bookmaker,
         price: dnb.home.price,
         url: dnb.home.url,
-        marketKey: dnb.home.marketKey || 'drawNoBet',
+        marketKey: dnb.home.marketKey || dnbKey,
         verificationStatus: dnb.home.verificationStatus,
       },
       legB: {
@@ -799,22 +883,22 @@ function detectDnbVsDoubleChanceCross(event) {
         bookmaker: dc.drawAway.bookmaker,
         price: dc.drawAway.price,
         url: dc.drawAway.url,
-        marketKey: dc.drawAway.marketKey || 'doubleChance',
+        marketKey: dc.drawAway.marketKey || dcKey,
         verificationStatus: dc.drawAway.verificationStatus,
       },
     });
   }
   if (dnb.away && dc.homeDraw) {
     pushCrossMarketPair(results, {
-      marketKey: 'cross_dnb_away_1x',
-      marketLabel: 'DNB Away + 1X (DC)',
+      marketKey: `cross_${prefix}dnb_away_1x`,
+      marketLabel: `${labelPrefix}DNB Away + 1X (DC)`.trim(),
       legA: {
         outcome: 'away',
-        label: 'DNB 2',
+        label: `${labelPrefix}DNB 2`.trim(),
         bookmaker: dnb.away.bookmaker,
         price: dnb.away.price,
         url: dnb.away.url,
-        marketKey: dnb.away.marketKey || 'drawNoBet',
+        marketKey: dnb.away.marketKey || dnbKey,
         verificationStatus: dnb.away.verificationStatus,
       },
       legB: {
@@ -823,7 +907,7 @@ function detectDnbVsDoubleChanceCross(event) {
         bookmaker: dc.homeDraw.bookmaker,
         price: dc.homeDraw.price,
         url: dc.homeDraw.url,
-        marketKey: dc.homeDraw.marketKey || 'doubleChance',
+        marketKey: dc.homeDraw.marketKey || dcKey,
         verificationStatus: dc.homeDraw.verificationStatus,
       },
     });

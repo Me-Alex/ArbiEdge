@@ -885,6 +885,18 @@ test('detectCrossMarketArbitrage finds DNB Home + X2 soft cover', () => {
   assert.ok(results.some((item) => item.marketKey === 'cross_dnb_home_x2'));
 });
 
+test('detectCrossMarketArbitrage finds 1X2 Home + DNB Away soft cover', () => {
+  const event = makeEvent({
+    bookmakers: [
+      { name: 'BookA', markets: { h2h: { home: 2.2, draw: 3.2, away: 3.1 }, drawNoBet: { home: 1.6, away: 2.3 } } },
+      { name: 'BookB', markets: { h2h: { home: 2.1, draw: 3.3, away: 3.2 }, drawNoBet: { home: 1.55, away: 2.15 } } },
+    ],
+  });
+  // best home 2.2 + best DNB away 2.3 → 1/2.2 + 1/2.3 < 1
+  const results = detectCrossMarketArbitrage(event);
+  assert.ok(results.some((item) => item.marketKey === 'cross_h2h_home_dnb_away'));
+});
+
 test('detectCrossMarketArbitrage finds home-score vs away clean-sheet cover', () => {
   const event = makeEvent({
     bookmakers: [

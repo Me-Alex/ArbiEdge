@@ -250,6 +250,58 @@ function normalizeMaxBetMarkets(markets) {
       continue;
     }
 
+    if (
+      labelKey === 'a doua repriza'
+      || labelKey === '2nd half'
+      || labelKey === 'second half'
+      || labelKey === 'rezultat a doua repriza'
+    ) {
+      const prices = nsoftPrices(market, {
+        '1': 'home',
+        X: 'draw',
+        '2': 'away',
+      });
+      if (hasOutcomes(prices, ['home', 'draw', 'away']) && !normalized.secondHalfH2h) {
+        normalized.secondHalfH2h = prices;
+      }
+      continue;
+    }
+
+    if (
+      labelKey.includes('total goluri asiatice')
+      || labelKey.includes('asian total goals')
+      || labelKey === 'total goluri asian'
+    ) {
+      addMaxBetLineMarket(normalized, market, 'asianTotalGoals');
+      continue;
+    }
+
+    if (
+      (labelKey.includes('marcheaza') || labelKey.includes('to score'))
+      && (labelKey.includes('gazde') || labelKey.includes('gazda') || labelKey.includes('home'))
+    ) {
+      const prices = nsoftPrices(market, {
+        Da: 'yes', Nu: 'no', Yes: 'yes', No: 'no',
+      });
+      if (hasOutcomes(prices, ['yes', 'no']) && !normalized.market_marcheaza_home) {
+        normalized.market_marcheaza_home = prices;
+      }
+      continue;
+    }
+
+    if (
+      (labelKey.includes('marcheaza') || labelKey.includes('to score'))
+      && (labelKey.includes('oaspeti') || labelKey.includes('oaspete') || labelKey.includes('away'))
+    ) {
+      const prices = nsoftPrices(market, {
+        Da: 'yes', Nu: 'no', Yes: 'yes', No: 'no',
+      });
+      if (hasOutcomes(prices, ['yes', 'no']) && !normalized.market_marcheaza_away) {
+        normalized.market_marcheaza_away = prices;
+      }
+      continue;
+    }
+
     if (labelKey === 'sansa dubla' || labelKey === 'double chance') {
       const doubleChance = nsoftPrices(market, {
         '1X': 'homeDraw',

@@ -769,18 +769,30 @@ function auditIssueCountMetrics(issueCounts = {}) {
 function summarizeOpportunities(opportunities = []) {
   const byEligibility = {};
   const byType = {};
+  const byFormulaFamily = {};
+  let multiFeed = 0;
   for (const opportunity of opportunities) {
     const eligibility = opportunity?.type === 'middle'
       ? 'analysis'
       : (opportunity?.eligibility || 'review');
     const type = opportunity?.type || 'classic';
+    const family = opportunity?.formulaFamily || opportunity?.type || 'classic';
     byEligibility[eligibility] = (byEligibility[eligibility] || 0) + 1;
     byType[type] = (byType[type] || 0) + 1;
+    byFormulaFamily[family] = (byFormulaFamily[family] || 0) + 1;
+    if (Number(opportunity?.independentFeedCount) >= 2) multiFeed += 1;
   }
+  const topFamilies = Object.entries(byFormulaFamily)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8)
+    .map(([family, count]) => ({ family, count }));
   return {
     total: opportunities.length,
     byEligibility,
     byType,
+    byFormulaFamily,
+    topFamilies,
+    multiFeed,
     review: byEligibility.review || 0,
     actionable: byEligibility.actionable || 0,
     rejected: byEligibility.rejected || 0,

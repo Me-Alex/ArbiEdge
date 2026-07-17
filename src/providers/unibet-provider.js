@@ -409,6 +409,106 @@ function normalizeUnibetProposition(proposition, { homeTeam, awayTeam }) {
     );
   }
 
+  if (
+    type === '2nd_half_double_chance'
+    || type === 'second_half_double_chance'
+    || (propositionName.includes('sansa dubla') && (
+      propositionName.includes('a doua') || propositionName.includes('2nd')
+    ))
+  ) {
+    return mapUnibetOutcomes(
+      proposition,
+      'secondHalfDoubleChance',
+      { '1x': 'homeDraw', 12: 'homeAway', x2: 'drawAway' },
+      ['homeDraw', 'homeAway', 'drawAway'],
+    );
+  }
+
+  if (
+    type.includes('team_total')
+    || propositionName.includes('total goluri gazde')
+    || propositionName.includes('total goluri home')
+    || (propositionName.includes('total goluri') && (
+      propositionName.includes('gazda') || propositionName.includes('echipa 1')
+    ))
+  ) {
+    const home = mapUnibetLineMarket(proposition, 'market_total_goluri_home');
+    if (home) return home;
+  }
+
+  if (
+    propositionName.includes('total goluri oaspeti')
+    || propositionName.includes('total goluri away')
+    || (propositionName.includes('total goluri') && (
+      propositionName.includes('oaspete') || propositionName.includes('echipa 2')
+    ))
+  ) {
+    const away = mapUnibetLineMarket(proposition, 'market_total_goluri_away');
+    if (away) return away;
+  }
+
+  if (
+    propositionName.includes('gazdele marcheaza')
+    || propositionName.includes('gazda marcheaza')
+    || propositionName.includes('home to score')
+    || (propositionName.includes('marcheaza') && (
+      propositionName.includes('gazda') || propositionName.includes('gazde')
+    ))
+  ) {
+    return mapUnibetOutcomes(
+      proposition,
+      'market_marcheaza_home',
+      { da: 'yes', yes: 'yes', nu: 'no', no: 'no' },
+      ['yes', 'no'],
+    );
+  }
+
+  if (
+    propositionName.includes('oaspetii marcheaza')
+    || propositionName.includes('oaspete marcheaza')
+    || propositionName.includes('away to score')
+    || (propositionName.includes('marcheaza') && (
+      propositionName.includes('oaspete') || propositionName.includes('oaspeti')
+    ))
+  ) {
+    return mapUnibetOutcomes(
+      proposition,
+      'market_marcheaza_away',
+      { da: 'yes', yes: 'yes', nu: 'no', no: 'no' },
+      ['yes', 'no'],
+    );
+  }
+
+  if (propositionName.includes('fara gol primit') || propositionName.includes('clean sheet')) {
+    const side = (propositionName.includes('gazda') || propositionName.includes('gazde') || propositionName.includes('home'))
+      ? 'home'
+      : (propositionName.includes('oaspete') || propositionName.includes('oaspeti') || propositionName.includes('away'))
+        ? 'away'
+        : null;
+    if (side) {
+      return mapUnibetOutcomes(
+        proposition,
+        `market_clean_sheet_${side}`,
+        { da: 'yes', yes: 'yes', nu: 'no', no: 'no' },
+        ['yes', 'no'],
+      );
+    }
+  }
+
+  if (
+    type === '2nd_half_both_teams_to_score'
+    || (propositionName.includes('ambele') && (
+      propositionName.includes('a doua') || propositionName.includes('2nd')
+    ))
+  ) {
+    return mapUnibetOutcomes(
+      proposition,
+      'secondHalfBothTeamsToScore',
+      { da: 'yes', yes: 'yes', nu: 'no', no: 'no' },
+      ['yes', 'no'],
+    );
+  }
+
   return normalizeGenericUnibetMarket(proposition, { homeTeam, awayTeam });
 }
 
