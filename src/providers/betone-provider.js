@@ -384,6 +384,29 @@ function routeBetOneLabelMarket(normalized, market, label, { homeTeam, awayTeam 
   }
 
   if (
+    label.includes('total goluri asiatice')
+    || label.includes('asian total goals')
+  ) {
+    const base = (label.includes('pauza') || label.includes('prima'))
+      ? 'firstHalfAsianTotalGoals'
+      : (label.includes('a doua') || label.includes('2nd'))
+        ? 'secondHalfAsianTotalGoals'
+        : 'asianTotalGoals';
+    addLineMarkets(normalized, market, base);
+    return Object.keys(normalized).some((k) => k.startsWith(base));
+  }
+
+  if (label.includes('handicap asiatic') || label.includes('asian handicap')) {
+    addHandicapMarkets(normalized, market, 'asianHandicap');
+    return Object.keys(normalized).some((k) => k.startsWith('asianHandicap'));
+  }
+
+  if (label.includes('cornere asiatice') || label.includes('asian corner')) {
+    addLineMarkets(normalized, market, 'asianTotalCorners');
+    return Object.keys(normalized).some((k) => k.startsWith('asianTotalCorners_'));
+  }
+
+  if (
     label.includes('total goluri')
     && (label.includes('gazde') || label.includes('home') || label.includes('echipa 1'))
   ) {

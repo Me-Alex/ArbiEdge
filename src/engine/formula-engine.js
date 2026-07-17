@@ -770,7 +770,131 @@ function detectCrossMarketArbitrage(event) {
     ...detectH2hVsDnbMirrorCross(event),
     ...detectQualifyVsDnbCross(event),
     ...detectCsNoVsOpponentScoreCross(event),
+    ...detectEuroAsianSameLineArbitrage(event),
   ];
+}
+
+/**
+ * Half-line European and Asian totals settle identically on integer outcomes.
+ * Combining best Over from one family with best Under from the other unlocks
+ * edges that per-market classic scanning misses.
+ */
+function detectEuroAsianSameLineArbitrage(event) {
+  const results = [];
+  const families = [
+    {
+      euroPrefix: 'totalGoals_',
+      asianPrefix: 'asianTotalGoals_',
+      id: 'goals',
+      label: 'Goals',
+    },
+    {
+      euroPrefix: 'firstHalfTotalGoals_',
+      asianPrefix: 'firstHalfAsianTotalGoals_',
+      id: '1h_goals',
+      label: '1H Goals',
+    },
+    {
+      euroPrefix: 'secondHalfTotalGoals_',
+      asianPrefix: 'secondHalfAsianTotalGoals_',
+      id: '2h_goals',
+      label: '2H Goals',
+    },
+    {
+      euroPrefix: 'totalCorners_',
+      asianPrefix: 'asianTotalCorners_',
+      id: 'corners',
+      label: 'Corners',
+    },
+    {
+      euroPrefix: 'totalCards_',
+      asianPrefix: 'asianTotalCards_',
+      id: 'cards',
+      label: 'Cards',
+    },
+  ];
+
+  const marketKeys = getEventMarkets(event);
+  for (const family of families) {
+    const euroByLine = new Map();
+    const asianByLine = new Map();
+    for (const mk of marketKeys) {
+      if (mk.startsWith(family.euroPrefix)) {
+        const line = parseLineNumberFromKey(mk);
+        if (line !== null && Math.abs((line % 1) - 0.5) < 1e-9) euroByLine.set(line, mk);
+      } else if (mk.startsWith(family.asianPrefix)) {
+        const line = parseLineNumberFromKey(mk);
+        if (line !== null && Math.abs((line % 1) - 0.5) < 1e-9) asianByLine.set(line, mk);
+      }
+    }
+
+    for (const [line, euroKey] of euroByLine) {
+      const asianKey = asianByLine.get(line);
+      if (!asianKey) continue;
+
+      const euroBest = findBestPrices(event, euroKey);
+      const asianBest = findBestPrices(event, asianKey);
+      const candidates = [
+        [euroBest.over, asianBest.under],
+        [asianBest.over, euroBest.under],
+        [euroBest.over, euroBest.under],
+        [asianBest.over, asianBest.under],
+      ];
+
+      let bestPair = null;
+      for (const [over, under] of candidates) {
+        if (!over || !under || !(Number(over.price) > 1) || !(Number(under.price) > 1)) continue;
+        if (over.bookmaker && under.bookmaker && over.bookmaker === under.bookmaker) continue;
+        const total = impliedProb(over.price) + impliedProb(under.price);
+        if (!(total < 1)) continue;
+        const edge = 1 - total;
+        if (edge > MAX_ARB_EDGE) continue;
+        if (!bestPair || edge > bestPair.edge) {
+          bestPair = { over, under, edge, total };
+        }
+      }
+      if (!bestPair) continue;
+
+      const stake = 100;
+      const s1 = (stake * impliedProb(bestPair.over.price)) / bestPair.total;
+      const s2 = (stake * impliedProb(bestPair.under.price)) / bestPair.total;
+      const lineToken = String(line).replace('.', '_');
+      results.push({
+        marketKey: `cross_eu_as_ou_${family.id}_${lineToken}`,
+        marketLabel: `${family.label} O/U ${line} (EU↔Asian)`,
+        type: 'cross-market',
+        legs: [
+          {
+            outcome: 'over',
+            label: `Over ${line}`,
+            bookmaker: bestPair.over.bookmaker,
+            price: bestPair.over.price,
+            stake: s1,
+            url: bestPair.over.url || '',
+            marketKey: bestPair.over.marketKey || euroKey,
+            verificationStatus: bestPair.over.verificationStatus || null,
+          },
+          {
+            outcome: 'under',
+            label: `Under ${line}`,
+            bookmaker: bestPair.under.bookmaker,
+            price: bestPair.under.price,
+            stake: s2,
+            url: bestPair.under.url || '',
+            marketKey: bestPair.under.marketKey || asianKey,
+            verificationStatus: bestPair.under.verificationStatus || null,
+          },
+        ],
+        edge: bestPair.edge,
+        profit: stake / bestPair.total - stake,
+        totalProb: bestPair.total,
+        stake,
+        confidence: classifyConfidence(bestPair.edge, 2, 2),
+      });
+    }
+  }
+
+  return results;
 }
 
 /**

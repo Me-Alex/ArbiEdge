@@ -346,6 +346,30 @@ function normalizeSuperbetMarketGroup(group, { homeTeam, awayTeam }) {
     return mapSuperbetLineMarket(group, 'asianTotalGoals');
   }
 
+  if (
+    normalizedLabel === 'prima repriza total goluri asiatice'
+    || normalizedLabel === 'total goluri asiatice pauza'
+    || normalizedLabel === '1st half asian total goals'
+  ) {
+    return mapSuperbetLineMarket(group, 'firstHalfAsianTotalGoals');
+  }
+
+  if (
+    normalizedLabel === 'a doua repriza total goluri asiatice'
+    || normalizedLabel === 'total goluri asiatice a doua repriza'
+    || normalizedLabel === '2nd half asian total goals'
+  ) {
+    return mapSuperbetLineMarket(group, 'secondHalfAsianTotalGoals');
+  }
+
+  if (
+    normalizedLabel === 'total cartonase asiatice'
+    || normalizedLabel === 'cartonase asiatice'
+    || normalizedLabel === 'asian total cards'
+  ) {
+    return mapSuperbetLineMarket(group, 'asianTotalCards');
+  }
+
   if (normalizedLabel === 'total cornere' || normalizedLabel === 'total corners') {
     return mapSuperbetLineMarket(group, 'totalCorners');
   }

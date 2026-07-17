@@ -873,6 +873,35 @@ test('detectValueBet computes proper overround-based consensus fair odds', () =>
   assert.strictEqual(Number(vb.kelly.toFixed(4)), 0.0441);
 });
 
+test('detectCrossMarketArbitrage finds EU↔Asian same-line O/U edges', () => {
+  const event = makeEvent({
+    bookmakers: [
+      {
+        name: 'BookA',
+        markets: {
+          totalGoals_2_5: { over: 2.2, under: 1.7 },
+          asianTotalGoals_2_5: { over: 1.75, under: 2.15 },
+        },
+      },
+      {
+        name: 'BookB',
+        markets: {
+          totalGoals_2_5: { over: 1.8, under: 2.0 },
+          asianTotalGoals_2_5: { over: 2.05, under: 1.8 },
+        },
+      },
+    ],
+  });
+  // best over 2.2 (euro A) + best under 2.15 (asian A) same book → skipped;
+  // best over 2.2 (A euro) + best under 2.0 (B euro) or cross: over 2.2 + under 2.15 need multi-book
+  // BookA over euro 2.2 + BookB under asian 1.8? under 2.15 from A asian, under 2.0 from B euro
+  // best over = 2.2 BookA, best under = 2.15 BookA asian — same book skipped
+  // candidates include asian over 2.05 BookB + euro under 2.0 BookB same book skip
+  // euro over 2.2 A + euro under 2.0 B = edge
+  const results = detectCrossMarketArbitrage(event);
+  assert.ok(results.some((item) => String(item.marketKey).startsWith('cross_eu_as_ou_goals_2_5')));
+});
+
 test('detectCrossMarketArbitrage finds DNB Home + X2 soft cover', () => {
   const event = makeEvent({
     bookmakers: [

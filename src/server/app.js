@@ -367,10 +367,18 @@ function createApp({
         .filter(Boolean);
       const sportFilter = String(request.query.sport || '').trim().toLowerCase();
       const searchFilter = String(request.query.q || request.query.search || '').trim().toLowerCase();
+      const maxEdgePct = Number(request.query.maxEdge);
+      const minFeeds = Number(request.query.minFeeds);
 
       if (profitOnly) opps = opps.filter((o) => o.profit > 0);
       if (trustedOnly) opps = opps.filter((o) => o.confidence === 'trusted');
       if (minEdge > 0) opps = opps.filter((o) => o.edge * 100 >= minEdge);
+      if (Number.isFinite(maxEdgePct) && maxEdgePct > 0) {
+        opps = opps.filter((o) => o.edge * 100 <= maxEdgePct);
+      }
+      if (Number.isFinite(minFeeds) && minFeeds > 0) {
+        opps = opps.filter((o) => Number(o.independentFeedCount || 0) >= minFeeds);
+      }
       if (eligibilityFilter.length > 0) {
         opps = opps.filter((o) => eligibilityFilter.includes(String(o.eligibility || '').toLowerCase())
           || (eligibilityFilter.includes('analysis') && o.type === 'middle'));

@@ -132,6 +132,8 @@ function isSafeCrossMarket(marketKey) {
   if (SAFE_CROSS_MARKETS.has(key)) return true;
   // Half-line team+match totals identities used by detectTeamMatchTotalArbitrage.
   if (/^cross_totals(?:_inv)?_/.test(key)) return true;
+  // EU↔Asian half-line O/U pairs settle identically on integer outcomes.
+  if (/^cross_eu_as_ou_/.test(key)) return true;
   return false;
 }
 
