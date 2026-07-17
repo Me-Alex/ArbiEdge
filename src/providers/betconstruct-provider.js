@@ -1,7 +1,7 @@
 'use strict';
 
 const WebSocket = require('ws');
-const { bookmakerLinkFields } = require('./event-links');
+const { betconstructEventUrl, bookmakerLinkFields } = require('./event-links');
 const {
   formatLine,
   handicapMarketKey,
@@ -351,8 +351,15 @@ function normalizeBetconstructGame(game, {
     return null;
   }
 
+  const eventUrl = betconstructEventUrl(bookmaker, game, bookmakerUrl);
   return {
     id: `betconstruct:${siteId}:${game.id}`,
+    externalIds: {
+      betconstructGame: String(game.id),
+      betconstructSite: String(siteId),
+      ...(game.team1_id ? { betconstructHome: String(game.team1_id) } : {}),
+      ...(game.team2_id ? { betconstructAway: String(game.team2_id) } : {}),
+    },
     sport: 'Football',
     competition: competitionName || 'Football',
     startsAt: new Date(startTimestamp).toISOString(),
@@ -362,7 +369,7 @@ function normalizeBetconstructGame(game, {
       name: bookmaker,
       markets,
       lastUpdate: fetchedAt,
-      ...bookmakerLinkFields(bookmaker, null, bookmakerUrl),
+      ...bookmakerLinkFields(bookmaker, eventUrl, bookmakerUrl),
     }],
   };
 }

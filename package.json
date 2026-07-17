@@ -19,6 +19,7 @@
     "test:watch": "node --test --watch \"test/*.test.js\" \"test/**/*.test.js\"",
     "verify:odds": "node scripts/verify-bookmaker-odds.js",
     "verify:fidelity": "node scripts/verify-odds-fidelity.js",
+    "verify:fidelity:audit": "node scripts/run-fidelity-audit.js",
     "audit:endpoints": "node scripts/audit-provider-endpoints.js"
   },
   "engines": {

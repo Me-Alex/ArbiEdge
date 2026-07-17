@@ -4,6 +4,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { buildDirectProviders, providerOptionsFromEnv } = require('../src/provider-config');
+const { isBookmakerLobbyUrl } = require('../src/providers/event-links');
 const { launchBrowser } = require('./ui-smoke');
 const {
   collectPriceChecks,
@@ -516,8 +517,13 @@ function selectFidelityCandidates(events, {
       if (currentCount >= eventsPerBookmaker) {
         continue;
       }
-      const url = bookmaker.eventUrl || bookmaker.bookmakerUrl || '';
-      if (!url) {
+      const eventUrl = bookmaker.eventUrl || '';
+      const fallbackUrl = bookmaker.bookmakerUrl || '';
+      const url = (!isBookmakerLobbyUrl(eventUrl) && eventUrl)
+        || (!isBookmakerLobbyUrl(fallbackUrl) && fallbackUrl)
+        || '';
+      // Skip lobby-only bookmakers in batch audits; they create false mismatches.
+      if (!url || isBookmakerLobbyUrl(url)) {
         continue;
       }
       const prices = collectPriceChecks(bookmaker, {

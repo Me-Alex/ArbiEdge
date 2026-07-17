@@ -32,6 +32,29 @@ npm run verify:odds -- --bookmaker Superbet --markets h2h,bothTeamsToScore,total
 npm run verify:fidelity -- --bookmaker all --events-per-bookmaker 2 --markets h2h,totalGoals,bothTeamsToScore --min-hours 2
 ```
 
+### Audit izolat pe toate casele (recomandat)
+
+Rulează fiecare provider într-un proces separat, cu hard-timeout și raport
+intermediar (nu se blochează pe o singură casă):
+
+```powershell
+npm run verify:fidelity:audit -- --events-per-bookmaker 1 --markets h2h,bothTeamsToScore,totalGoals --min-hours 2
+```
+
+Ieșire:
+- `output/playwright/fidelity/fidelity-audit-latest.json`
+- `output/playwright/fidelity/fidelity-audit-summary.json`
+
+### Protecții anti-false-mismatch
+
+- URL-urile de tip lobby (`/pre-match`, listă sport) **nu** sunt folosite pentru
+  verificare de preț — produc mismatch-uri false pe alte meciuri.
+- VictoryBet / Manhattan primesc deep-link de eveniment BetConstruct.
+- Cardurile combo (`GG & Peste 2.5`, `1X2 & Total`) sunt respinse ca dovadă pentru
+  piețele pure.
+- Dacă echipele evenimentului nu apar pe pagină, statusul coboară la `not_found`
+  (nu la `mismatch`).
+
 Rapoartele JSON + screenshot-uri se scriu în:
 
 - `output/playwright/fidelity/fidelity-report.json`

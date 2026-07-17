@@ -204,6 +204,10 @@ test('normalizes real matches and rejects antepost competitions', () => {
   assert.equal(events[0].competition, 'K League 2');
   assert.equal(events[0].bookmakers[0].name, 'ExampleBet');
   assert.equal(events[0].bookmakers[0].bookmakerUrl, 'https://example.test/sports');
+  assert.equal(
+    events[0].bookmakers[0].eventUrl,
+    'https://example.test/ro/sports/event/soccer/30',
+  );
 });
 
 test('fetchBetconstructPayload completes the anonymous WebSocket exchange', async () => {
@@ -237,6 +241,24 @@ test('BetconstructProvider and Romanian subclasses expose stable configuration',
   assert.equal(events.length, 1);
   assert.equal(new VictoryBetProvider().name, 'VictoryBet');
   assert.equal(new ManhattanProvider().name, 'Manhattan');
+  const victory = new VictoryBetProvider({
+    now: () => new Date('2026-07-14T10:00:00.000Z'),
+    webSocketFactory: () => new FakeSocket(payload),
+  });
+  const victoryEvents = await victory.getOdds();
+  assert.match(
+    victoryEvents[0].bookmakers[0].eventUrl,
+    /\/rv\/pre-match\/event\/30$/,
+  );
+  const manhattan = new ManhattanProvider({
+    now: () => new Date('2026-07-14T10:00:00.000Z'),
+    webSocketFactory: () => new FakeSocket(payload),
+  });
+  const manhattanEvents = await manhattan.getOdds();
+  assert.match(
+    manhattanEvents[0].bookmakers[0].eventUrl,
+    /\/ro\/sports\/event\/30$/,
+  );
   const spin = new SpinProvider();
   assert.equal(spin.name, 'Spin');
   assert.equal(spin.systemCode, 'SPIN.RO');

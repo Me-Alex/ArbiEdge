@@ -3,6 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
+const { isBookmakerLobbyUrl, betconstructEventUrl } = require('../src/providers/event-links');
 const {
   collectPriceChecks,
   decimalPriceVariants,
@@ -25,6 +26,56 @@ test('allows Superbet Fastly API hosts for network fidelity evidence', () => {
   );
   assert.equal(isAllowedNetworkEvidenceHost('exalogic.lasvegas.ro', 'lasvegas.ro'), true);
   assert.equal(isAllowedNetworkEvidenceHost('evil.example', 'superbet.ro'), false);
+});
+
+test('detects lobby URLs and builds BetConstruct event deep-links', () => {
+  assert.equal(isBookmakerLobbyUrl('https://www.victorybet.ro/rv/pre-match'), true);
+  assert.equal(isBookmakerLobbyUrl('https://www.manhattan.ro/ro/sports/pre-match'), true);
+  assert.equal(
+    isBookmakerLobbyUrl('https://www.victorybet.ro/rv/pre-match/event/12345'),
+    false,
+  );
+  assert.equal(
+    betconstructEventUrl('VictoryBet', { id: 99 }, 'https://www.victorybet.ro/rv/pre-match'),
+    'https://www.victorybet.ro/rv/pre-match/event/99',
+  );
+  assert.equal(
+    betconstructEventUrl('Manhattan', { id: 99 }, 'https://www.manhattan.ro/ro/sports/pre-match'),
+    'https://www.manhattan.ro/ro/sports/event/99',
+  );
+});
+
+test('selectCandidate skips lobby-only bookmaker URLs', () => {
+  const event = {
+    homeTeam: 'Home',
+    awayTeam: 'Away',
+    competition: 'League',
+    startsAt: '2026-07-20T17:00:00Z',
+    bookmakers: [{
+      name: 'VictoryBet',
+      bookmakerUrl: 'https://www.victorybet.ro/rv/pre-match',
+      markets: { h2h: { home: 2.1, draw: 3.2, away: 3.4 } },
+    }],
+  };
+  assert.equal(
+    selectCandidate([event], {
+      bookmakerTarget: 'VictoryBet',
+      eventFilter: '',
+      marketFilter: 'h2h',
+      maxPrices: 3,
+    }),
+    null,
+  );
+
+  event.bookmakers[0].eventUrl = 'https://www.victorybet.ro/rv/pre-match/event/30';
+  const candidate = selectCandidate([event], {
+    bookmakerTarget: 'VictoryBet',
+    eventFilter: '',
+    marketFilter: 'h2h',
+    maxPrices: 3,
+  });
+  assert.ok(candidate);
+  assert.equal(candidate.bookmaker.url, 'https://www.victorybet.ro/rv/pre-match/event/30');
 });
 
 test('network body matches by event id when team names are abbreviated', () => {
@@ -63,7 +114,7 @@ test('selectCandidate picks a bookmaker event with matching market prices', () =
     bookmakers: [
       {
         name: 'GetsBet',
-        eventUrl: 'https://example.test/event',
+        eventUrl: 'https://example.test/event/12345',
         markets: {
           h2h: { home: 2.1, draw: 3.2, away: 3.4 },
           totalGoals_6_5: { over: 3.8, under: 1.2 },
@@ -80,7 +131,7 @@ test('selectCandidate picks a bookmaker event with matching market prices', () =
   });
 
   assert.ok(candidate);
-  assert.equal(candidate.bookmaker.url, 'https://example.test/event');
+  assert.equal(candidate.bookmaker.url, 'https://example.test/event/12345');
   assert.deepEqual(candidate.prices.map((price) => price.price), [3.8, 1.2]);
   assert.deepEqual(candidate.prices.map((price) => price.marketLabel), [
     'O/U 6.5 Goals',
@@ -97,7 +148,7 @@ test('selectCandidate can skip events that are too close to kickoff', () => {
     bookmakers: [
       {
         name: 'GetsBet',
-        eventUrl: 'https://example.test/near',
+        eventUrl: 'https://example.test/event/1',
         markets: { h2h: { home: 2.1, draw: 3.2, away: 3.4 } },
       },
     ],
@@ -110,7 +161,7 @@ test('selectCandidate can skip events that are too close to kickoff', () => {
     bookmakers: [
       {
         name: 'GetsBet',
-        eventUrl: 'https://example.test/later',
+        eventUrl: 'https://example.test/event/2',
         markets: { h2h: { home: 2.2, draw: 3.3, away: 3.5 } },
       },
     ],
@@ -126,7 +177,7 @@ test('selectCandidate can skip events that are too close to kickoff', () => {
   });
 
   assert.ok(candidate);
-  assert.equal(candidate.bookmaker.url, 'https://example.test/later');
+  assert.equal(candidate.bookmaker.url, 'https://example.test/event/2');
 });
 
 test('eventMeetsMinHours rejects invalid and too-soon kickoff times', () => {

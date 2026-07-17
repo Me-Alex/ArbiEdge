@@ -114,6 +114,89 @@ function favbetEventUrl(event) {
   );
 }
 
+/**
+ * Build a deep-link to a BetConstruct prematch event page.
+ * VictoryBet and Manhattan previously fell back to the sports lobby, which
+ * made browser fidelity checks compare against unrelated fixtures.
+ */
+function betconstructEventUrl(bookmaker, game, pageUrl = '') {
+  const gameId = game?.id || game?.game_id || game?.gameId;
+  if (!gameId) {
+    return null;
+  }
+
+  const origin = originFromUrl(pageUrl) || originFromBookmakerFootballUrl(bookmaker);
+  if (!origin) {
+    return null;
+  }
+
+  const name = String(bookmaker || '').toLowerCase();
+  if (name.includes('victory')) {
+    return absoluteEventUrl(`/rv/pre-match/event/${encodeURIComponent(gameId)}`, origin);
+  }
+  if (name.includes('manhattan')) {
+    return absoluteEventUrl(`/ro/sports/event/${encodeURIComponent(gameId)}`, origin);
+  }
+
+  // Generic BetConstruct SPA deep-link used by several RO brands.
+  return absoluteEventUrl(`/ro/sports/event/soccer/${encodeURIComponent(gameId)}`, origin);
+}
+
+function originFromUrl(value) {
+  try {
+    return new URL(value).origin;
+  } catch {
+    return null;
+  }
+}
+
+function originFromBookmakerFootballUrl(bookmaker) {
+  const footballUrl = bookmakerFootballUrl(bookmaker);
+  return footballUrl ? originFromUrl(footballUrl) : null;
+}
+
+/**
+ * True when a bookmaker URL is only a sports lobby / prematch list and not a
+ * single-event page. Fidelity checks against lobbies produce false mismatches.
+ */
+function isBookmakerLobbyUrl(url) {
+  const raw = String(url || '').trim().toLowerCase();
+  if (!raw) return true;
+  try {
+    const parsed = new URL(raw);
+    const path = parsed.pathname.replace(/\/+$/, '') || '/';
+    // Explicit event deep-links keep their numeric id or event slug.
+    if (/\/event\/\d+/i.test(path) || /\/events?\/\d+/i.test(path)) {
+      return false;
+    }
+    if (/\/pariu-sportiv\/\d+/i.test(path)) {
+      return false;
+    }
+    if (/\/cote\/fotbal\/.+\-\d+$/i.test(path)) {
+      return false;
+    }
+    if (/\/sport\/fotbal\/.+_\d+(_\d+)+$/i.test(path)) {
+      return false;
+    }
+    if (/\/betting\/odds\/.+\/[^/]+\/[^/]+$/i.test(path)) {
+      return false;
+    }
+    if (/\/pariuri-online\/.+\/[^/]+$/i.test(path) && !/\/fotbal\/?$/i.test(path)) {
+      return false;
+    }
+    // Common lobby endpoints.
+    if (/pre-?match|\/sports?\/?$|\/sport\/?$|\/pariuri-sportive\/?$/i.test(path)) {
+      return true;
+    }
+    if (path === '/' || path.split('/').filter(Boolean).length <= 1) {
+      return true;
+    }
+    return false;
+  } catch {
+    return true;
+  }
+}
+
 function betOneEventUrl(event) {
   const fixtureId = event?.fixtureId || event?.fixture_id;
   if (!fixtureId) {
@@ -268,12 +351,14 @@ function localizedXsportText(value) {
 module.exports = {
   absoluteEventUrl,
   betOneEventUrl,
+  betconstructEventUrl,
   bookmakerFootballUrl,
   bookmakerLinkFields,
   digitainEventUrl,
   egtEventUrl,
   favbetEventUrl,
   getsBetEventUrl,
+  isBookmakerLobbyUrl,
   netbetEventUrl,
   slugPathPart,
   superbetEventUrl,

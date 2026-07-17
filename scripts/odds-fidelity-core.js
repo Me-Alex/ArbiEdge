@@ -345,6 +345,15 @@ function isContaminatedMarketContext(record, normalizedBlock, rawText = '') {
     }
   }
 
+  if (family === 'h2h') {
+    // "1X2 & Total goluri (2.5)" style combo cards must not stand in for pure 1X2.
+    // Avoid \b around "&" — "&" is non-word so word-boundary checks fail.
+    if (/\b(1x2|final|rezultat)\b.{0,24}(&|\+| si | and ).{0,24}\b(total|goluri|peste|sub|over|under)\b/.test(haystack)
+      || /\b(total|goluri)\b.{0,24}(&|\+| si | and ).{0,24}\b(1x2|final)\b/.test(haystack)) {
+      return true;
+    }
+  }
+
   return false;
 }
 
@@ -800,7 +809,31 @@ function isBlockedOrEmpty(normalizedBody) {
   if (!normalizedBody || normalizedBody.length < 30) {
     return true;
   }
-  return /captcha|robot|access denied|forbidden|login required|autentificare|conectare/.test(normalizedBody);
+
+  // Romanian sportsbook chrome almost always includes a "Conectare" nav link.
+  // Only treat the page as blocked when the body is a real challenge/login wall.
+  const challenge = [
+    /\bplease verify you are a human\b/,
+    /\baccess denied\b/,
+    /\bforbidden\b/,
+    /\bcaptcha\b/,
+    /\bare you a robot\b/,
+    /\bcloudflare\b.{0,40}\b(ray id|attention required)\b/,
+    /\bjust a moment\b.{0,20}\bcloudflare\b/,
+    /\blogin required\b/,
+    /\bautentificare necesara\b/,
+    /\btrebuie sa te autentifici\b/,
+    /\bsession expired\b/,
+  ].some((pattern) => pattern.test(normalizedBody));
+
+  if (!challenge) {
+    return false;
+  }
+
+  // Cookie banners alone are not blockers; a challenge on a tiny body is.
+  const looksLikeFullWall = normalizedBody.length < 500
+    || !/\b(1x2|final|total goluri|peste|sub|ambele|handicap|cote|odds|pariuri)\b/.test(normalizedBody);
+  return looksLikeFullWall;
 }
 
 function formatPrice(value) {

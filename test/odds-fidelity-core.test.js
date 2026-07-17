@@ -11,6 +11,8 @@ const {
   verifyOddAgainstText,
 } = require('../scripts/odds-fidelity-core');
 
+// Re-export is exercised through verifyOddAgainstText blocked-page behaviour.
+
 function expected(check) {
   return buildExpectedOddRecord({
     event: {
@@ -193,6 +195,25 @@ test('can verify from proven network-payload context tied to visible event page'
   assert.equal(result.websitePrice, 2.3);
   assert.equal(result.evidence.source, 'network-payload');
   assert.equal(result.evidence.networkUrl, 'https://example.test/api/event/1');
+});
+
+test('rejects 1X2 combo cards as pure h2h evidence', () => {
+  const record = expected({
+    marketKey: 'h2h',
+    outcome: 'away',
+    price: 2.0,
+  });
+  const text = `
+    Brommapojkarna vs GAIS
+    Allsvenskan football event page
+  `;
+  const result = verifyOddAgainstText(record, text, {
+    contextRows: [{
+      source: 'dom-row',
+      text: '1X2 & Total goluri (2.5) 1 1.90 X 3.40 2 2.00',
+    }],
+  });
+  assert.notEqual(result.status, FIDELITY_STATUSES.verified);
 });
 
 test('rejects Superbet-style BTTS combo carousel as pure bothTeamsToScore evidence', () => {

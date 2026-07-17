@@ -5,6 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { buildDirectProviders, providerOptionsFromEnv } = require('../src/provider-config');
 const { getMarketLabel, getOutcomeLabel } = require('../src/formula-engine');
+const { isBookmakerLobbyUrl } = require('../src/providers/event-links');
 const { launchBrowser } = require('./ui-smoke');
 const {
   DEFAULT_MARKET_FILTERS,
@@ -226,8 +227,15 @@ function selectCandidate(events, { bookmakerTarget, eventFilter, marketFilter, m
       }
 
       const prices = collectPriceChecks(bookmaker, { marketFilter, maxPrices });
-      const url = bookmaker.eventUrl || bookmaker.bookmakerUrl || '';
-      if (url && prices.length > 0) {
+      const eventUrl = bookmaker.eventUrl || '';
+      const fallbackUrl = bookmaker.bookmakerUrl || '';
+      // Prefer deep event links. Lobby fallbacks are last resort only.
+      const url = (!isBookmakerLobbyUrl(eventUrl) && eventUrl)
+        || (!isBookmakerLobbyUrl(fallbackUrl) && fallbackUrl)
+        || eventUrl
+        || fallbackUrl
+        || '';
+      if (url && prices.length > 0 && !isBookmakerLobbyUrl(url)) {
         return {
           event,
           bookmaker: {
@@ -327,6 +335,55 @@ async function verifyCandidateOnPage(page, candidate, {
   outputDir = OUTPUT_DIR,
   screenshotPath = '',
 } = {}) {
+  const resolvedScreenshotPath = screenshotPath || path.join(
+    outputDir,
+    `${slug(candidate.bookmaker.name)}-odds-verification.png`,
+  );
+  fs.mkdirSync(path.dirname(resolvedScreenshotPath), { recursive: true });
+
+  // Lobby / list pages contain many fixtures and produce false mismatches.
+  // Prefer reporting not_found over inventing a wrong website price.
+  if (isBookmakerLobbyUrl(candidate?.bookmaker?.url)) {
+    const priceChecks = (candidate.prices || []).map((check) => ({
+      ...check,
+      endpointPrice: check.price,
+      websitePrice: null,
+      status: FIDELITY_STATUSES.notFound,
+      evidence: {
+        reason: 'lobby_url_no_event',
+        url: candidate.bookmaker.url,
+      },
+      found: false,
+    }));
+    return {
+      ok: false,
+      checkedAt: new Date().toISOString(),
+      strictContext,
+      priceTolerance,
+      pageAdapter: 'lobby-url-guard',
+      bookmaker: candidate.bookmaker,
+      event: {
+        id: candidate.event.id || null,
+        homeTeam: candidate.event.homeTeam,
+        awayTeam: candidate.event.awayTeam,
+        competition: candidate.event.competition,
+        startsAt: candidate.event.startsAt,
+      },
+      teamEvidence: {
+        homeTeam: candidate.event.homeTeam,
+        awayTeam: candidate.event.awayTeam,
+        homeFound: false,
+        awayFound: false,
+      },
+      fidelitySummary: summarizeFidelityRecords(priceChecks),
+      priceChecks,
+      missingPrices: priceChecks,
+      screenshotPath: resolvedScreenshotPath,
+      evidenceSummary: { structuredRows: 0, networkRows: 0 },
+      pageTextSample: '',
+    };
+  }
+
   const networkEvidence = createNetworkEvidenceCollector(page, candidate);
   try {
     await page.goto(candidate.bookmaker.url, {
@@ -339,6 +396,7 @@ async function verifyCandidateOnPage(page, candidate, {
     // Expand/scroll market sections so pure BTTS/totals cards enter the DOM
     // (Superbet and similar SPAs only render above-the-fold markets first).
     await prepareBookmakerEventPage(page, candidate);
+    await acceptCookiePrompt(page);
   } finally {
     networkEvidence.stop();
   }
@@ -348,11 +406,6 @@ async function verifyCandidateOnPage(page, candidate, {
   });
   const visibleText = normalizeWhitespace(pageEvidence.text);
   const html = pageEvidence.html;
-  const resolvedScreenshotPath = screenshotPath || path.join(
-    outputDir,
-    `${slug(candidate.bookmaker.name)}-odds-verification.png`,
-  );
-  fs.mkdirSync(path.dirname(resolvedScreenshotPath), { recursive: true });
   await page.screenshot({ path: resolvedScreenshotPath, fullPage: true }).catch(() => {});
 
   const teamEvidence = {
@@ -361,9 +414,31 @@ async function verifyCandidateOnPage(page, candidate, {
     homeFound: containsText(visibleText, candidate.event.homeTeam),
     awayFound: containsText(visibleText, candidate.event.awayTeam),
   };
-  const priceChecks = strictContext
+  let priceChecks = strictContext
     ? strictPriceChecks(candidate, pageEvidence, { priceTolerance })
     : loosePriceChecks(candidate, visibleText, html);
+
+  // If the page never shows both teams, do not promote random nearby prices
+  // to mismatch — that is almost always a wrong-fixture context.
+  if (!teamEvidence.homeFound || !teamEvidence.awayFound) {
+    priceChecks = priceChecks.map((check) => {
+      if (check.status === FIDELITY_STATUSES.mismatch || check.status === FIDELITY_STATUSES.verified) {
+        return {
+          ...check,
+          status: FIDELITY_STATUSES.notFound,
+          websitePrice: null,
+          found: false,
+          evidence: {
+            ...(check.evidence || {}),
+            reason: 'event_teams_not_found_on_page',
+            homeFound: teamEvidence.homeFound,
+            awayFound: teamEvidence.awayFound,
+          },
+        };
+      }
+      return check;
+    });
+  }
   const missingPrices = priceChecks.filter((check) => !check.found);
   const fidelitySummary = summarizeFidelityRecords(priceChecks);
   const ok = teamEvidence.homeFound
@@ -705,16 +780,54 @@ function safeHostname(value) {
 
 async function acceptCookiePrompt(page) {
   const labels = [
-    /accept/i,
-    /accepta/i,
-    /acceptă/i,
+    /permite toate/i,
+    /accept all/i,
+    /accepta tot/i,
+    /acceptă tot/i,
+    /accepta toate/i,
+    /acceptă toate/i,
+    /allow all/i,
+    /permit(e|i) toate/i,
+    /sunt de acord/i,
     /de acord/i,
+    /accept(a|ă)?/i,
     /^ok$/i,
+    /continue/i,
+    /continua/i,
+    /continuă/i,
   ];
+
   for (const label of labels) {
     const button = page.getByRole('button', { name: label }).first();
     if (await button.count().catch(() => 0)) {
       await button.click({ timeout: 1_500 }).catch(() => {});
+      await page.waitForTimeout(500).catch(() => {});
+      return;
+    }
+  }
+
+  // Fallback: common consent root selectors used by OneTrust / Cookiebot / custom banners.
+  const selectors = [
+    '#onetrust-accept-btn-handler',
+    '#accept-recommended-btn-handler',
+    'button[id*="accept" i]',
+    'button[class*="accept" i]',
+    '[data-testid*="accept" i]',
+    'button:has-text("Permite toate")',
+    'button:has-text("Permite selecția")',
+    'button:has-text("Accept all")',
+    'button:has-text("Accept")',
+    'button:has-text("Acceptă")',
+    'button:has-text("De acord")',
+    'a:has-text("Permite toate")',
+    '[class*="cookie" i] button',
+    '[id*="cookie" i] button',
+  ];
+  for (const selector of selectors) {
+    const locator = page.locator(selector).first();
+    if (await locator.count().catch(() => 0)) {
+      await locator.click({ timeout: 1_500 }).catch(() => {});
+      await page.waitForTimeout(500).catch(() => {});
       return;
     }
   }
