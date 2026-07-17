@@ -873,6 +873,30 @@ test('detectValueBet computes proper overround-based consensus fair odds', () =>
   assert.strictEqual(Number(vb.kelly.toFixed(4)), 0.0441);
 });
 
+test('detectCrossMarketArbitrage finds home-score vs away clean-sheet cover', () => {
+  const event = makeEvent({
+    bookmakers: [
+      {
+        name: 'BookA',
+        markets: {
+          market_marcheaza_home: { yes: 1.55, no: 2.4 },
+          market_clean_sheet_away: { yes: 3.4, no: 1.28 },
+        },
+      },
+      {
+        name: 'BookB',
+        markets: {
+          market_marcheaza_home: { yes: 1.48, no: 2.5 },
+          market_clean_sheet_away: { yes: 3.1, no: 1.32 },
+        },
+      },
+    ],
+  });
+  // best home yes 1.55 + best away CS yes 3.4 → 1/1.55 + 1/3.4 < 1
+  const results = detectCrossMarketArbitrage(event);
+  assert.ok(results.some((item) => item.marketKey === 'cross_home_score_vs_away_cs'));
+});
+
 test('detectCrossMarketArbitrage surfaces to-qualify vs match soft pairs', () => {
   const event = makeEvent({
     bookmakers: [

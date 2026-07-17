@@ -765,7 +765,74 @@ function detectCrossMarketArbitrage(event) {
     ...detectPeriodCrossMarket(event, 'secondHalfH2h', 'secondHalfDoubleChance', '2H_', '2H'),
     ...detectBttsTotalsSoftCross(event),
     ...detectQualifyVsH2hCross(event),
+    ...detectTeamScoreVsCleanSheetCross(event),
   ];
+}
+
+/**
+ * Home scores Yes ≈ Away clean sheet No (and inverse). Exhaustive 2-way when both
+ * markets refer to whether the home attack / away defence produced a goal.
+ */
+function detectTeamScoreVsCleanSheetCross(event) {
+  const results = [];
+  const homeScore = findBestPrices(event, 'market_marcheaza_home');
+  const awayScore = findBestPrices(event, 'market_marcheaza_away');
+  const homeCs = findBestPrices(event, 'market_clean_sheet_home');
+  const awayCs = findBestPrices(event, 'market_clean_sheet_away');
+
+  // Home scores Yes vs Away CS Yes (away CS yes ⇒ home did not score)
+  if (homeScore.yes && awayCs.yes) {
+    pushCrossMarketPair(results, {
+      marketKey: 'cross_home_score_vs_away_cs',
+      marketLabel: 'Home Scores vs Away Clean Sheet',
+      legA: {
+        outcome: 'yes',
+        label: 'Home Scores',
+        bookmaker: homeScore.yes.bookmaker,
+        price: homeScore.yes.price,
+        url: homeScore.yes.url,
+        marketKey: homeScore.yes.marketKey || 'market_marcheaza_home',
+        verificationStatus: homeScore.yes.verificationStatus,
+      },
+      legB: {
+        outcome: 'yes',
+        label: 'Away Clean Sheet',
+        bookmaker: awayCs.yes.bookmaker,
+        price: awayCs.yes.price,
+        url: awayCs.yes.url,
+        marketKey: awayCs.yes.marketKey || 'market_clean_sheet_away',
+        verificationStatus: awayCs.yes.verificationStatus,
+      },
+    });
+  }
+
+  // Away scores Yes vs Home CS Yes
+  if (awayScore.yes && homeCs.yes) {
+    pushCrossMarketPair(results, {
+      marketKey: 'cross_away_score_vs_home_cs',
+      marketLabel: 'Away Scores vs Home Clean Sheet',
+      legA: {
+        outcome: 'yes',
+        label: 'Away Scores',
+        bookmaker: awayScore.yes.bookmaker,
+        price: awayScore.yes.price,
+        url: awayScore.yes.url,
+        marketKey: awayScore.yes.marketKey || 'market_marcheaza_away',
+        verificationStatus: awayScore.yes.verificationStatus,
+      },
+      legB: {
+        outcome: 'yes',
+        label: 'Home Clean Sheet',
+        bookmaker: homeCs.yes.bookmaker,
+        price: homeCs.yes.price,
+        url: homeCs.yes.url,
+        marketKey: homeCs.yes.marketKey || 'market_clean_sheet_home',
+        verificationStatus: homeCs.yes.verificationStatus,
+      },
+    });
+  }
+
+  return results;
 }
 
 /**
@@ -1435,8 +1502,11 @@ function detectTeamMatchTotalArbitrage(event) {
   for (const mk of marketKeys) {
     const line = parseLineNumberFromKey(mk);
     if (line === null) continue;
+    // Half-lines only: integer/quarter push rules break the simple H+A identity.
+    const isHalf = Math.abs((line % 1) - 0.5) < 1e-9;
+    if (!isHalf) continue;
 
-    if (mk.startsWith('totalGoals_')) {
+    if (mk.startsWith('totalGoals_') || mk.startsWith('asianTotalGoals_')) {
       matchLines.push({ key: mk, line });
     } else if (mk.startsWith('market_total_goluri_home_')) {
       homeLines.push({ key: mk, line });

@@ -204,13 +204,32 @@ function warmOddsCache({ enabled, oddsService, logger = log }) {
     return;
   }
 
-  oddsService.getOdds()
+  const startedAt = Date.now();
+  // Prefer a persisted snapshot when available so the first UI paint is instant,
+  // then refresh live quotes in the same warm path.
+  Promise.resolve(oddsService.restoreFromStore?.())
+    .then((restored) => {
+      if (restored && Array.isArray(restored.events) && restored.events.length > 0) {
+        logger.info('Odds cache restored from snapshot', {
+          events: restored.events.length,
+          mode: restored.mode || null,
+        });
+      }
+      return oddsService.getOdds();
+    })
     .then((payload) => {
       const eventCount = Array.isArray(payload?.events) ? payload.events.length : 0;
-      logger.info('Odds cache warmed', { events: eventCount });
+      logger.info('Odds cache warmed', {
+        events: eventCount,
+        mode: payload?.mode || null,
+        durationMs: Date.now() - startedAt,
+      });
     })
     .catch((error) => {
-      logger.warn('Odds cache warm-up failed', { error: error.message });
+      logger.warn('Odds cache warm-up failed', {
+        error: error.message,
+        durationMs: Date.now() - startedAt,
+      });
     });
 }
 

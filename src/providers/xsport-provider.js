@@ -38,8 +38,8 @@ class XSportProvider {
     fetchImpl = globalThis.fetch,
     timeoutMs = 8000,
     lookaheadDays = 14,
-    maxDetailEvents = 160,
-    detailsConcurrency = 8,
+    maxDetailEvents = 220,
+    detailsConcurrency = 10,
     now = () => new Date(),
   } = {}) {
     if (!name || !apiBaseUrl || !eventOrigin || !systemCode) {

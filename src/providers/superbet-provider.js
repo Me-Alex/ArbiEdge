@@ -355,6 +355,97 @@ function normalizeSuperbetMarketGroup(group, { homeTeam, awayTeam }) {
     );
   }
 
+  if (
+    normalizedLabel === 'ambele marcheaza a doua repriza'
+    || normalizedLabel === 'ambele echipe marcheaza a doua repriza'
+    || normalizedLabel === 'gg ng a doua repriza'
+    || normalizedLabel === '2nd half both teams to score'
+  ) {
+    return mapSuperbetOutcomes(
+      group,
+      'secondHalfBothTeamsToScore',
+      { da: 'yes', yes: 'yes', nu: 'no', no: 'no' },
+      ['yes', 'no'],
+    );
+  }
+
+  if (
+    normalizedLabel === 'total cornere asiatice'
+    || normalizedLabel === 'cornere asiatice'
+    || normalizedLabel === 'asian total corners'
+  ) {
+    return mapSuperbetLineMarket(group, 'asianTotalCorners');
+  }
+
+  if (
+    normalizedLabel.includes('total goluri')
+    && (normalizedLabel.includes('gazde') || normalizedLabel.includes('home') || normalizedLabel.includes('echipa 1'))
+  ) {
+    return mapSuperbetLineMarket(group, 'market_total_goluri_home');
+  }
+
+  if (
+    normalizedLabel.includes('total goluri')
+    && (normalizedLabel.includes('oaspeti') || normalizedLabel.includes('away') || normalizedLabel.includes('echipa 2'))
+  ) {
+    return mapSuperbetLineMarket(group, 'market_total_goluri_away');
+  }
+
+  if (
+    normalizedLabel === 'gazdele marcheaza'
+    || normalizedLabel === 'gazde marcheaza'
+    || normalizedLabel === 'home to score'
+    || normalizedLabel === 'echipa gazda marcheaza'
+  ) {
+    return mapSuperbetOutcomes(
+      group,
+      'market_marcheaza_home',
+      { da: 'yes', yes: 'yes', nu: 'no', no: 'no' },
+      ['yes', 'no'],
+    );
+  }
+
+  if (
+    normalizedLabel === 'oaspetii marcheaza'
+    || normalizedLabel === 'oaspeti marcheaza'
+    || normalizedLabel === 'away to score'
+    || normalizedLabel === 'echipa oaspete marcheaza'
+  ) {
+    return mapSuperbetOutcomes(
+      group,
+      'market_marcheaza_away',
+      { da: 'yes', yes: 'yes', nu: 'no', no: 'no' },
+      ['yes', 'no'],
+    );
+  }
+
+  if (
+    normalizedLabel.includes('fara gol primit')
+    || normalizedLabel.includes('clean sheet')
+  ) {
+    const side = (normalizedLabel.includes('gazde') || normalizedLabel.includes('home') || normalizedLabel.includes('gazda'))
+      ? 'home'
+      : (normalizedLabel.includes('oaspeti') || normalizedLabel.includes('away') || normalizedLabel.includes('oaspete'))
+        ? 'away'
+        : null;
+    if (side) {
+      return mapSuperbetOutcomes(
+        group,
+        `market_clean_sheet_${side}`,
+        { da: 'yes', yes: 'yes', nu: 'no', no: 'no' },
+        ['yes', 'no'],
+      );
+    }
+  }
+
+  if (
+    normalizedLabel.includes('se califica')
+    || normalizedLabel.includes('cine merge mai departe')
+    || normalizedLabel === 'to qualify'
+  ) {
+    return mapSuperbetTeamOutcomes(group, 'toQualify', { homeTeam, awayTeam });
+  }
+
   return normalizeGenericSuperbetMarket(group, { homeTeam, awayTeam });
 }
 

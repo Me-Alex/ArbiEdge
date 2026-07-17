@@ -106,36 +106,45 @@ async function loadData(refresh = false) {
     const odds = await fetchJson(oddsUrl);
     const [opps, vb] = await Promise.all([
       fetchJson('/api/opportunities?sort=edge'),
-      fetchJson('/api/value-bets?limit=24'),
+      fetchJson('/api/value-bets?limit=40'),
     ]);
     state.mode = odds.mode || 'demo';
     state.fetchedAt = odds.fetchedAt || new Date().toISOString();
     state.warnings = odds.warnings || [];
     state.events = odds.events || [];
     state.opportunities = opps.opportunities || [];
+    state.opportunitySummary = opps.summary || null;
     state.valueBets = vb.valueBets || [];
     state.lastLoadOk = true;
     const hasData = state.events.length > 0 || state.opportunities.length > 0 || state.valueBets.length > 0;
     if (emptyState) emptyState.hidden = hasData;
 
     // Prefer a queue that actually has items so the UI does not look empty.
-    const actionable = state.opportunities.filter((opportunity) => opportunity.eligibility === 'actionable');
-    const review = state.opportunities.filter((opportunity) =>
-      opportunity.eligibility === 'review' || opportunity.confidence === 'review');
-    if (state.scannerTab === 'actionable' && actionable.length === 0 && review.length > 0) {
+    const summary = state.opportunitySummary;
+    const actionable = summary
+      ? Number(summary.actionable || 0)
+      : state.opportunities.filter((opportunity) => opportunity.eligibility === 'actionable').length;
+    const review = summary
+      ? Number(summary.review || 0)
+      : state.opportunities.filter((opportunity) =>
+        opportunity.eligibility === 'review' || opportunity.confidence === 'review').length;
+    if (state.scannerTab === 'actionable' && actionable === 0 && review > 0) {
       state.scannerTab = 'review';
     }
     if (state.opportunities.length > 0) {
-      const rejected = state.opportunities.filter((opportunity) => opportunity.eligibility === 'rejected').length;
-      const middles = state.opportunities.filter((opportunity) => opportunity.type === 'middle').length;
+      const rejected = summary
+        ? Number(summary.rejected || 0)
+        : state.opportunities.filter((opportunity) => opportunity.eligibility === 'rejected').length;
+      const middles = summary?.byType?.middle
+        ?? state.opportunities.filter((opportunity) => opportunity.type === 'middle').length;
       logActivity(
-        `${state.opportunities.length} semnale · ${actionable.length} acționabile · ${review.length} candidați · ${rejected} respinse · ${middles} middles`,
+        `${state.opportunities.length} semnale · ${actionable} acționabile · ${review} candidați · ${rejected} respinse · ${middles} middles`,
         'scanner',
       );
       if (dataMode) {
         dataMode.textContent = state.mode === 'demo'
-          ? `Demo · ${review.length} candidați`
-          : `Live · ${review.length} candidați · ${actionable.length} OK`;
+          ? `Demo · ${review} candidați`
+          : `Live · ${review} candidați · ${actionable} OK`;
       }
     }
 
@@ -170,7 +179,7 @@ async function refreshOpportunities() {
   try {
     const [o, v] = await Promise.all([
       fetchJson('/api/opportunities?sort=edge'),
-      fetchJson('/api/value-bets?limit=24'),
+      fetchJson('/api/value-bets?limit=40'),
     ]);
     state.opportunities = o.opportunities || [];
     state.valueBets = v.valueBets || [];

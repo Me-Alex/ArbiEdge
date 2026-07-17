@@ -64,6 +64,8 @@ const SAFE_CROSS_MARKETS = new Set([
   'cross_1H_btts_no_both_score',
   'cross_home_score_vs_no',
   'cross_away_score_vs_no',
+  'cross_home_score_vs_away_cs',
+  'cross_away_score_vs_home_cs',
 ]);
 
 const TOTAL_LINE_MARKET_RE = /^(?:total|asianTotal|firstHalfTotal|secondHalfTotal|firstHalfAsianTotal|secondHalfAsianTotal)(?:Goals|Corners|Cards|Points|Games|Sets)_\d+(?:_\d+)?$/;
