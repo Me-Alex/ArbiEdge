@@ -273,6 +273,42 @@ test('does not normalize missing Unibet total lines as zero-goal totals', () => 
   assert.deepEqual(markets.totalGoals_2_5, { over: 1.58, under: 2.3 });
 });
 
+test('normalizes Unibet period DNB and half asian totals', () => {
+  const markets = normalizeUnibetMarkets([
+    {
+      propositionType: '1st_half_draw_no_bet',
+      status: 'Active',
+      name: 'Fara egal pauza',
+      options: [
+        { optionDisplayName: '1', price: 1.4 },
+        { optionDisplayName: '2', price: 2.9 },
+      ],
+    },
+    {
+      propositionType: '2nd_half_draw_no_bet',
+      status: 'Active',
+      name: 'Fara egal a doua repriza',
+      options: [
+        { optionDisplayName: '1', price: 1.5 },
+        { optionDisplayName: '2', price: 2.5 },
+      ],
+    },
+    {
+      propositionType: '1st_half_asian_total',
+      status: 'Active',
+      name: 'Total asiatic pauza',
+      options: [
+        { optionDisplayName: 'Peste', total: 1.5, price: 1.85 },
+        { optionDisplayName: 'Sub', total: 1.5, price: 1.95 },
+      ],
+    },
+  ]);
+
+  assert.deepEqual(markets.firstHalfDrawNoBet, { home: 1.4, away: 2.9 });
+  assert.deepEqual(markets.secondHalfDrawNoBet, { home: 1.5, away: 2.5 });
+  assert.deepEqual(markets.firstHalfAsianTotalGoals_1_5, { over: 1.85, under: 1.95 });
+});
+
 test('keeps direct Unibet detail payloads and retries only failed detail URLs in browser', async () => {
   const firstContest = { ...contest, propositionCount: 2 };
   const secondContest = {

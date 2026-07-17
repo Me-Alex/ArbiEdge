@@ -131,6 +131,40 @@ test('normalizes browser-collected Betano markets', async () => {
   });
 });
 
+test('normalizes Betano second-half draw no bet', () => {
+  const event = normalizeBetanoEvent({
+    id: '79',
+    url: '/sport/fotbal/test/79/',
+    name: 'Alpha - Beta',
+    startTime: 1782079200000,
+    competition: 'Test',
+    markets: [
+      {
+        type: 'MRES',
+        selections: [
+          { name: '1', price: 2.1 },
+          { name: 'X', price: 3.2 },
+          { name: '2', price: 3.4 },
+        ],
+      },
+      {
+        type: 'SDNB',
+        name: 'Fara egal a doua repriza',
+        selections: [
+          { name: 'Alpha', price: 1.55 },
+          { name: 'Beta', price: 2.35 },
+        ],
+      },
+    ],
+  }, { bookmaker: 'Betano', fetchedAt: '2026-07-18T10:00:00.000Z' });
+
+  assert.ok(event);
+  assert.deepEqual(event.bookmakers[0].markets.secondHalfDrawNoBet, {
+    home: 1.55,
+    away: 2.35,
+  });
+});
+
 test('normalizes browser-collected Betano events with vs-separated names', async () => {
   const provider = new BetanoProvider({
     transport: {

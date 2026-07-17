@@ -125,6 +125,47 @@ test('normalizes XSport events with vs-separated fixture labels', () => {
   assert.equal(event.awayTeam, 'CD Moquegua');
 });
 
+test('normalizes XSport period markets from labels when ids are brand-specific', () => {
+  const nextPayload = structuredClone(payload);
+  nextPayload.avs.avs[0].scs.push(
+    {
+      cs: 90001,
+      d: 'Fara egal pauza',
+      eqs: [
+        { ce: 1, q: 145 },
+        { ce: 2, q: 260 },
+      ],
+    },
+    {
+      cs: 90002,
+      d: 'Total goluri a doua repriza',
+      h: 150,
+      eqs: [
+        { ce: 1, q: 190 },
+        { ce: 2, q: 185 },
+      ],
+    },
+    {
+      cs: 90003,
+      d: 'Ambele marcheaza a doua repriza',
+      eqs: [
+        { ce: 1, q: 210 },
+        { ce: 2, q: 170 },
+      ],
+    },
+  );
+
+  const [event] = normalizeXsportPayload(nextPayload, {
+    bookmaker: 'LasVegas',
+    fetchedAt: '2026-06-29T10:00:00.000Z',
+    eventOrigin: 'https://www.lasvegas.ro',
+  });
+
+  assert.deepEqual(event.bookmakers[0].markets.firstHalfDrawNoBet, { home: 1.45, away: 2.6 });
+  assert.deepEqual(event.bookmakers[0].markets.secondHalfTotalGoals_1_5, { under: 1.9, over: 1.85 });
+  assert.deepEqual(event.bookmakers[0].markets.secondHalfBothTeamsToScore, { yes: 2.1, no: 1.7 });
+});
+
 test('loads XSport payloads for each configured lookahead day', async () => {
   const requests = [];
   const provider = new XSportProvider({

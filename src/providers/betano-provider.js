@@ -202,6 +202,17 @@ function normalizeTypedBetanoMarket(market, teams = []) {
     }
   }
 
+  if (
+    ['SDNB', '2DNB', '2HDN'].includes(type)
+    || /fara egal.*(a doua|2nd|second)|dnb.*(2nd|second)/i.test(market.name || '')
+  ) {
+    const home = teamSelectionPrice(market.selections, teams[0], ['1', 'home']);
+    const away = teamSelectionPrice(market.selections, teams[1], ['2', 'away']);
+    if (isDecimalOdds(home) && isDecimalOdds(away)) {
+      return { key: 'secondHalfDrawNoBet', prices: { home, away } };
+    }
+  }
+
   // Odd/even goals
   if (['OEGS', 'ODEV', 'PARI'].includes(type) || /par.?impar|odd.?even/i.test(market.name || '')) {
     const prices = oddEvenPrices(market);

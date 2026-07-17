@@ -377,10 +377,91 @@ function normalizeXsportMarkets(markets) {
         { 1: 'home', 2: 'draw', 3: 'away' },
         ['home', 'draw', 'away'],
       );
+      continue;
     }
+
+    // Label fallback when brand/template ids differ across XSport RO skins.
+    routeXsportLabelMarket(normalized, market);
   }
 
   return normalized;
+}
+
+function normalizeXsportLabel(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+    .replace(/[^\p{Letter}\p{Number}+\-.]+/gu, ' ')
+    .trim();
+}
+
+function routeXsportLabelMarket(normalized, market) {
+  const label = normalizeXsportLabel(market?.d || market?.n || market?.name);
+  if (!label) return;
+
+  if (
+    (label.includes('a doua') || label.includes('2nd') || label.includes('second'))
+    && (label.includes('1x2') || label.includes('rezultat') || label === 'a doua repriza' || label === '2nd half')
+  ) {
+    addXsportOutcomeMarket(normalized, 'secondHalfH2h', market, {
+      1: 'home',
+      2: 'draw',
+      3: 'away',
+    }, ['home', 'draw', 'away']);
+    return;
+  }
+
+  if (label.includes('ambele') && (label.includes('marcheaza') || label.includes('gg'))) {
+    const key = (label.includes('pauza') || label.includes('prima') || label.includes('1st'))
+      ? 'firstHalfBothTeamsToScore'
+      : (label.includes('a doua') || label.includes('2nd') || label.includes('second'))
+        ? 'secondHalfBothTeamsToScore'
+        : 'bothTeamsToScore';
+    addXsportOutcomeMarket(normalized, key, market, {
+      1: 'yes',
+      2: 'no',
+    }, ['yes', 'no']);
+    return;
+  }
+
+  if (label.includes('fara egal') || label.includes('draw no bet') || label.includes('dnb')) {
+    const key = (label.includes('pauza') || label.includes('prima') || label.includes('1st'))
+      ? 'firstHalfDrawNoBet'
+      : (label.includes('a doua') || label.includes('2nd') || label.includes('second'))
+        ? 'secondHalfDrawNoBet'
+        : 'drawNoBet';
+    addXsportOutcomeMarket(normalized, key, market, {
+      1: 'home',
+      2: 'away',
+    }, ['home', 'away']);
+    return;
+  }
+
+  if (
+    (label.includes('total goluri') || label.includes('total goals') || label.includes('over under'))
+    && (label.includes('pauza') || label.includes('prima') || label.includes('1st half'))
+  ) {
+    addXsportOverUnderMarket(normalized, market, 'firstHalfTotalGoals');
+    return;
+  }
+
+  if (
+    (label.includes('total goluri') || label.includes('total goals') || label.includes('over under'))
+    && (label.includes('a doua') || label.includes('2nd') || label.includes('second'))
+  ) {
+    addXsportOverUnderMarket(normalized, market, 'secondHalfTotalGoals');
+    return;
+  }
+
+  if (label.includes('total cartonase') || label.includes('total cards') || label.includes('yellow')) {
+    addXsportOverUnderMarket(normalized, market, 'totalCards');
+    return;
+  }
+
+  if (label.includes('total cornere') || label.includes('total corners')) {
+    addXsportOverUnderMarket(normalized, market, 'totalCorners');
+  }
 }
 
 function addXsportOutcomeMarket(normalized, key, market, outcomeMap, required) {

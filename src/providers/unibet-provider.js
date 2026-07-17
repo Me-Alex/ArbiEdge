@@ -371,6 +371,54 @@ function normalizeUnibetProposition(proposition, { homeTeam, awayTeam }) {
   }
 
   if (
+    type === '1st_half_draw_no_bet'
+    || type === 'half_time_draw_no_bet'
+    || type === 'first_half_draw_no_bet'
+    || (
+      (propositionName.includes('fara egal') || propositionName.includes('draw no bet'))
+      && (propositionName.includes('pauza') || propositionName.includes('prima') || propositionName.includes('1st'))
+    )
+  ) {
+    return mapUnibetOutcomes(
+      proposition,
+      'firstHalfDrawNoBet',
+      { 1: 'home', 2: 'away' },
+      ['home', 'away'],
+    );
+  }
+
+  if (
+    type === '2nd_half_draw_no_bet'
+    || type === 'second_half_draw_no_bet'
+    || (
+      (propositionName.includes('fara egal') || propositionName.includes('draw no bet'))
+      && (propositionName.includes('a doua') || propositionName.includes('2nd') || propositionName.includes('second'))
+    )
+  ) {
+    return mapUnibetOutcomes(
+      proposition,
+      'secondHalfDrawNoBet',
+      { 1: 'home', 2: 'away' },
+      ['home', 'away'],
+    );
+  }
+
+  if (
+    type === '1st_half_asian_total'
+    || type === 'half_time_asian_total'
+    || type === 'first_half_asian_total'
+  ) {
+    return mapUnibetLineMarket(proposition, 'firstHalfAsianTotalGoals');
+  }
+
+  if (
+    type === '2nd_half_asian_total'
+    || type === 'second_half_asian_total'
+  ) {
+    return mapUnibetLineMarket(proposition, 'secondHalfAsianTotalGoals');
+  }
+
+  if (
     type === 'odd_even'
     || type === 'goals_odd_even'
     || propositionName.includes('par impar')

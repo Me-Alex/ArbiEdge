@@ -1020,6 +1020,31 @@ test('detectCrossMarketArbitrage finds home-score vs away clean-sheet cover', ()
   assert.ok(results.some((item) => item.marketKey === 'cross_home_score_vs_away_cs'));
 });
 
+test('detectCrossMarketArbitrage merges AH0 with DNB for soft two-way edges', () => {
+  const event = makeEvent({
+    bookmakers: [
+      {
+        name: 'BookA',
+        markets: {
+          drawNoBet: { home: 1.7, away: 2.1 },
+          asianHandicap_0: { home: 1.65, away: 2.25 },
+        },
+      },
+      {
+        name: 'BookB',
+        markets: {
+          drawNoBet: { home: 1.55, away: 2.35 },
+          asianHandicap_0: { home: 1.8, away: 2.0 },
+        },
+      },
+    ],
+  });
+  // Merged home 1.8 (AH0 B) + merged away 2.35 (DNB B) → 1/1.8 + 1/2.35 ≈ 0.981
+  const results = detectCrossMarketArbitrage(event);
+  assert.ok(results.some((item) => item.marketKey === 'cross_dnb_ah0_merged'));
+  assert.ok(results.some((item) => item.marketKey === 'cross_ah0_home_dnb_away'));
+});
+
 test('detectCrossMarketArbitrage finds team-score vs team-total 0.5 identity covers', () => {
   const event = makeEvent({
     bookmakers: [

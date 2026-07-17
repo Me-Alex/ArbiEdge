@@ -772,7 +772,101 @@ function detectCrossMarketArbitrage(event) {
     ...detectQualifyVsDnbCross(event),
     ...detectCsNoVsOpponentScoreCross(event),
     ...detectEuroAsianSameLineArbitrage(event),
+    ...detectAhZeroVsDnbCross(event),
   ];
+}
+
+/**
+ * Asian Handicap 0 and Draw No Bet share the same win/lose/push matrix on FT
+ * result. Merge best home/away across both markets for a soft two-way, and
+ * emit complementary AH0 Home × DNB Away (and inverse) when books disagree.
+ * Push on draw → review/candidate only (not SAFE_CROSS).
+ */
+function detectAhZeroVsDnbCross(event) {
+  const results = [];
+
+  // Full-time AH0 × DNB only (AH keys are FT-scoped in providers).
+  const dnb = findBestPrices(event, 'drawNoBet');
+  const ah = findBestPrices(event, 'asianHandicap_0');
+
+  const bestHome = pickBestPriceEntry(dnb.home, ah.home);
+  const bestAway = pickBestPriceEntry(dnb.away, ah.away);
+  if (bestHome && bestAway) {
+    pushCrossMarketPair(results, {
+      marketKey: 'cross_dnb_ah0_merged',
+      marketLabel: 'DNB/AH0 Home + Away (merged)',
+      legA: {
+        outcome: 'home',
+        label: 'Home (DNB/AH0)',
+        bookmaker: bestHome.bookmaker,
+        price: bestHome.price,
+        url: bestHome.url,
+        marketKey: bestHome.marketKey || 'drawNoBet',
+        verificationStatus: bestHome.verificationStatus,
+      },
+      legB: {
+        outcome: 'away',
+        label: 'Away (DNB/AH0)',
+        bookmaker: bestAway.bookmaker,
+        price: bestAway.price,
+        url: bestAway.url,
+        marketKey: bestAway.marketKey || 'drawNoBet',
+        verificationStatus: bestAway.verificationStatus,
+      },
+    });
+  }
+
+  // Complementary soft: AH0 Home vs DNB Away (and inverse)
+  if (ah.home && dnb.away) {
+    pushCrossMarketPair(results, {
+      marketKey: 'cross_ah0_home_dnb_away',
+      marketLabel: 'AH0 Home + DNB Away',
+      legA: {
+        outcome: 'home',
+        label: 'AH0 Home',
+        bookmaker: ah.home.bookmaker,
+        price: ah.home.price,
+        url: ah.home.url,
+        marketKey: ah.home.marketKey || 'asianHandicap_0',
+        verificationStatus: ah.home.verificationStatus,
+      },
+      legB: {
+        outcome: 'away',
+        label: 'DNB Away',
+        bookmaker: dnb.away.bookmaker,
+        price: dnb.away.price,
+        url: dnb.away.url,
+        marketKey: dnb.away.marketKey || 'drawNoBet',
+        verificationStatus: dnb.away.verificationStatus,
+      },
+    });
+  }
+  if (ah.away && dnb.home) {
+    pushCrossMarketPair(results, {
+      marketKey: 'cross_ah0_away_dnb_home',
+      marketLabel: 'AH0 Away + DNB Home',
+      legA: {
+        outcome: 'away',
+        label: 'AH0 Away',
+        bookmaker: ah.away.bookmaker,
+        price: ah.away.price,
+        url: ah.away.url,
+        marketKey: ah.away.marketKey || 'asianHandicap_0',
+        verificationStatus: ah.away.verificationStatus,
+      },
+      legB: {
+        outcome: 'home',
+        label: 'DNB Home',
+        bookmaker: dnb.home.bookmaker,
+        price: dnb.home.price,
+        url: dnb.home.url,
+        marketKey: dnb.home.marketKey || 'drawNoBet',
+        verificationStatus: dnb.home.verificationStatus,
+      },
+    });
+  }
+
+  return results;
 }
 
 /**
@@ -1587,6 +1681,21 @@ function detectBttsTotalsSoftCross(event) {
       marketKey: 'cross_btts_no_asian_over_1_5',
       marketLabel: 'BTTS No + Asian Over 1.5',
       overLabel: 'Asian Over 1.5',
+    },
+    // Soft review covers (1-1 loses both on 2.5 lines) — still surface math edges.
+    {
+      bttsKey: 'bothTeamsToScore',
+      totalKey: 'totalGoals_2_5',
+      marketKey: 'cross_btts_no_over_2_5',
+      marketLabel: 'BTTS No + Over 2.5 Goals',
+      overLabel: 'Over 2.5',
+    },
+    {
+      bttsKey: 'bothTeamsToScore',
+      totalKey: 'asianTotalGoals_2_5',
+      marketKey: 'cross_btts_no_asian_over_2_5',
+      marketLabel: 'BTTS No + Asian Over 2.5',
+      overLabel: 'Asian Over 2.5',
     },
     {
       bttsKey: 'firstHalfBothTeamsToScore',
