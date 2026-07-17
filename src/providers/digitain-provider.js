@@ -341,8 +341,94 @@ function normalizeDigitainMarkets(matchBets, { homeTeam, awayTeam } = {}) {
       continue;
     }
 
-    if (String(market.idBet) === '105' || ['total cornere', 'total corners'].includes(marketName)) {
+    if (
+      String(market.idBet) === '105'
+      || ['total cornere', 'total corners'].includes(marketName)
+    ) {
       addDigitainLineMarkets(markets, market, 'totalCorners');
+      continue;
+    }
+
+    // Period / side markets — map explicitly so they join cross-book scanners.
+    const periodResult = matchDigitainPeriodResult(market, marketName);
+    if (periodResult) {
+      const prices = digitainPrices(market, {
+        '1': 'home',
+        X: 'draw',
+        '2': 'away',
+      });
+      if (hasOutcomes(prices, ['home', 'draw', 'away']) && !markets[periodResult]) {
+        markets[periodResult] = prices;
+      }
+      continue;
+    }
+
+    if (
+      marketName.includes('total goluri') && marketName.includes('pauza')
+      || marketName.includes('total goluri') && marketName.includes('prima repriza')
+      || marketName.includes('1st half total')
+    ) {
+      addDigitainLineMarkets(markets, market, 'firstHalfTotalGoals');
+      continue;
+    }
+
+    if (
+      marketName.includes('total goluri') && marketName.includes('a doua')
+      || marketName.includes('total goluri') && marketName.includes('repriza 2')
+      || marketName.includes('2nd half total')
+    ) {
+      addDigitainLineMarkets(markets, market, 'secondHalfTotalGoals');
+      continue;
+    }
+
+    if (
+      marketName.includes('total cartonase')
+      || marketName.includes('total cards')
+      || marketName.includes('yellow cards')
+    ) {
+      addDigitainLineMarkets(markets, market, 'totalCards');
+      continue;
+    }
+
+    if (
+      marketName === 'par impar'
+      || marketName === 'impar par'
+      || marketName.includes('goluri par')
+      || marketName.includes('odd even')
+      || marketName.includes('total goals odd')
+    ) {
+      const prices = digitainPrices(market, {
+        Par: 'even',
+        Even: 'even',
+        Impar: 'odd',
+        Odd: 'odd',
+        par: 'even',
+        even: 'even',
+        impar: 'odd',
+        odd: 'odd',
+      });
+      // digitainPrices keys from mboType — also try normalizeOutcomeKey path via generic
+      if (!hasOutcomes(prices, ['odd', 'even'])) {
+        addGenericDigitainMarket(markets, market, { homeTeam, awayTeam });
+      } else if (!markets.market_total_goluri_impar_par) {
+        markets.market_total_goluri_impar_par = prices;
+      }
+      continue;
+    }
+
+    if (
+      marketName === 'fara egal'
+      || marketName === 'draw no bet'
+      || marketName.includes('egal pariu')
+      || marketName.includes('moneyline')
+    ) {
+      const prices = digitainPrices(market, {
+        '1': 'home',
+        '2': 'away',
+      });
+      if (hasOutcomes(prices, ['home', 'away']) && !markets.drawNoBet) {
+        markets.drawNoBet = prices;
+      }
       continue;
     }
 
@@ -353,8 +439,13 @@ function normalizeDigitainMarkets(matchBets, { homeTeam, awayTeam } = {}) {
         Yes: 'yes',
         No: 'no',
       });
-      if (!markets.bothTeamsToScore && hasOutcomes(prices, ['yes', 'no'])) {
-        markets.bothTeamsToScore = prices;
+      const bttsKey = marketName.includes('pauza') || marketName.includes('prima repriza')
+        ? 'firstHalfBothTeamsToScore'
+        : marketName.includes('a doua') || marketName.includes('repriza 2')
+          ? 'secondHalfBothTeamsToScore'
+          : 'bothTeamsToScore';
+      if (!markets[bttsKey] && hasOutcomes(prices, ['yes', 'no'])) {
+        markets[bttsKey] = prices;
       }
       continue;
     }
@@ -487,11 +578,43 @@ function isStandardBothTeamsToScoreMarket(market) {
   }
 
   const name = normalizeLabel(localizedText(market?.mbDisplayName));
-  return [
-    'ambele echipe marcheaza gg',
-    'ambele echipe marcheaza',
-    'both teams to score',
-  ].includes(name);
+  return (
+    name === 'ambele echipe marcheaza gg'
+    || name === 'ambele echipe marcheaza'
+    || name === 'both teams to score'
+    || name.includes('ambele echipe marcheaza')
+    || name.includes('both teams to score')
+    || name === 'gg ng'
+    || name.startsWith('gg ng')
+  );
+}
+
+function matchDigitainPeriodResult(market, marketName) {
+  const name = String(marketName || '');
+  if (
+    name === 'pauza'
+    || name === 'prima repriza'
+    || name === 'half time'
+    || name === '1st half'
+    || name === 'rezultat pauza'
+  ) {
+    return 'firstHalfH2h';
+  }
+  if (
+    name === 'a doua repriza'
+    || name === 'repriza 2'
+    || name === '2nd half'
+    || name === 'second half'
+    || name === 'rezultat a doua repriza'
+  ) {
+    return 'secondHalfH2h';
+  }
+  // Avoid treating "sansa dubla pauza" as 1X2.
+  if (name.includes('sansa dubla') || name.includes('double chance')) {
+    if (name.includes('pauza') || name.includes('prima')) return null; // handled via generic DC mapping
+    if (name.includes('a doua') || name.includes('repriza 2')) return null;
+  }
+  return null;
 }
 
 function localizedText(value) {

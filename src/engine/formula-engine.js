@@ -837,43 +837,51 @@ function detectMiddleBets(event) {
 
   lineMarkets.sort((a, b) => a.groupKey.localeCompare(b.groupKey) || a.line - b.line);
 
-  for (let i = 0; i < lineMarkets.length - 1; i++) {
+  // Pair any lower Over with higher Under in the same family (not only adjacent
+  // lines) so e.g. Over 2.5 / Under 3.5 is found when 3.0 sits between them.
+  const MAX_MIDDLE_GAP = 2.0;
+  for (let i = 0; i < lineMarkets.length; i++) {
     const lower = lineMarkets[i];
-    const higher = lineMarkets[i + 1];
+    for (let j = i + 1; j < lineMarkets.length; j++) {
+      const higher = lineMarkets[j];
+      if (lower.groupKey !== higher.groupKey) break;
+      if (higher.line <= lower.line) continue;
+      const gap = higher.line - lower.line;
+      if (gap > MAX_MIDDLE_GAP + 1e-9) break;
 
-    if (lower.groupKey !== higher.groupKey || higher.line <= lower.line) continue;
+      const probOver = impliedProb(lower.over.price);
+      const probUnder = impliedProb(higher.under.price);
+      const total = probOver + probUnder;
 
-    const probOver = impliedProb(lower.over.price);
-    const probUnder = impliedProb(higher.under.price);
-    const total = probOver + probUnder;
+      const hasMiddle = gap >= 0.5 - 1e-9;
+      const edge = 1 - total;
 
-    const hasMiddle = higher.line - lower.line >= 0.5;
-    const edge = 1 - total;
+      if (edge > -0.05 || (hasMiddle && edge > -0.1)) {
+        const stake = 100;
+        const s1 = (stake * probOver) / total;
+        const s2 = (stake * probUnder) / total;
+        const profit = stake / total - stake;
 
-    if (edge > -0.05 || (hasMiddle && edge > -0.1)) {
-      const stake = 100;
-      const s1 = (stake * probOver) / total;
-      const s2 = (stake * probUnder) / total;
-      const profit = stake / total - stake;
-
-      results.push({
-        marketKey: `middle_${lower.marketKey}_${higher.marketKey}`,
-        marketLabel: `${lower.marketFamilyLabel || 'Line'} Middle: Over ${lower.line} / Under ${higher.line}`,
-        marketFamilyLabel: lower.marketFamilyLabel || null,
-        marketDescription: lower.marketDescription || higher.marketDescription || null,
-        type: 'middle',
-        legs: [
-          { outcome: 'over', label: formatMiddleLegLabel('over', lower.line, lower.marketFamilyLabel), bookmaker: lower.over.bookmaker, price: lower.over.price, stake: s1, url: lower.over.url || '', marketKey: lower.marketKey, verificationStatus: lower.over.verificationStatus || null },
-          { outcome: 'under', label: formatMiddleLegLabel('under', higher.line, higher.marketFamilyLabel), bookmaker: higher.under.bookmaker, price: higher.under.price, stake: s2, url: higher.under.url || '', marketKey: higher.marketKey, verificationStatus: higher.under.verificationStatus || null },
-        ],
-        edge,
-        profit,
-        totalProb: total,
-        stake,
-        hasMiddle,
-        middleWindow: `${lower.line} - ${higher.line}`,
-        confidence: hasMiddle && edge > 0 ? 'high' : edge > 0 ? 'trusted' : 'review',
-      });
+        results.push({
+          marketKey: `middle_${lower.marketKey}_${higher.marketKey}`,
+          marketLabel: `${lower.marketFamilyLabel || 'Line'} Middle: Over ${lower.line} / Under ${higher.line}`,
+          marketFamilyLabel: lower.marketFamilyLabel || null,
+          marketDescription: lower.marketDescription || higher.marketDescription || null,
+          type: 'middle',
+          legs: [
+            { outcome: 'over', label: formatMiddleLegLabel('over', lower.line, lower.marketFamilyLabel), bookmaker: lower.over.bookmaker, price: lower.over.price, stake: s1, url: lower.over.url || '', marketKey: lower.marketKey, verificationStatus: lower.over.verificationStatus || null },
+            { outcome: 'under', label: formatMiddleLegLabel('under', higher.line, higher.marketFamilyLabel), bookmaker: higher.under.bookmaker, price: higher.under.price, stake: s2, url: higher.under.url || '', marketKey: higher.marketKey, verificationStatus: higher.under.verificationStatus || null },
+          ],
+          edge,
+          profit,
+          totalProb: total,
+          stake,
+          hasMiddle,
+          middleWindow: `${lower.line} - ${higher.line}`,
+          middleGap: gap,
+          confidence: hasMiddle && edge > 0 ? 'high' : edge > 0 ? 'trusted' : 'review',
+        });
+      }
     }
   }
 

@@ -29,7 +29,7 @@ class EgtProvider {
     fetchImpl = globalThis.fetch,
     timeoutMs = 8000,
     pageSize = 1000,
-    marketCount = 32,
+    marketCount = 64,
     lookaheadDays = 14,
     now = () => new Date(),
   } = {}) {

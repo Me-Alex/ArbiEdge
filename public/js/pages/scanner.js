@@ -199,7 +199,8 @@ function renderOpportunityCard(opportunity) {
           <h2 class="arb-card__title">${escapeHtml(opportunity.eventName)}</h2>
           <span class="queue-pill queue-pill--${eligibility}">${escapeHtml(QUEUE_LABELS[eligibility])}</span>
         </div>
-        <div class="muted-line">${escapeHtml(opportunity.marketLabel || opportunity.marketKey)} · ${escapeHtml(opportunity.competition || '')}</div>
+        <div class="muted-line">${escapeHtml(opportunity.marketLabel || opportunity.marketKey)} · ${escapeHtml(opportunity.competition || '')}${opportunity.sport ? ` · ${escapeHtml(opportunity.sport)}` : ''}</div>
+        <div class="muted-line scanner-formula-meta">${escapeHtml(opportunity.type || 'classic')}${opportunity.formulaFamily ? ` · ${escapeHtml(opportunity.formulaFamily)}` : ''}${opportunity.middleWindow ? ` · window ${escapeHtml(opportunity.middleWindow)}` : ''} · ${escapeHtml(marketType)}</div>
       </div>
       <div class="verification-summary" aria-label="Verification summary">
         <strong>${Number(opportunity.verifiedLegCount || 0)}/${Number(opportunity.legCount || opportunity.legs?.length || 0)}</strong>

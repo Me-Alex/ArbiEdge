@@ -354,6 +354,13 @@ function isContaminatedMarketContext(record, normalizedBlock, rawText = '') {
     }
   }
 
+  if (family === 'doubleChance') {
+    // DC combo cards (e.g. "1X & Over 1.5") are not pure double-chance evidence.
+    if (hasComboConnector && /\b(peste|sub|over|under|goluri|goals|gg|btts)\b/.test(haystack)) {
+      return true;
+    }
+  }
+
   return false;
 }
 

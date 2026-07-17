@@ -168,6 +168,11 @@ function createBookmaker(name, home, draw, away, baseTime, eventIndex, bookmaker
       over: round(2.62 + bookmakerIndex * 0.11),
       under: round(1.47 + eventIndex * 0.02),
     };
+    // Extra lines so non-adjacent middles (e.g. Over 2.5 / Under 3.5) appear.
+    markets.totalGoals_3 = {
+      over: round(2.2 + bookmakerIndex * 0.08),
+      under: round(1.68 + eventIndex * 0.02),
+    };
     markets.firstHalfTotalGoals_1_5 = {
       over: round(2.34 + bookmakerIndex * 0.12),
       under: round(1.58 + eventIndex * 0.03),

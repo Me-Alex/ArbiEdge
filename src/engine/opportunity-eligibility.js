@@ -52,6 +52,11 @@ const SAFE_CROSS_MARKETS = new Set([
   'cross_2H_1_X2',
   'cross_2H_12_X',
   'cross_btts_no_over_0_5',
+  // Exhaustive partitions (overlap states only improve worst-case).
+  'cross_btts_team_score',
+  'cross_btts_no_both_score',
+  'cross_home_score_vs_no',
+  'cross_away_score_vs_no',
 ]);
 
 const TOTAL_LINE_MARKET_RE = /^(?:total|asianTotal|firstHalfTotal|secondHalfTotal|firstHalfAsianTotal|secondHalfAsianTotal)(?:Goals|Corners|Cards|Points|Games|Sets)_\d+(?:_\d+)?$/;

@@ -406,10 +406,40 @@ function normalizeBetconstructMarkets(rawMarkets, { homeTeam, awayTeam } = {}) {
       }, ['homeDraw', 'homeAway', 'drawAway']);
       continue;
     }
+    if (typeKey === 'secondhalfresult' || typeKey === '2ndhalfresult') {
+      addOutcomeMarket(normalized, 'secondHalfH2h', events, {
+        P1: 'home', X: 'draw', P2: 'away',
+      }, ['home', 'draw', 'away']);
+      continue;
+    }
+    if (typeKey === 'secondhalfdoublechance' || typeKey === '2ndhalfdoublechance') {
+      addOutcomeMarket(normalized, 'secondHalfDoubleChance', events, {
+        '1X': 'homeDraw', '12': 'homeAway', X2: 'drawAway',
+      }, ['homeDraw', 'homeAway', 'drawAway']);
+      continue;
+    }
     if (typeKey === 'bothteamstoscore') {
       addOutcomeMarket(normalized, 'bothTeamsToScore', events, {
         Yes: 'yes', No: 'no',
       }, ['yes', 'no']);
+      continue;
+    }
+    if (typeKey === 'halftimebothteamstoscore' || typeKey === 'bothteamstoscorehalftime') {
+      addOutcomeMarket(normalized, 'firstHalfBothTeamsToScore', events, {
+        Yes: 'yes', No: 'no',
+      }, ['yes', 'no']);
+      continue;
+    }
+    if (typeKey === 'drawnobet' || typeKey === 'dnb') {
+      addOutcomeMarket(normalized, 'drawNoBet', events, {
+        P1: 'home', P2: 'away', '1': 'home', '2': 'away',
+      }, ['home', 'away']);
+      continue;
+    }
+    if (typeKey === 'oddeven' || typeKey === 'totalgoaloddeven' || typeKey === 'goalsoddeven') {
+      addOutcomeMarket(normalized, 'market_total_goluri_impar_par', events, {
+        Odd: 'odd', Even: 'even', odd: 'odd', even: 'even',
+      }, ['odd', 'even']);
       continue;
     }
     if (typeKey === 'halformatchresult') {
@@ -419,14 +449,25 @@ function normalizeBetconstructMarkets(rawMarkets, { homeTeam, awayTeam } = {}) {
       continue;
     }
     if (typeKey === 'overunder' && Number.isFinite(line)) {
-      const base = /asiatic/i.test(String(market?.name || ''))
+      const name = String(market?.name || '');
+      const base = /asiatic|asian/i.test(name)
         ? 'asianTotalGoals'
-        : 'totalGoals';
+        : /corner|cornere/i.test(name)
+          ? 'totalCorners'
+          : /card|cartonas|booking/i.test(name)
+            ? 'totalCards'
+            : 'totalGoals';
       addOverUnderMarket(normalized, `${base}_${lineKey(line)}`, events);
       continue;
     }
     if (typeKey === 'halftimeoverunder' && Number.isFinite(line)) {
       addOverUnderMarket(normalized, `firstHalfTotalGoals_${lineKey(line)}`, events);
+      continue;
+    }
+    if (typeKey === 'secondhalfoverunder' || typeKey === '2ndhalfoverunder') {
+      if (Number.isFinite(line)) {
+        addOverUnderMarket(normalized, `secondHalfTotalGoals_${lineKey(line)}`, events);
+      }
       continue;
     }
     if (typeKey === 'halftimeoverunderasian' && Number.isFinite(line)) {
