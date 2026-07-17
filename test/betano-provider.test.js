@@ -61,6 +61,23 @@ test('normalizes browser-collected Betano markets', async () => {
               { name: 'Under', line: 4.5, price: 1.72 },
             ],
           },
+          {
+            type: 'BTSC',
+            name: 'Ambele marcheaza',
+            selections: [
+              { name: 'Da', price: 1.72 },
+              { name: 'Nu', price: 2.05 },
+            ],
+          },
+          {
+            type: 'DBLC',
+            name: 'Sansa dubla',
+            selections: [
+              { name: '1X', price: 1.12 },
+              { name: '12', price: 1.22 },
+              { name: 'X2', price: 2.75 },
+            ],
+          },
         ],
       }],
     },
@@ -90,6 +107,15 @@ test('normalizes browser-collected Betano markets', async () => {
   assert.deepEqual(events[0].bookmakers[0].markets.totalCards_4_5, {
     over: 2.12,
     under: 1.72,
+  });
+  assert.deepEqual(events[0].bookmakers[0].markets.bothTeamsToScore, {
+    yes: 1.72,
+    no: 2.05,
+  });
+  assert.deepEqual(events[0].bookmakers[0].markets.doubleChance, {
+    homeDraw: 1.12,
+    homeAway: 1.22,
+    drawAway: 2.75,
   });
 });
 

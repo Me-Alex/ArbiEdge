@@ -213,6 +213,10 @@ function createBookmaker(name, home, draw, away, baseTime, eventIndex, bookmaker
       over: round(2.18 + bookmakerIndex * 0.09),
       under: round(1.7 + eventIndex * 0.02),
     };
+    markets.asianTotalGoals_3_25 = {
+      over: round(2.55 + bookmakerIndex * 0.1),
+      under: round(1.48 + eventIndex * 0.02),
+    };
     markets.totalGoals_1_5 = {
       over: round(1.38 + bookmakerIndex * 0.05),
       under: round(3.05 + eventIndex * 0.04),

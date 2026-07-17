@@ -77,7 +77,14 @@ const MARKET_ALIASES = {
   totalCorners: ['total cornere', 'cornere', 'corners', 'corner'],
   totalCards: ['total cartonase', 'cartonase', 'cards', 'bookings'],
   handicap: ['handicap', 'asian handicap', 'handicap asiatic'],
-  toQualify: ['se califica', 'to qualify'],
+  toQualify: ['se califica', 'to qualify', 'cine merge mai departe', 'calificare'],
+  goalsOddEven: ['par impar', 'impar par', 'odd even', 'goluri par', 'total goluri par'],
+  firstHalfBothTeamsToScore: [
+    'ambele marcheaza pauza',
+    'ambele echipe marcheaza pauza',
+    '1st half both teams to score',
+    'gg pauza',
+  ],
 };
 
 const PERIOD_ALIASES = {
@@ -101,6 +108,10 @@ const OUTCOME_ALIASES = {
   homeDraw: ['1x', 'home draw'],
   homeAway: ['12', 'home away'],
   drawAway: ['x2', 'draw away'],
+  odd: ['impar', 'odd'],
+  even: ['par', 'even'],
+  home: ['1', 'home', 'gazde', 'gazda'],
+  away: ['2', 'away', 'oaspeti', 'oaspete'],
 };
 
 function parseMarketDescriptor(marketKey) {
@@ -154,6 +165,15 @@ function parseMarketDescriptor(marketKey) {
       line: formatHandicapLine(key),
       teamScope: null,
     };
+  }
+  if (key === 'market_total_goluri_impar_par') {
+    return { marketKey: key, marketFamily: 'goalsOddEven', period: 'fulltime', line: null, teamScope: null };
+  }
+  if (key === 'firstHalfBothTeamsToScore') {
+    return { marketKey: key, marketFamily: 'firstHalfBothTeamsToScore', period: 'firstHalf', line: null, teamScope: null };
+  }
+  if (key === 'secondHalfBothTeamsToScore') {
+    return { marketKey: key, marketFamily: 'bothTeamsToScore', period: 'secondHalf', line: null, teamScope: null };
   }
   if (key === 'toQualify') {
     return { marketKey: key, marketFamily: 'toQualify', period: 'overtime', line: null, teamScope: null };

@@ -243,6 +243,29 @@ test('detectCrossMarketArbitrage finds 1X + 2 edge', () => {
   assert.ok(oneXTwo.edge > 0);
 });
 
+test('detectMiddleBets pairs European and Asian goal lines across families', () => {
+  const event = makeEvent({
+    bookmakers: [
+      {
+        name: 'BookA',
+        markets: {
+          totalGoals_2_5: { over: 2.15, under: 1.75 },
+          asianTotalGoals_3_25: { over: 2.4, under: 2.2 },
+        },
+      },
+      {
+        name: 'BookB',
+        markets: {
+          totalGoals_2_5: { over: 2.05, under: 1.8 },
+          asianTotalGoals_3_25: { over: 2.3, under: 2.05 },
+        },
+      },
+    ],
+  });
+  const middles = detectMiddleBets(event);
+  assert.ok(middles.some((item) => item.crossFamily && item.marketKey.includes('totalGoals_2_5') && item.marketKey.includes('asianTotalGoals_3_25')));
+});
+
 test('detectMiddleBets finds non-adjacent line pairs in the same family', () => {
   const event = makeEvent({
     bookmakers: [

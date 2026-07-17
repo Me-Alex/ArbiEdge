@@ -54,6 +54,11 @@ function normalizeBetanoEvent(event, fetchedAt) {
     markets.drawNoBet = { home: dnbHome, away: dnbAway };
   }
   for (const market of event.markets || []) {
+    const typed = normalizeTypedBetanoMarket(market, teams);
+    if (typed && !markets[typed.key]) {
+      markets[typed.key] = typed.prices;
+      continue;
+    }
     const normalized = normalizeGenericBetanoMarket(market);
     if (normalized && !markets[normalized.key]) {
       markets[normalized.key] = normalized.prices;
@@ -89,6 +94,88 @@ function normalizeBetanoEvent(event, fetchedAt) {
   };
 }
 
+/**
+ * Explicit Betano/Kambi-style market type codes. Prefer these over generic
+ * label slugs so cross-book scanners share stable keys.
+ */
+function normalizeTypedBetanoMarket(market, teams = []) {
+  if (!market || !isActiveBetanoMarket(market)) return null;
+  const type = String(market.type || '').toUpperCase();
+  if (['MRES', 'DNOB'].includes(type)) return null;
+
+  // Both teams to score
+  if (['BTSC', 'BTTS', 'BTST', 'GGNG'].includes(type) || /ambele.*marcheaza|both teams to score/i.test(market.name || '')) {
+    const prices = yesNoPrices(market);
+    if (prices) {
+      const name = String(market.name || '').toLowerCase();
+      const key = /pauza|prima|1st|half time/i.test(name)
+        ? 'firstHalfBothTeamsToScore'
+        : /a doua|2nd|second half/i.test(name)
+          ? 'secondHalfBothTeamsToScore'
+          : 'bothTeamsToScore';
+      return { key, prices };
+    }
+  }
+
+  // Double chance
+  if (['DBLC', 'DBCH', 'DCHN'].includes(type) || /sansa dubla|double chance/i.test(market.name || '')) {
+    const prices = doubleChancePrices(market);
+    if (prices) {
+      const name = String(market.name || '').toLowerCase();
+      const key = /pauza|prima|1st/i.test(name)
+        ? 'firstHalfDoubleChance'
+        : /a doua|2nd/i.test(name)
+          ? 'secondHalfDoubleChance'
+          : 'doubleChance';
+      return { key, prices };
+    }
+  }
+
+  // Period 1X2
+  if (['HCTG', 'HTFT', '1HRS', 'FHRS'].includes(type) || /^(pauza|prima repriza|1st half)$/i.test(String(market.name || '').trim())) {
+    const prices = threeWayPrices(market);
+    if (prices && type !== 'HTFT') return { key: 'firstHalfH2h', prices };
+  }
+  if (['2HRS', 'SHRS'].includes(type) || /^(a doua repriza|2nd half)$/i.test(String(market.name || '').trim())) {
+    const prices = threeWayPrices(market);
+    if (prices) return { key: 'secondHalfH2h', prices };
+  }
+
+  // Totals by type
+  if (['TOTG', 'OU', 'OUGS'].includes(type)) {
+    return lineMarketFromBetano(market, 'totalGoals');
+  }
+  if (['OUHG', '1HOU', 'FHOU'].includes(type) || /total goluri.*(pauza|prima)/i.test(market.name || '')) {
+    return lineMarketFromBetano(market, 'firstHalfTotalGoals');
+  }
+  if (['2HOU', 'SHOU'].includes(type) || /total goluri.*(a doua|2nd)/i.test(market.name || '')) {
+    return lineMarketFromBetano(market, 'secondHalfTotalGoals');
+  }
+  if (['TCOR', 'OUCR', 'CRNR'].includes(type) || /total cornere|total corners/i.test(market.name || '')) {
+    return lineMarketFromBetano(market, 'totalCorners');
+  }
+  if (['TCAR', 'OUCD', 'CARD'].includes(type) || /cartonas|cards|booking/i.test(market.name || '')) {
+    return lineMarketFromBetano(market, 'totalCards');
+  }
+
+  // Odd/even goals
+  if (['OEGS', 'ODEV', 'PARI'].includes(type) || /par.?impar|odd.?even/i.test(market.name || '')) {
+    const prices = oddEvenPrices(market);
+    if (prices) return { key: 'market_total_goluri_impar_par', prices };
+  }
+
+  // To qualify
+  if (['QUAL', 'TQFY', 'WINR'].includes(type) && /califica|qualify|merge mai departe/i.test(market.name || type)) {
+    const home = teamSelectionPrice(market.selections, teams[0], ['1', 'home']);
+    const away = teamSelectionPrice(market.selections, teams[1], ['2', 'away']);
+    if (isDecimalOdds(home) && isDecimalOdds(away)) {
+      return { key: 'toQualify', prices: { home, away } };
+    }
+  }
+
+  return null;
+}
+
 function normalizeGenericBetanoMarket(market) {
   if (!market || !isActiveBetanoMarket(market) || ['MRES', 'DNOB'].includes(market.type)) {
     return null;
@@ -108,6 +195,67 @@ function normalizeGenericBetanoMarket(market) {
 
   const key = genericMarketKey(label, line ? { line } : undefined);
   return key && hasCompleteOutcomes(prices) ? { key, prices } : null;
+}
+
+function yesNoPrices(market) {
+  const prices = {};
+  for (const selection of market.selections || []) {
+    if (!isActiveBetanoSelection(selection) || !isDecimalOdds(selection.price)) continue;
+    const key = normalizeOutcomeKey(selection.name || selection.title);
+    if (key === 'yes' || key === 'no') prices[key] = selection.price;
+  }
+  return hasCompleteOutcomes(prices) && prices.yes && prices.no ? prices : null;
+}
+
+function threeWayPrices(market) {
+  const prices = {};
+  for (const selection of market.selections || []) {
+    if (!isActiveBetanoSelection(selection) || !isDecimalOdds(selection.price)) continue;
+    const raw = String(selection.name || selection.title || '').trim();
+    const key = raw === '1' || raw === 'X' || raw === '2'
+      ? { 1: 'home', X: 'draw', 2: 'away' }[raw]
+      : normalizeOutcomeKey(raw);
+    if (['home', 'draw', 'away'].includes(key)) prices[key] = selection.price;
+  }
+  return ['home', 'draw', 'away'].every((k) => isDecimalOdds(prices[k])) ? prices : null;
+}
+
+function doubleChancePrices(market) {
+  const prices = {};
+  for (const selection of market.selections || []) {
+    if (!isActiveBetanoSelection(selection) || !isDecimalOdds(selection.price)) continue;
+    const compact = String(selection.name || selection.title || '').toLowerCase().replace(/\s+/g, '');
+    const key = { '1x': 'homeDraw', '12': 'homeAway', x2: 'drawAway', 'homedraw': 'homeDraw', 'homeaway': 'homeAway', 'drawaway': 'drawAway' }[compact]
+      || normalizeOutcomeKey(selection.name || selection.title);
+    if (['homeDraw', 'homeAway', 'drawAway'].includes(key)) prices[key] = selection.price;
+  }
+  return ['homeDraw', 'homeAway', 'drawAway'].every((k) => isDecimalOdds(prices[k])) ? prices : null;
+}
+
+function oddEvenPrices(market) {
+  const prices = {};
+  for (const selection of market.selections || []) {
+    if (!isActiveBetanoSelection(selection) || !isDecimalOdds(selection.price)) continue;
+    const key = normalizeOutcomeKey(selection.name || selection.title);
+    if (key === 'odd' || key === 'even') prices[key] = selection.price;
+  }
+  return prices.odd && prices.even ? prices : null;
+}
+
+function lineMarketFromBetano(market, baseKey) {
+  const line = extractBetanoLine(market);
+  if (!line) return null;
+  const prices = {};
+  for (const selection of market.selections || []) {
+    if (!isActiveBetanoSelection(selection) || !isDecimalOdds(selection.price)) continue;
+    const key = normalizeOutcomeKey(selection.name || selection.title);
+    if (key === 'over' || key === 'under') prices[key] = selection.price;
+  }
+  if (!prices.over || !prices.under) return null;
+  return {
+    key: `${baseKey}_${String(line).replace('.', '_')}`,
+    prices,
+  };
 }
 
 function resolveBetanoTeams(event) {

@@ -357,10 +357,25 @@ function createApp({
       const profitOnly = request.query.profitOnly === '1';
       const trustedOnly = request.query.trustedOnly === '1';
       const limit = Number(request.query.limit) || undefined;
+      const eligibilityFilter = String(request.query.eligibility || '')
+        .split(',')
+        .map((value) => value.trim().toLowerCase())
+        .filter(Boolean);
+      const typeFilter = String(request.query.type || '')
+        .split(',')
+        .map((value) => value.trim().toLowerCase())
+        .filter(Boolean);
 
       if (profitOnly) opps = opps.filter((o) => o.profit > 0);
       if (trustedOnly) opps = opps.filter((o) => o.confidence === 'trusted');
       if (minEdge > 0) opps = opps.filter((o) => o.edge * 100 >= minEdge);
+      if (eligibilityFilter.length > 0) {
+        opps = opps.filter((o) => eligibilityFilter.includes(String(o.eligibility || '').toLowerCase())
+          || (eligibilityFilter.includes('analysis') && o.type === 'middle'));
+      }
+      if (typeFilter.length > 0) {
+        opps = opps.filter((o) => typeFilter.includes(String(o.type || '').toLowerCase()));
+      }
 
       const sort = request.query.sort || 'edge';
       switch (sort) {
