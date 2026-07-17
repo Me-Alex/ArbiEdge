@@ -24,6 +24,7 @@ const { SuperbetProvider } = require('../providers/superbet-provider');
 const { TheOddsApiProvider } = require('../providers/the-odds-api-provider');
 const { UnibetProvider } = require('../providers/unibet-provider');
 const { createVivaGamesProviders } = require('../providers/viva-games-provider');
+const { createXsportBrandProviders } = require('../providers/xsport-brands-provider');
 const { WinnerProvider } = require('../providers/winner-provider');
 const { WinbetProvider } = require('../providers/winbet-provider');
 const { VictoryBetProvider } = require('../providers/victorybet-provider');
@@ -161,6 +162,12 @@ function buildDirectProviders(options = providerOptionsFromEnv()) {
       detailsConcurrency: lasVegasDetailsConcurrency,
     }),
     new SpinProvider({
+      timeoutMs,
+      lookaheadDays: xsportLookaheadDays,
+      maxDetailEvents: lasVegasMaxDetailEvents,
+      detailsConcurrency: lasVegasDetailsConcurrency,
+    }),
+    ...createXsportBrandProviders({
       timeoutMs,
       lookaheadDays: xsportLookaheadDays,
       maxDetailEvents: lasVegasMaxDetailEvents,

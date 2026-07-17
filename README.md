@@ -1,6 +1,6 @@
-# Odds dashboard
+# ArbiEdge
 
-A normalized football-odds dashboard for Romanian bookmakers.
+Normalized football-odds dashboard and arbitrage scanner for Romanian bookmakers.
 
 The default runtime concurrently loads direct Romanian bookmaker adapters for:
 
@@ -20,6 +20,10 @@ The default runtime concurrently loads direct Romanian bookmaker adapters for:
 - EliteSlots
 - LasVegas
 - Spin
+- Winboss
+- PowerBet
+- Magnumbet
+- Excelbet
 - MaxBet
 - Stanleybet
 - GameWorld

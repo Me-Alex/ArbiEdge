@@ -12,7 +12,7 @@ const {
 
 test('lists remaining provider targets with discovery URLs', () => {
   const targets = remainingProviderTargets({
-    targetFilter: 'PowerBet,winboss.ro',
+    targetFilter: 'Betfair,mozzartbet.ro',
   });
   const report = buildTargetListReport(targets);
 
@@ -20,21 +20,21 @@ test('lists remaining provider targets with discovery URLs', () => {
   assert.deepEqual(
     report.targets.map((target) => [target.name, target.discoveryUrl]),
     [
-      ['Winboss', 'https://winboss.ro/sport'],
-      ['PowerBet', 'https://online.powerbet.ro/sport'],
+      ['Betfair', 'https://www.betfair.ro/pariuri/fotbal/s-1'],
+      ['MozzartBet', 'https://mozzartbet.ro'],
     ],
   );
 });
 
 test('matches target filters by bookmaker name or domain', () => {
-  const filter = parseTargetFilter('PowerBet, winboss.ro');
+  const filter = parseTargetFilter('Betfair, mozzartbet.ro');
 
   assert.equal(
-    targetMatchesFilter({ name: 'PowerBet', domain: 'powerbet.ro' }, filter),
+    targetMatchesFilter({ name: 'Betfair', domain: 'betfair.ro' }, filter),
     true,
   );
   assert.equal(
-    targetMatchesFilter({ name: 'Winboss', domain: 'winboss.ro' }, filter),
+    targetMatchesFilter({ name: 'MozzartBet', domain: 'mozzartbet.ro' }, filter),
     true,
   );
   assert.equal(

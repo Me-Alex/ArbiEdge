@@ -205,7 +205,9 @@ function parseEnvExample() {
 
 function parseReadmeConfigurationDefaults() {
   const readme = fs.readFileSync(path.join(__dirname, '..', 'README.md'), 'utf8');
-  const section = readme.match(/## Configuration\n\n\| Variable \| Default \| Purpose \|\n\| --- \| --- \| --- \|\n(?<rows>(?:\| .+\n)+)/);
+  const section = readme.match(
+    /## Configuration\r?\n\r?\n\| Variable \| Default \| Purpose \|\r?\n\| --- \| --- \| --- \|\r?\n(?<rows>(?:\| .+\r?\n)+)/,
+  );
   assert.ok(section, 'README should include a configuration table');
 
   return Object.fromEntries(
@@ -214,6 +216,7 @@ function parseReadmeConfigurationDefaults() {
       .split(/\r?\n/)
       .map((line) => {
         const cells = line
+          .replace(/\r$/, '')
           .split('|')
           .slice(1, -1)
           .map((cell) => cell.trim().replace(/^`|`$/g, ''));

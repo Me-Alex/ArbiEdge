@@ -1,8 +1,8 @@
 {
-  "name": "odds-dashboard",
-  "version": "2.0.0",
+  "name": "arbiedge",
+  "version": "2.1.0",
   "private": true,
-  "description": "A local football odds dashboard with live API and demo fallback modes.",
+  "description": "ArbiEdge — Romanian bookmaker odds dashboard, arbitrage scanner, and autonomy runtime.",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/server.js",

@@ -42,10 +42,6 @@ test('keeps remaining licensed sportsbook targets visible', () => {
     '777.ro',
     'xbet.ro',
     'pokerstarssports.ro',
-    'winboss.ro',
-    'powerbet.ro',
-    'magnumbet.ro',
-    'excelbet.ro',
     'royalslots.ro',
   ]) {
     assert.equal(remainingDomains.has(domain), true, `${domain} should remain tracked`);
@@ -57,7 +53,7 @@ test('tracks a discovery URL for every remaining provider target', () => {
     (entry) => entry.status === COVERAGE_STATUSES.remainingProvider,
   );
 
-  assert.equal(providerTargets.length, 11);
+  assert.equal(providerTargets.length, 7);
   for (const entry of providerTargets) {
     assert.ok(entry.discoveryUrl, `${entry.name} requires a discovery URL`);
     assert.doesNotThrow(() => new URL(entry.discoveryUrl));
@@ -105,9 +101,9 @@ test('tracks evidence for temporarily unavailable licensed domains', () => {
 
 test('summarizes current coverage status counts', () => {
   assert.deepEqual(coverageByStatus(), {
-    direct: 32,
+    direct: 36,
     browserOptional: 1,
-    remainingProvider: 11,
+    remainingProvider: 7,
     needsTriage: 8,
     notSportsbook: 7,
     inactive: 1,
@@ -119,12 +115,12 @@ test('builds a public coverage summary for the application API', () => {
   const summary = coverageSummary();
 
   assert.equal(summary.total, 62);
-  assert.equal(summary.active, 33);
-  assert.equal(summary.remaining, 19);
+  assert.equal(summary.active, 37);
+  assert.equal(summary.remaining, 15);
   assert.deepEqual(summary.counts, {
-    direct: 32,
+    direct: 36,
     browserOptional: 1,
-    remainingProvider: 11,
+    remainingProvider: 7,
     needsTriage: 8,
     notSportsbook: 7,
     inactive: 1,
@@ -136,14 +132,14 @@ test('builds a public coverage summary for the application API', () => {
 test('README runtime bookmaker list mirrors direct coverage entries', () => {
   const readme = fs.readFileSync(path.join(__dirname, '..', 'README.md'), 'utf8');
   const section = readme.match(
-    /The default runtime concurrently loads direct Romanian bookmaker adapters for:\n\n(?<list>(?:- .+\n)+)/,
+    /The default runtime concurrently loads direct Romanian bookmaker adapters for:\r?\n\r?\n(?<list>(?:- .+\r?\n)+)/,
   );
   assert.ok(section, 'README should include the direct runtime bookmaker list');
 
   const readmeNames = section.groups.list
     .trim()
     .split(/\r?\n/)
-    .map((line) => line.replace(/^- /, ''))
+    .map((line) => line.replace(/^- /, '').replace(/\r$/, ''))
     .sort((left, right) => left.localeCompare(right));
   const directNames = ROMANIAN_BOOKMAKER_COVERAGE
     .filter((entry) => entry.status === COVERAGE_STATUSES.direct)

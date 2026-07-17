@@ -19,6 +19,7 @@ The `src/providers/` directory houses modular scraping modules for 20+ Romanian 
 | `digitain` | Winner, Betmen, MaxBet | Digitain Public Endpoint | Grouped market normalization |
 | `egt` | Winbet | EGT Interactive Endpoint | Live event feed parsing |
 | `stanleybet` | Stanleybet Family | NSoft Feed API | Shared timestamp-cached payload |
+| `xsport` | LasVegas, Spin, Winboss, PowerBet, Magnumbet, Excelbet | XSportDatastore JSON | Day-window schedule + event detail enrichment |
 | `theoddsapi` | The Odds API | International Aggregate API | Backup provider & regional coverage |
 | `demo` | Demo Mock Provider | Simulated edge dataset | Instant offline testing fallback |
 

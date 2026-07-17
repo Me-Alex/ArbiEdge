@@ -3,6 +3,10 @@ const assert = require('node:assert/strict');
 
 const { LasVegasProvider } = require('../src/providers/lasvegas-provider');
 const {
+  XSPORT_BRANDS,
+  createXsportBrandProviders,
+} = require('../src/providers/xsport-brands-provider');
+const {
   XSportProvider,
   formatXsportDate,
   normalizeXsportPayload,
@@ -328,4 +332,51 @@ test('configures LasVegas with the public XSport endpoint', async () => {
   assert.equal(provider.name, 'LasVegas');
   assert.ok(requests[0].url.startsWith('https://exalogic.lasvegas.ro/XSportDatastore/'));
   assert.ok(requests[0].url.includes('systemCode=LASVEGAS'));
+});
+
+test('creates additional XSport brand providers with stable configuration', () => {
+  const providers = createXsportBrandProviders({
+    lookaheadDays: 3,
+    maxDetailEvents: 10,
+    detailsConcurrency: 2,
+    timeoutMs: 5000,
+  });
+
+  assert.equal(providers.length, XSPORT_BRANDS.length);
+  assert.deepEqual(
+    providers.map((provider) => provider.name).sort(),
+    XSPORT_BRANDS.map((brand) => brand.name).sort(),
+  );
+
+  for (const brand of XSPORT_BRANDS) {
+    const provider = providers.find((entry) => entry.name === brand.name);
+    assert.ok(provider instanceof XSportProvider);
+    assert.equal(provider.apiBaseUrl, brand.apiBaseUrl);
+    assert.equal(provider.eventOrigin, brand.eventOrigin);
+    assert.equal(provider.systemCode, brand.systemCode);
+    assert.equal(provider.lookaheadDays, 3);
+    assert.equal(provider.maxDetailEvents, 10);
+    assert.equal(provider.detailsConcurrency, 2);
+    assert.equal(provider.timeoutMs, 5000);
+  }
+});
+
+test('Winboss XSport provider requests its validated system code', async () => {
+  const requests = [];
+  const [winboss] = createXsportBrandProviders({
+    lookaheadDays: 1,
+    maxDetailEvents: 0,
+    now: () => new Date('2026-06-29T10:00:00Z'),
+    fetchImpl: async (url) => {
+      requests.push(url.toString());
+      return new Response(JSON.stringify(payload), { status: 200 });
+    },
+  }).filter((provider) => provider.name === 'Winboss');
+
+  const events = await winboss.getOdds();
+
+  assert.equal(events.length, 1);
+  assert.equal(events[0].bookmakers[0].name, 'Winboss');
+  assert.ok(requests[0].startsWith('https://exalogic.winboss.ro/XSportDatastore/'));
+  assert.ok(requests[0].includes('systemCode=WINBOSS'));
 });
