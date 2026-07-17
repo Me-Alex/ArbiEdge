@@ -134,12 +134,16 @@ function renderEmptyScanner(list, baseOpps) {
     review: {
       eyebrow: 'Candidați matematici',
       title: 'Niciun candidat de arbitraj',
-      body: 'Nu există încă combinații cross-book cu edge pozitiv. Apasă Scan, așteaptă colectarea live (30–90s) și verifică modul „live”. Cache-ul de pe server se încălzește la pornire — nu reîncărca pagina în timpul scanului.',
+      body: counts.rejected > 0
+        ? `Nu există candidați în review, dar ai ${counts.rejected} semnale în Respinse (same-book, edge outlier, fidelity failed). Verifică tab-ul Respinse sau coboară filtrul de edge.`
+        : 'Nu există încă combinații cross-book cu edge pozitiv. Apasă Scan, așteaptă colectarea live (30–90s) și verifică modul „live”. Cache-ul de pe server se încălzește la pornire — nu reîncărca pagina în timpul scanului.',
     },
     rejected: {
       eyebrow: 'Audit queue clear',
       title: 'No rejected candidates match',
-      body: 'Rejected signals include same-book pricing, failed evidence, unsupported settlement, and edge outliers.',
+      body: counts.review > 0
+        ? `Filtrul actual nu arată respinse, dar ai ${counts.review} candidați în tab-ul Candidați.`
+        : 'Rejected signals include same-book pricing, failed evidence, unsupported settlement, and edge outliers.',
     },
     middles: {
       eyebrow: 'Analysis queue clear',

@@ -812,6 +812,30 @@ function detectEuroAsianSameLineArbitrage(event) {
       id: 'cards',
       label: 'Cards',
     },
+    {
+      euroPrefix: 'firstHalfTotalCorners_',
+      asianPrefix: 'firstHalfAsianTotalCorners_',
+      id: '1h_corners',
+      label: '1H Corners',
+    },
+    {
+      euroPrefix: 'secondHalfTotalCorners_',
+      asianPrefix: 'secondHalfAsianTotalCorners_',
+      id: '2h_corners',
+      label: '2H Corners',
+    },
+    {
+      euroPrefix: 'firstHalfTotalCards_',
+      asianPrefix: 'firstHalfAsianTotalCards_',
+      id: '1h_cards',
+      label: '1H Cards',
+    },
+    {
+      euroPrefix: 'secondHalfTotalCards_',
+      asianPrefix: 'secondHalfAsianTotalCards_',
+      id: '2h_cards',
+      label: '2H Cards',
+    },
   ];
 
   const marketKeys = getEventMarkets(event);
@@ -1991,96 +2015,98 @@ function detectTeamMatchTotalArbitrage(event) {
 
   for (const m of matchLines) {
     for (const h of homeLines) {
-      // Match Over M + Home Under H + Away Under A when H + A = M + 0.5
-      // (if both teams stay under their lines, match cannot exceed M on half-lines)
-      const neededA = m.line + 0.5 - h.line;
-      if (neededA > 0) {
-        const a = awayLines.find((item) => Math.abs(item.line - neededA) < 0.01);
-        if (a) {
-          const matchBest = findBestPrices(event, m.key);
-          const homeBest = findBestPrices(event, h.key);
-          const awayBest = findBestPrices(event, a.key);
-          if (matchBest.over && homeBest.under && awayBest.under) {
-            pushThreeWayCross(results, {
-              marketKey: `cross_totals_${m.key}_${h.key}_${a.key}`,
-              marketLabel: `Totals: Over ${m.line} (Match) + Under ${h.line} (Home) + Under ${a.line} (Away)`,
-              legs: [
-                {
-                  outcome: 'over',
-                  label: `Over ${m.line} Goals`,
-                  bookmaker: matchBest.over.bookmaker,
-                  price: matchBest.over.price,
-                  url: matchBest.over.url,
-                  marketKey: matchBest.over.marketKey || m.key,
-                  verificationStatus: matchBest.over.verificationStatus,
-                },
-                {
-                  outcome: 'under',
-                  label: `Home Under ${h.line}`,
-                  bookmaker: homeBest.under.bookmaker,
-                  price: homeBest.under.price,
-                  url: homeBest.under.url,
-                  marketKey: homeBest.under.marketKey || h.key,
-                  verificationStatus: homeBest.under.verificationStatus,
-                },
-                {
-                  outcome: 'under',
-                  label: `Away Under ${a.line}`,
-                  bookmaker: awayBest.under.bookmaker,
-                  price: awayBest.under.price,
-                  url: awayBest.under.url,
-                  marketKey: awayBest.under.marketKey || a.key,
-                  verificationStatus: awayBest.under.verificationStatus,
-                },
-              ],
-            });
+      // Match Over M + Home Under H + Away Under A when H + A = M + slack
+      // (if both teams stay under their lines, match cannot exceed M on half-lines).
+      // slack 0.5 is the classic lattice; 1.0 covers e.g. 1.5+1.5 vs 2.5.
+      for (const slack of [0.5, 1.0]) {
+        const neededA = m.line + slack - h.line;
+        if (neededA > 0) {
+          const a = awayLines.find((item) => Math.abs(item.line - neededA) < 0.01);
+          if (a) {
+            const matchBest = findBestPrices(event, m.key);
+            const homeBest = findBestPrices(event, h.key);
+            const awayBest = findBestPrices(event, a.key);
+            if (matchBest.over && homeBest.under && awayBest.under) {
+              pushThreeWayCross(results, {
+                marketKey: `cross_totals_${m.key}_${h.key}_${a.key}`,
+                marketLabel: `Totals: Over ${m.line} (Match) + Under ${h.line} (Home) + Under ${a.line} (Away)`,
+                legs: [
+                  {
+                    outcome: 'over',
+                    label: `Over ${m.line} Goals`,
+                    bookmaker: matchBest.over.bookmaker,
+                    price: matchBest.over.price,
+                    url: matchBest.over.url,
+                    marketKey: matchBest.over.marketKey || m.key,
+                    verificationStatus: matchBest.over.verificationStatus,
+                  },
+                  {
+                    outcome: 'under',
+                    label: `Home Under ${h.line}`,
+                    bookmaker: homeBest.under.bookmaker,
+                    price: homeBest.under.price,
+                    url: homeBest.under.url,
+                    marketKey: homeBest.under.marketKey || h.key,
+                    verificationStatus: homeBest.under.verificationStatus,
+                  },
+                  {
+                    outcome: 'under',
+                    label: `Away Under ${a.line}`,
+                    bookmaker: awayBest.under.bookmaker,
+                    price: awayBest.under.price,
+                    url: awayBest.under.url,
+                    marketKey: awayBest.under.marketKey || a.key,
+                    verificationStatus: awayBest.under.verificationStatus,
+                  },
+                ],
+              });
+            }
           }
         }
-      }
 
-      // Inverse: Match Under M + Home Over H + Away Over A when H + A = M - 0.5
-      // (if both teams go over, match cannot finish under M on half-lines)
-      const neededAInverse = m.line - 0.5 - h.line;
-      if (neededAInverse > 0) {
-        const aInv = awayLines.find((item) => Math.abs(item.line - neededAInverse) < 0.01);
-        if (aInv) {
-          const matchBest = findBestPrices(event, m.key);
-          const homeBest = findBestPrices(event, h.key);
-          const awayBest = findBestPrices(event, aInv.key);
-          if (matchBest.under && homeBest.over && awayBest.over) {
-            pushThreeWayCross(results, {
-              marketKey: `cross_totals_inv_${m.key}_${h.key}_${aInv.key}`,
-              marketLabel: `Totals: Under ${m.line} (Match) + Over ${h.line} (Home) + Over ${aInv.line} (Away)`,
-              legs: [
-                {
-                  outcome: 'under',
-                  label: `Under ${m.line} Goals`,
-                  bookmaker: matchBest.under.bookmaker,
-                  price: matchBest.under.price,
-                  url: matchBest.under.url,
-                  marketKey: matchBest.under.marketKey || m.key,
-                  verificationStatus: matchBest.under.verificationStatus,
-                },
-                {
-                  outcome: 'over',
-                  label: `Home Over ${h.line}`,
-                  bookmaker: homeBest.over.bookmaker,
-                  price: homeBest.over.price,
-                  url: homeBest.over.url,
-                  marketKey: homeBest.over.marketKey || h.key,
-                  verificationStatus: homeBest.over.verificationStatus,
-                },
-                {
-                  outcome: 'over',
-                  label: `Away Over ${aInv.line}`,
-                  bookmaker: awayBest.over.bookmaker,
-                  price: awayBest.over.price,
-                  url: awayBest.over.url,
-                  marketKey: awayBest.over.marketKey || aInv.key,
-                  verificationStatus: awayBest.over.verificationStatus,
-                },
-              ],
-            });
+        // Inverse: Match Under M + Home Over H + Away Over A when H + A = M - slack
+        const neededAInverse = m.line - slack - h.line;
+        if (neededAInverse > 0) {
+          const aInv = awayLines.find((item) => Math.abs(item.line - neededAInverse) < 0.01);
+          if (aInv) {
+            const matchBest = findBestPrices(event, m.key);
+            const homeBest = findBestPrices(event, h.key);
+            const awayBest = findBestPrices(event, aInv.key);
+            if (matchBest.under && homeBest.over && awayBest.over) {
+              pushThreeWayCross(results, {
+                marketKey: `cross_totals_inv_${m.key}_${h.key}_${aInv.key}`,
+                marketLabel: `Totals: Under ${m.line} (Match) + Over ${h.line} (Home) + Over ${aInv.line} (Away)`,
+                legs: [
+                  {
+                    outcome: 'under',
+                    label: `Under ${m.line} Goals`,
+                    bookmaker: matchBest.under.bookmaker,
+                    price: matchBest.under.price,
+                    url: matchBest.under.url,
+                    marketKey: matchBest.under.marketKey || m.key,
+                    verificationStatus: matchBest.under.verificationStatus,
+                  },
+                  {
+                    outcome: 'over',
+                    label: `Home Over ${h.line}`,
+                    bookmaker: homeBest.over.bookmaker,
+                    price: homeBest.over.price,
+                    url: homeBest.over.url,
+                    marketKey: homeBest.over.marketKey || h.key,
+                    verificationStatus: homeBest.over.verificationStatus,
+                  },
+                  {
+                    outcome: 'over',
+                    label: `Away Over ${aInv.line}`,
+                    bookmaker: awayBest.over.bookmaker,
+                    price: awayBest.over.price,
+                    url: awayBest.over.url,
+                    marketKey: awayBest.over.marketKey || aInv.key,
+                    verificationStatus: awayBest.over.verificationStatus,
+                  },
+                ],
+              });
+            }
           }
         }
       }

@@ -130,6 +130,7 @@ async function loadData(refresh = false) {
     state.events = odds.events || [];
     state.opportunities = opps.opportunities || [];
     state.opportunitySummary = opps.summary || null;
+    state.eventsScanned = Number(opps.eventsScanned || state.events.length || 0);
     state.valueBets = vb.valueBets || [];
     state.lastLoadOk = true;
     const hasData = state.events.length > 0 || state.opportunities.length > 0 || state.valueBets.length > 0;
@@ -155,8 +156,9 @@ async function loadData(refresh = false) {
         ?? state.opportunities.filter((opportunity) => opportunity.type === 'middle').length;
       const topFamily = summary?.topFamilies?.[0];
       const multiFeed = Number(summary?.multiFeed || 0);
+      const eventsScanned = Number(state.eventsScanned || state.events.length || 0);
       logActivity(
-        `${state.opportunities.length} semnale · ${actionable} acționabile · ${review} candidați · ${rejected} respinse · ${middles} middles${topFamily ? ` · top: ${topFamily.family} (${topFamily.count})` : ''}${multiFeed ? ` · ${multiFeed} multi-feed` : ''}`,
+        `${state.opportunities.length} semnale pe ${eventsScanned} evenimente · ${actionable} acționabile · ${review} candidați · ${rejected} respinse · ${middles} middles${topFamily ? ` · top: ${topFamily.family} (${topFamily.count})` : ''}${multiFeed ? ` · ${multiFeed} multi-feed` : ''}`,
         'scanner',
       );
       if (dataMode) {

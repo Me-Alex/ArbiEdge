@@ -424,6 +424,8 @@ function createApp({
         opportunities: opps.slice(0, limit),
         total: opps.length,
         summary,
+        eventsScanned: Array.isArray(events) ? events.length : 0,
+        mode: data.mode || null,
         fetchedAt: data.fetchedAt,
       });
     } catch (error) {

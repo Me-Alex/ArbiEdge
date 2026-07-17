@@ -334,6 +334,54 @@ function normalizeFavbetMarketByName(market, outcomes, teams, resultTypeId) {
     return mappedMarket(key, outcomes, { 10: 'over', 11: 'under' }, ['over', 'under']);
   }
 
+  if (
+    name.includes('home_to_score')
+    || name.includes('home_team_to_score')
+    || name.includes('gazde_marcheaza')
+    || name.includes('gazda_marcheaza')
+    || (name.includes('marcheaza') && (name.includes('home') || name.includes('gazda') || name.includes('gazde')))
+  ) {
+    return mappedMarket('market_marcheaza_home', outcomes, {
+      20: 'yes', 21: 'no', 1: 'yes', 2: 'no',
+    }, ['yes', 'no']);
+  }
+
+  if (
+    name.includes('away_to_score')
+    || name.includes('away_team_to_score')
+    || name.includes('oaspeti_marcheaza')
+    || name.includes('oaspete_marcheaza')
+    || (name.includes('marcheaza') && (name.includes('away') || name.includes('oaspete') || name.includes('oaspeti')))
+  ) {
+    return mappedMarket('market_marcheaza_away', outcomes, {
+      20: 'yes', 21: 'no', 1: 'yes', 2: 'no',
+    }, ['yes', 'no']);
+  }
+
+  if (name.includes('clean_sheet') || name.includes('fara_gol_primit')) {
+    const side = (name.includes('home') || name.includes('gazda') || name.includes('gazde'))
+      ? 'home'
+      : (name.includes('away') || name.includes('oaspete') || name.includes('oaspeti'))
+        ? 'away'
+        : null;
+    if (side) {
+      return mappedMarket(`market_clean_sheet_${side}`, outcomes, {
+        20: 'yes', 21: 'no', 1: 'yes', 2: 'no',
+      }, ['yes', 'no']);
+    }
+  }
+
+  if (name.includes('asian_total') || name.includes('total_asiatic') || name.includes('goluri_asiatice')) {
+    const line = favbetLine(outcomes);
+    if (line === null) return null;
+    const base = periodMarketKey(resultTypeId, {
+      fulltime: 'asianTotalGoals',
+      firstHalf: 'firstHalfAsianTotalGoals',
+      secondHalf: 'secondHalfAsianTotalGoals',
+    });
+    return mappedMarket(base ? `${base}_${lineToken(line)}` : null, outcomes, { 10: 'over', 11: 'under' }, ['over', 'under']);
+  }
+
   return null;
 }
 
