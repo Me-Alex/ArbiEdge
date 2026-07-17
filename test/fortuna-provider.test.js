@@ -132,7 +132,7 @@ test('normalizes current Fortuna football match and draw-no-bet odds', () => {
               yes: 1.48,
               no: 2.43,
             },
-            market_prima_repriza_ambele_marcheaza: {
+            firstHalfBothTeamsToScore: {
               yes: 3.35,
               no: 1.28,
             },

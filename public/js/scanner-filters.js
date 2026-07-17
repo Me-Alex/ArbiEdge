@@ -78,6 +78,11 @@ export function getFilteredScannerOpportunities(scannerState) {
       opp.marketLabel,
       opp.marketKey,
       opp.competition,
+      opp.sport,
+      opp.type,
+      opp.formulaFamily,
+      opp.formulaId,
+      ...(opp.legs || []).flatMap((leg) => [leg.bookmaker, leg.label, leg.marketKey]),
     ));
 
   if (scannerState.scannerVerificationFilter === 'verified') {

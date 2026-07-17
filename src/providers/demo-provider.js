@@ -233,9 +233,17 @@ function createBookmaker(name, home, draw, away, baseTime, eventIndex, bookmaker
       over: round(1.12 + bookmakerIndex * 0.02),
       under: round(6.5 + eventIndex * 0.1),
     };
+    markets.totalGoals_1_5 = {
+      over: round(1.38 + bookmakerIndex * 0.05),
+      under: round(3.05 + eventIndex * 0.04),
+    };
     markets.firstHalfBothTeamsToScore = {
       yes: round(3.4 + bookmakerIndex * 0.12),
       no: round(1.28 + eventIndex * 0.02),
+    };
+    markets.firstHalfTotalGoals_0_5 = {
+      over: round(1.45 + bookmakerIndex * 0.04),
+      under: round(2.65 + eventIndex * 0.03),
     };
     markets.market_total_goluri_home_0_5 = {
       over: round(1.28 + bookmakerIndex * 0.04),

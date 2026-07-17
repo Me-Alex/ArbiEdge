@@ -850,6 +850,20 @@ test('detectValueBet computes proper overround-based consensus fair odds', () =>
   assert.strictEqual(Number(vb.kelly.toFixed(4)), 0.0441);
 });
 
+test('detectCrossMarketArbitrage finds BTTS No + Over 1.5 soft cover', () => {
+  const event = makeEvent({
+    bookmakers: [
+      { name: 'BookA', markets: { bothTeamsToScore: { yes: 1.9, no: 2.4 }, totalGoals_1_5: { over: 1.55, under: 2.4 } } },
+      { name: 'BookB', markets: { bothTeamsToScore: { yes: 1.85, no: 2.1 }, totalGoals_1_5: { over: 2.05, under: 1.8 } } },
+    ],
+  });
+  // best no 2.4 + best over 2.05 → 1/2.4 + 1/2.05 < 1
+  const results = detectCrossMarketArbitrage(event);
+  const hit = results.find((item) => item.marketKey === 'cross_btts_no_over_1_5');
+  assert.ok(hit, 'should emit BTTS No + Over 1.5');
+  assert.ok(hit.edge > 0);
+});
+
 test('detectCrossMarketArbitrage finds first-half 1X2 vs double-chance edges', () => {
   const event = makeEvent({
     bookmakers: [

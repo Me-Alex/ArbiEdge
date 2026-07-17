@@ -229,12 +229,22 @@ function normalizeFavbetMarket(market, teams) {
     return mappedMarket(key, outcomes, { 10: 'over', 11: 'under' }, ['over', 'under']);
   }
 
-  if (templateId === MARKET_TEMPLATES.bothTeamsToScore && resultTypeId === RESULT_TYPES.fulltime) {
-    return mappedMarket('bothTeamsToScore', outcomes, { 20: 'yes', 21: 'no' }, ['yes', 'no']);
+  if (templateId === MARKET_TEMPLATES.bothTeamsToScore) {
+    return mappedMarket(periodMarketKey(resultTypeId, {
+      fulltime: 'bothTeamsToScore',
+      firstHalf: 'firstHalfBothTeamsToScore',
+      secondHalf: 'secondHalfBothTeamsToScore',
+    }), outcomes, { 20: 'yes', 21: 'no' }, ['yes', 'no']);
   }
 
-  if (templateId === MARKET_TEMPLATES.oddEven && resultTypeId === RESULT_TYPES.fulltime) {
-    return mappedMarket('market_total_goluri_impar_par', outcomes, { 30: 'odd', 31: 'even' }, ['odd', 'even']);
+  if (templateId === MARKET_TEMPLATES.oddEven) {
+    // Odd/even is usually full-time; still accept period mapping when feed tags it.
+    const oddEvenKey = periodMarketKey(resultTypeId, {
+      fulltime: 'market_total_goluri_impar_par',
+      firstHalf: 'market_total_goluri_impar_par',
+      secondHalf: 'market_total_goluri_impar_par',
+    });
+    return mappedMarket(oddEvenKey, outcomes, { 30: 'odd', 31: 'even' }, ['odd', 'even']);
   }
 
   if (templateId === MARKET_TEMPLATES.halfTimeOrFullTime && resultTypeId === RESULT_TYPES.fulltime) {

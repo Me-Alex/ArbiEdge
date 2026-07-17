@@ -394,8 +394,30 @@ function normalizeFortunaMarket(market, context = {}) {
   if (synthetic === 'total_goals_/_asian_total_goals' || synthetic === 'total_goals') {
     return normalizeLineMarket(market, 'totalGoals');
   }
+  if (
+    synthetic === '1st_half_total_goals'
+    || synthetic === 'first_half_total_goals'
+    || synthetic === 'half_time_total_goals'
+    || synthetic.includes('1st_half') && synthetic.includes('total_goal')
+  ) {
+    return normalizeLineMarket(market, 'firstHalfTotalGoals');
+  }
+  if (
+    synthetic === '2nd_half_total_goals'
+    || synthetic === 'second_half_total_goals'
+    || synthetic.includes('2nd_half') && synthetic.includes('total_goal')
+  ) {
+    return normalizeLineMarket(market, 'secondHalfTotalGoals');
+  }
   if (isMatchTotalCornersKey(synthetic)) {
     return normalizeLineMarket(market, 'totalCorners');
+  }
+  if (
+    synthetic.includes('total_card')
+    || synthetic.includes('yellow_card')
+    || synthetic.includes('booking')
+  ) {
+    return normalizeLineMarket(market, 'totalCards');
   }
   if (synthetic === 'both_teams_to_score') {
     return mapOutcomes(
@@ -404,6 +426,48 @@ function normalizeFortunaMarket(market, context = {}) {
       { Da: 'yes', Nu: 'no', Yes: 'yes', No: 'no' },
       ['yes', 'no'],
     );
+  }
+  if (
+    synthetic === '1st_half_both_teams_to_score'
+    || synthetic === 'half_time_both_teams_to_score'
+    || synthetic === 'both_teams_to_score_in_1st_half'
+    || (synthetic.includes('1st_half') && synthetic.includes('both_team'))
+    || (synthetic.includes('both_team') && synthetic.includes('1st_half'))
+  ) {
+    return mapOutcomes(
+      market,
+      'firstHalfBothTeamsToScore',
+      { Da: 'yes', Nu: 'no', Yes: 'yes', No: 'no' },
+      ['yes', 'no'],
+    );
+  }
+  if (
+    synthetic === 'odd_even'
+    || synthetic === 'goals_odd_even'
+    || synthetic.includes('odd_even')
+    || synthetic.includes('par_impar')
+  ) {
+    return mapOutcomes(
+      market,
+      'market_total_goluri_impar_par',
+      { Par: 'even', Impar: 'odd', Even: 'even', Odd: 'odd' },
+      ['odd', 'even'],
+    );
+  }
+  if (
+    synthetic === '1st_half'
+    || synthetic === 'half_time'
+    || synthetic === 'half_time_result'
+    || synthetic === '1st_half_result'
+  ) {
+    return mapOutcomes(market, 'firstHalfH2h', { 1: 'home', X: 'draw', 2: 'away' }, ['home', 'draw', 'away']);
+  }
+  if (
+    synthetic === '2nd_half'
+    || synthetic === 'second_half'
+    || synthetic === '2nd_half_result'
+  ) {
+    return mapOutcomes(market, 'secondHalfH2h', { 1: 'home', X: 'draw', 2: 'away' }, ['home', 'draw', 'away']);
   }
   if (isMatchHandicapKey(synthetic)) {
     return normalizeHandicapMarket(market, context);

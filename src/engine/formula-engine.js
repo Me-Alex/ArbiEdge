@@ -768,34 +768,75 @@ function detectCrossMarketArbitrage(event) {
 }
 
 /**
- * Exhaustive soft cover: BTTS No wins on 0-0 / 1-0 / 0-1; Over 0.5 wins on any
- * goal. Every scoreline pays at least one leg (overlap on one-team blanks is fine).
+ * Exhaustive soft covers pairing BTTS No with low Over lines.
+ * - Over 0.5 covers any goal; BTTS No covers blanks / one-team blanks.
+ * - Over 1.5 covers 2+ goals; BTTS No covers 0-0 and 1-0 / 0-1.
+ * Period variants use matching half BTTS + half totals when present.
  */
 function detectBttsTotalsSoftCross(event) {
   const results = [];
-  const btts = findBestPrices(event, 'bothTeamsToScore');
-  const match05 = findBestPrices(event, 'totalGoals_0_5');
-  if (btts.no && match05.over) {
-    pushCrossMarketPair(results, {
+  const pairs = [
+    {
+      bttsKey: 'bothTeamsToScore',
+      totalKey: 'totalGoals_0_5',
       marketKey: 'cross_btts_no_over_0_5',
       marketLabel: 'BTTS No + Over 0.5 Goals',
+      overLabel: 'Over 0.5',
+    },
+    {
+      bttsKey: 'bothTeamsToScore',
+      totalKey: 'totalGoals_1_5',
+      marketKey: 'cross_btts_no_over_1_5',
+      marketLabel: 'BTTS No + Over 1.5 Goals',
+      overLabel: 'Over 1.5',
+    },
+    {
+      bttsKey: 'firstHalfBothTeamsToScore',
+      totalKey: 'firstHalfTotalGoals_0_5',
+      marketKey: 'cross_1H_btts_no_over_0_5',
+      marketLabel: '1H BTTS No + Over 0.5',
+      overLabel: '1H Over 0.5',
+    },
+    {
+      bttsKey: 'firstHalfBothTeamsToScore',
+      totalKey: 'firstHalfTotalGoals_1_5',
+      marketKey: 'cross_1H_btts_no_over_1_5',
+      marketLabel: '1H BTTS No + Over 1.5',
+      overLabel: '1H Over 1.5',
+    },
+    {
+      bttsKey: 'secondHalfBothTeamsToScore',
+      totalKey: 'secondHalfTotalGoals_0_5',
+      marketKey: 'cross_2H_btts_no_over_0_5',
+      marketLabel: '2H BTTS No + Over 0.5',
+      overLabel: '2H Over 0.5',
+    },
+  ];
+
+  for (const pair of pairs) {
+    const btts = findBestPrices(event, pair.bttsKey);
+    const totals = findBestPrices(event, pair.totalKey);
+    if (!btts.no || !totals.over) continue;
+    pushCrossMarketPair(results, {
+      marketKey: pair.marketKey,
+      marketLabel: pair.marketLabel,
       legA: {
         outcome: 'no',
         label: 'BTTS No',
         bookmaker: btts.no.bookmaker,
         price: btts.no.price,
         url: btts.no.url,
-        marketKey: btts.no.marketKey || 'bothTeamsToScore',
+        marketKey: btts.no.marketKey || pair.bttsKey,
         verificationStatus: btts.no.verificationStatus,
       },
       legB: {
         outcome: 'over',
-        label: 'Over 0.5',
-        bookmaker: match05.over.bookmaker,
-        price: match05.over.price,
-        url: match05.over.url,
-        marketKey: match05.over.marketKey || 'totalGoals_0_5',
-        verificationStatus: match05.over.verificationStatus,
+        label: pair.overLabel,
+        bookmaker: totals.over.bookmaker,
+        price: totals.over.price,
+        url: totals.over.url,
+        marketKey: totals.over.marketKey || pair.totalKey,
+        verificationStatus: totals.over.verificationStatus,
       },
     });
   }
@@ -1607,7 +1648,33 @@ function getAllOpportunities(events, options = {}) {
       opps.push(finalizeOpportunity(tmt, event, eventName, finalizationOptions));
     }
   }
-  return opps;
+  return dedupeOpportunities(opps);
+}
+
+/** Keep the best edge when two detectors emit the same event/market/legs fingerprint. */
+function dedupeOpportunities(opportunities) {
+  const bestByKey = new Map();
+  for (const opportunity of opportunities || []) {
+    const key = opportunityFingerprint(opportunity);
+    const existing = bestByKey.get(key);
+    if (!existing || Number(opportunity.edge || 0) > Number(existing.edge || 0)) {
+      bestByKey.set(key, opportunity);
+    }
+  }
+  return [...bestByKey.values()];
+}
+
+function opportunityFingerprint(opportunity) {
+  const legs = (opportunity?.legs || [])
+    .map((leg) => `${leg.bookmaker || ''}:${leg.marketKey || ''}:${leg.outcome || leg.label || ''}:${Number(leg.price || 0).toFixed(3)}`)
+    .sort()
+    .join('|');
+  return [
+    opportunity?.eventId || opportunity?.eventName || '',
+    opportunity?.type || '',
+    opportunity?.marketKey || '',
+    legs,
+  ].join('::');
 }
 
 function getValueBets(events, maxBets = 30) {
