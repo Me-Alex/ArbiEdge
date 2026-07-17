@@ -274,6 +274,8 @@ class OddsService {
         ageMs: cacheAgeMs,
         ttlMs: this.cacheTtlMs,
         expiresInMs: cacheFresh ? Math.max(0, this.cacheTtlMs - cacheAgeMs) : 0,
+        events: Array.isArray(this.cache?.value?.events) ? this.cache.value.events.length : 0,
+        mode: this.cache?.value?.mode || null,
       },
       inFlight: Boolean(this.inFlight),
       lastRefresh: this.lastRefresh,

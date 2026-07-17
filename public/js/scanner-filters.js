@@ -101,7 +101,10 @@ export function getFilteredScannerOpportunities(scannerState) {
     const leftPinned = pinned.has(opportunityId(left)) ? 1 : 0;
     const rightPinned = pinned.has(opportunityId(right)) ? 1 : 0;
     if (leftPinned !== rightPinned) return rightPinned - leftPinned;
-    return Number(right.edge || 0) - Number(left.edge || 0);
+    const edgeDiff = Number(right.edge || 0) - Number(left.edge || 0);
+    if (Math.abs(edgeDiff) > 1e-9) return edgeDiff;
+    // Prefer more independent feeds when edges are equal (better execution diversity).
+    return Number(right.independentFeedCount || 0) - Number(left.independentFeedCount || 0);
   });
 }
 

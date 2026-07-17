@@ -766,7 +766,69 @@ function detectCrossMarketArbitrage(event) {
     ...detectBttsTotalsSoftCross(event),
     ...detectQualifyVsH2hCross(event),
     ...detectTeamScoreVsCleanSheetCross(event),
+    ...detectDnbVsDoubleChanceCross(event),
   ];
+}
+
+/**
+ * Soft covers with push on DNB draw:
+ * - Home DNB + X2 covers every FT result (draw → DNB push + X2 wins).
+ * - Away DNB + 1X is the mirror.
+ * Not promoted to SAFE_CROSS (push settlement) → stays review/candidate.
+ */
+function detectDnbVsDoubleChanceCross(event) {
+  const results = [];
+  const dnb = findBestPrices(event, 'drawNoBet');
+  const dc = findBestPrices(event, 'doubleChance');
+  if (dnb.home && dc.drawAway) {
+    pushCrossMarketPair(results, {
+      marketKey: 'cross_dnb_home_x2',
+      marketLabel: 'DNB Home + X2 (DC)',
+      legA: {
+        outcome: 'home',
+        label: 'DNB 1',
+        bookmaker: dnb.home.bookmaker,
+        price: dnb.home.price,
+        url: dnb.home.url,
+        marketKey: dnb.home.marketKey || 'drawNoBet',
+        verificationStatus: dnb.home.verificationStatus,
+      },
+      legB: {
+        outcome: 'X2',
+        label: 'X2',
+        bookmaker: dc.drawAway.bookmaker,
+        price: dc.drawAway.price,
+        url: dc.drawAway.url,
+        marketKey: dc.drawAway.marketKey || 'doubleChance',
+        verificationStatus: dc.drawAway.verificationStatus,
+      },
+    });
+  }
+  if (dnb.away && dc.homeDraw) {
+    pushCrossMarketPair(results, {
+      marketKey: 'cross_dnb_away_1x',
+      marketLabel: 'DNB Away + 1X (DC)',
+      legA: {
+        outcome: 'away',
+        label: 'DNB 2',
+        bookmaker: dnb.away.bookmaker,
+        price: dnb.away.price,
+        url: dnb.away.url,
+        marketKey: dnb.away.marketKey || 'drawNoBet',
+        verificationStatus: dnb.away.verificationStatus,
+      },
+      legB: {
+        outcome: '1X',
+        label: '1X',
+        bookmaker: dc.homeDraw.bookmaker,
+        price: dc.homeDraw.price,
+        url: dc.homeDraw.url,
+        marketKey: dc.homeDraw.marketKey || 'doubleChance',
+        verificationStatus: dc.homeDraw.verificationStatus,
+      },
+    });
+  }
+  return results;
 }
 
 /**
@@ -918,6 +980,20 @@ function detectBttsTotalsSoftCross(event) {
       marketKey: 'cross_btts_no_over_1_5',
       marketLabel: 'BTTS No + Over 1.5 Goals',
       overLabel: 'Over 1.5',
+    },
+    {
+      bttsKey: 'bothTeamsToScore',
+      totalKey: 'asianTotalGoals_0_5',
+      marketKey: 'cross_btts_no_asian_over_0_5',
+      marketLabel: 'BTTS No + Asian Over 0.5',
+      overLabel: 'Asian Over 0.5',
+    },
+    {
+      bttsKey: 'bothTeamsToScore',
+      totalKey: 'asianTotalGoals_1_5',
+      marketKey: 'cross_btts_no_asian_over_1_5',
+      marketLabel: 'BTTS No + Asian Over 1.5',
+      overLabel: 'Asian Over 1.5',
     },
     {
       bttsKey: 'firstHalfBothTeamsToScore',

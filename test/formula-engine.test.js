@@ -873,6 +873,18 @@ test('detectValueBet computes proper overround-based consensus fair odds', () =>
   assert.strictEqual(Number(vb.kelly.toFixed(4)), 0.0441);
 });
 
+test('detectCrossMarketArbitrage finds DNB Home + X2 soft cover', () => {
+  const event = makeEvent({
+    bookmakers: [
+      { name: 'BookA', markets: { drawNoBet: { home: 1.85, away: 2.0 }, doubleChance: { homeDraw: 1.3, homeAway: 1.25, drawAway: 2.1 } } },
+      { name: 'BookB', markets: { drawNoBet: { home: 1.8, away: 2.1 }, doubleChance: { homeDraw: 1.28, homeAway: 1.22, drawAway: 2.25 } } },
+    ],
+  });
+  // best DNB home 1.85 + best X2 2.25 → 1/1.85 + 1/2.25 < 1
+  const results = detectCrossMarketArbitrage(event);
+  assert.ok(results.some((item) => item.marketKey === 'cross_dnb_home_x2'));
+});
+
 test('detectCrossMarketArbitrage finds home-score vs away clean-sheet cover', () => {
   const event = makeEvent({
     bookmakers: [

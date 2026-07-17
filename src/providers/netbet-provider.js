@@ -13,8 +13,8 @@ const { bookmakerLinkFields, netbetEventUrl } = require('./event-links');
 const NETBET_BOOKMAKER = 'netbetro';
 const NETBET_EVENTS_URL = 'https://api.sportify.bet/api/content/inventory-events';
 const NETBET_MARKETS_URL = 'https://api.sportify.bet/echo/v1/markets';
-const DEFAULT_NETBET_MAX_DETAIL_EVENTS = 160;
-const DEFAULT_NETBET_DETAILS_CONCURRENCY = 8;
+const DEFAULT_NETBET_MAX_DETAIL_EVENTS = 220;
+const DEFAULT_NETBET_DETAILS_CONCURRENCY = 10;
 const NETBET_MARKET_TYPES = Object.freeze({
   h2h: 5498,
   doubleChance: 5499,
@@ -332,6 +332,62 @@ function normalizeNetBetMarkets(markets, { homeTeam, awayTeam }) {
 
     if (code === '2nd_half_total' || code === 'second_half_total_goals') {
       addLineMarkets(normalized, market, 'secondHalfTotalGoals');
+      continue;
+    }
+
+    if (
+      code === '2nd_half_double_chance'
+      || code === 'second_half_double_chance'
+      || (name.includes('sansa dubla') && (name.includes('a doua') || name.includes('2nd')))
+    ) {
+      addOutcomeMarket(normalized, 'secondHalfDoubleChance', market, {
+        '1X': 'homeDraw', '12': 'homeAway', X2: 'drawAway',
+      }, ['homeDraw', 'homeAway', 'drawAway']);
+      continue;
+    }
+
+    if (
+      code === 'btts_1st'
+      || code === '1st_half_btts'
+      || (name.includes('ambele') && (name.includes('pauza') || name.includes('prima')))
+    ) {
+      addOutcomeMarket(normalized, 'firstHalfBothTeamsToScore', market, {
+        Yes: 'yes', Da: 'yes', No: 'no', Nu: 'no',
+      }, ['yes', 'no']);
+      continue;
+    }
+
+    if (
+      code === 'btts_2nd'
+      || code === '2nd_half_btts'
+      || (name.includes('ambele') && (name.includes('a doua') || name.includes('2nd')))
+    ) {
+      addOutcomeMarket(normalized, 'secondHalfBothTeamsToScore', market, {
+        Yes: 'yes', Da: 'yes', No: 'no', Nu: 'no',
+      }, ['yes', 'no']);
+      continue;
+    }
+
+    if (code === 'asian_corners' || name.includes('cornere asiatice') || name.includes('asian corner')) {
+      addLineMarkets(normalized, market, 'asianTotalCorners');
+      continue;
+    }
+
+    if (
+      code === 'team_total_home'
+      || ((name.includes('total goluri') || name.includes('team total'))
+        && (name.includes('home') || name.includes('gazde') || name.includes('1')))
+    ) {
+      addLineMarkets(normalized, market, 'market_total_goluri_home');
+      continue;
+    }
+
+    if (
+      code === 'team_total_away'
+      || ((name.includes('total goluri') || name.includes('team total'))
+        && (name.includes('away') || name.includes('oaspeti') || name.includes('2')))
+    ) {
+      addLineMarkets(normalized, market, 'market_total_goluri_away');
       continue;
     }
 

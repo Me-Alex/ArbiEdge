@@ -72,6 +72,8 @@ test('reports cache and refresh diagnostics without triggering a refresh', async
       ageMs: null,
       ttlMs: 60_000,
       expiresInMs: 0,
+      events: 0,
+      mode: null,
     },
     inFlight: false,
     lastRefresh: null,
@@ -89,6 +91,8 @@ test('reports cache and refresh diagnostics without triggering a refresh', async
       ageMs: 30_000,
       ttlMs: 60_000,
       expiresInMs: 30_000,
+      events: 1,
+      mode: 'live',
     },
     inFlight: false,
     lastRefresh: {

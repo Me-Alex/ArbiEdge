@@ -659,9 +659,12 @@ function isServiceReady(diagnostics) {
   if (!diagnostics) {
     return true;
   }
+  // Any usable cache (including restored/stale snapshots) unblocks the UI while
+  // a background warm refresh continues.
   return Boolean(
     diagnostics.inFlight ||
     diagnostics.cache?.fresh ||
+    Number(diagnostics.cache?.events) > 0 ||
     diagnostics.lastRefresh?.events > 0,
   );
 }
@@ -675,6 +678,9 @@ function readinessReason(diagnostics) {
   }
   if (diagnostics.cache?.fresh) {
     return 'fresh odds cache available';
+  }
+  if (Number(diagnostics.cache?.events) > 0) {
+    return `cached odds available (${diagnostics.cache.events} events)`;
   }
   if (diagnostics.lastRefresh?.events > 0) {
     return 'last refresh has usable events';

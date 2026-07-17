@@ -473,6 +473,47 @@ function normalizeGetsBetMarket(market, selections, match) {
     return handicapMarkets('asianHandicap', selections);
   }
 
+  if (label.includes('handicap') && !label.includes('asiatic')) {
+    return handicapMarkets('handicap', selections);
+  }
+
+  if (
+    (label.includes('marcheaza') || label.includes('to score') || label.includes('sa inscrie'))
+    && (label.includes('gazda') || label.includes('gazde') || label.includes('home') || label.includes('echipa 1'))
+  ) {
+    return outcomeMarket('market_marcheaza_home', selections, { yes: 'yes', no: 'no' }, ['yes', 'no']);
+  }
+
+  if (
+    (label.includes('marcheaza') || label.includes('to score') || label.includes('sa inscrie'))
+    && (label.includes('oaspete') || label.includes('oaspeti') || label.includes('away') || label.includes('echipa 2'))
+  ) {
+    return outcomeMarket('market_marcheaza_away', selections, { yes: 'yes', no: 'no' }, ['yes', 'no']);
+  }
+
+  if (label.includes('fara gol primit') || label.includes('clean sheet')) {
+    if (label.includes('gazda') || label.includes('gazde') || label.includes('home')) {
+      return outcomeMarket('market_clean_sheet_home', selections, { yes: 'yes', no: 'no' }, ['yes', 'no']);
+    }
+    if (label.includes('oaspete') || label.includes('oaspeti') || label.includes('away')) {
+      return outcomeMarket('market_clean_sheet_away', selections, { yes: 'yes', no: 'no' }, ['yes', 'no']);
+    }
+  }
+
+  if (
+    label.includes('total goluri')
+    && (label.includes('gazda') || label.includes('gazde') || label.includes('home') || label.includes('echipa 1'))
+  ) {
+    return lineMarket('market_total_goluri_home', selections, market);
+  }
+
+  if (
+    label.includes('total goluri')
+    && (label.includes('oaspete') || label.includes('oaspeti') || label.includes('away') || label.includes('echipa 2'))
+  ) {
+    return lineMarket('market_total_goluri_away', selections, market);
+  }
+
   return genericGetsBetMarket(market, selections, match);
 }
 
