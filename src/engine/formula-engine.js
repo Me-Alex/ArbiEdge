@@ -776,7 +776,138 @@ function detectCrossMarketArbitrage(event) {
     ...detectEuroAsianSameLineArbitrage(event),
     ...detectAhZeroVsDnbCross(event),
     ...detectDcVsAhZeroCross(event),
+    ...detectH2hDcVsAhHalfCross(event),
   ];
+}
+
+/**
+ * Exhaustive half-line AH identities (no push on .5 lines):
+ * - 1 vs AH2(+L)  using market asianHandicap_minus_L away
+ * - 2 vs AH1(+L)  using market asianHandicap_plus_L home
+ * - 1X vs AH2(-L) using market asianHandicap_plus_L away
+ * - X2 vs AH1(-L) using market asianHandicap_minus_L home
+ * Best-of-book pairing surfaces edges settlement scanning can miss when
+ * stake sizing is not required for a simple two-way dutch.
+ */
+function detectH2hDcVsAhHalfCross(event) {
+  const results = [];
+  const halfLines = [0.5, 1.5];
+  const h2h = findBestPrices(event, 'h2h');
+  const dc = findBestPrices(event, 'doubleChance');
+
+  for (const line of halfLines) {
+    const token = String(line).replace('.', '_');
+    const plusKey = `asianHandicap_plus_${token}`;
+    const minusKey = `asianHandicap_minus_${token}`;
+    const ahPlus = findBestPrices(event, plusKey);
+    const ahMinus = findBestPrices(event, minusKey);
+
+    // 1 vs AH2(+L): AH2(+L) = away side of home-line -L
+    if (h2h.home && ahMinus.away) {
+      pushCrossMarketPair(results, {
+        marketKey: `cross_h2h_home_ah2_plus_${token}`,
+        marketLabel: `1 + AH2(+${line})`,
+        legA: {
+          outcome: 'home',
+          label: '1',
+          bookmaker: h2h.home.bookmaker,
+          price: h2h.home.price,
+          url: h2h.home.url,
+          marketKey: h2h.home.marketKey || 'h2h',
+          verificationStatus: h2h.home.verificationStatus,
+        },
+        legB: {
+          outcome: 'away',
+          label: `AH2(+${line})`,
+          bookmaker: ahMinus.away.bookmaker,
+          price: ahMinus.away.price,
+          url: ahMinus.away.url,
+          marketKey: ahMinus.away.marketKey || minusKey,
+          verificationStatus: ahMinus.away.verificationStatus,
+        },
+      });
+    }
+
+    // 2 vs AH1(+L): AH1(+L) = home side of home-line +L
+    if (h2h.away && ahPlus.home) {
+      pushCrossMarketPair(results, {
+        marketKey: `cross_h2h_away_ah1_plus_${token}`,
+        marketLabel: `2 + AH1(+${line})`,
+        legA: {
+          outcome: 'away',
+          label: '2',
+          bookmaker: h2h.away.bookmaker,
+          price: h2h.away.price,
+          url: h2h.away.url,
+          marketKey: h2h.away.marketKey || 'h2h',
+          verificationStatus: h2h.away.verificationStatus,
+        },
+        legB: {
+          outcome: 'home',
+          label: `AH1(+${line})`,
+          bookmaker: ahPlus.home.bookmaker,
+          price: ahPlus.home.price,
+          url: ahPlus.home.url,
+          marketKey: ahPlus.home.marketKey || plusKey,
+          verificationStatus: ahPlus.home.verificationStatus,
+        },
+      });
+    }
+
+    // 1X vs AH2(-L): AH2(-L) = away side of home-line +L
+    if (dc.homeDraw && ahPlus.away) {
+      pushCrossMarketPair(results, {
+        marketKey: `cross_dc_1x_ah2_minus_${token}`,
+        marketLabel: `1X + AH2(-${line})`,
+        legA: {
+          outcome: 'homeDraw',
+          label: '1X',
+          bookmaker: dc.homeDraw.bookmaker,
+          price: dc.homeDraw.price,
+          url: dc.homeDraw.url,
+          marketKey: dc.homeDraw.marketKey || 'doubleChance',
+          verificationStatus: dc.homeDraw.verificationStatus,
+        },
+        legB: {
+          outcome: 'away',
+          label: `AH2(-${line})`,
+          bookmaker: ahPlus.away.bookmaker,
+          price: ahPlus.away.price,
+          url: ahPlus.away.url,
+          marketKey: ahPlus.away.marketKey || plusKey,
+          verificationStatus: ahPlus.away.verificationStatus,
+        },
+      });
+    }
+
+    // X2 vs AH1(-L): AH1(-L) = home side of home-line -L
+    if (dc.drawAway && ahMinus.home) {
+      pushCrossMarketPair(results, {
+        marketKey: `cross_dc_x2_ah1_minus_${token}`,
+        marketLabel: `X2 + AH1(-${line})`,
+        legA: {
+          outcome: 'drawAway',
+          label: 'X2',
+          bookmaker: dc.drawAway.bookmaker,
+          price: dc.drawAway.price,
+          url: dc.drawAway.url,
+          marketKey: dc.drawAway.marketKey || 'doubleChance',
+          verificationStatus: dc.drawAway.verificationStatus,
+        },
+        legB: {
+          outcome: 'home',
+          label: `AH1(-${line})`,
+          bookmaker: ahMinus.home.bookmaker,
+          price: ahMinus.home.price,
+          url: ahMinus.home.url,
+          marketKey: ahMinus.home.marketKey || minusKey,
+          verificationStatus: ahMinus.home.verificationStatus,
+        },
+      });
+    }
+  }
+
+  return results;
 }
 
 /**

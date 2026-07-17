@@ -303,6 +303,58 @@ function normalizeMaxBetMarkets(markets) {
     }
 
     if (
+      labelKey.includes('fara gol primit')
+      || labelKey.includes('clean sheet')
+      || labelKey.includes('nu primeste gol')
+    ) {
+      const prices = nsoftPrices(market, {
+        Da: 'yes', Nu: 'no', Yes: 'yes', No: 'no',
+      });
+      const side = (labelKey.includes('gazda') || labelKey.includes('gazde') || labelKey.includes('home'))
+        ? 'home'
+        : (labelKey.includes('oaspete') || labelKey.includes('oaspeti') || labelKey.includes('away'))
+          ? 'away'
+          : null;
+      if (side && hasOutcomes(prices, ['yes', 'no'])) {
+        const key = `market_clean_sheet_${side}`;
+        if (!normalized[key]) normalized[key] = prices;
+      }
+      continue;
+    }
+
+    if (
+      labelKey.includes('total goluri')
+      && (labelKey.includes('gazde') || labelKey.includes('gazda') || labelKey.includes('home') || labelKey.includes('echipa 1'))
+    ) {
+      addMaxBetLineMarket(normalized, market, 'market_total_goluri_home');
+      continue;
+    }
+
+    if (
+      labelKey.includes('total goluri')
+      && (labelKey.includes('oaspeti') || labelKey.includes('oaspete') || labelKey.includes('away') || labelKey.includes('echipa 2'))
+    ) {
+      addMaxBetLineMarket(normalized, market, 'market_total_goluri_away');
+      continue;
+    }
+
+    if (
+      (labelKey.includes('total goluri asiatice') || labelKey.includes('asian total'))
+      && (labelKey.includes('pauza') || labelKey.includes('prima') || labelKey.includes('1st'))
+    ) {
+      addMaxBetLineMarket(normalized, market, 'firstHalfAsianTotalGoals');
+      continue;
+    }
+
+    if (
+      (labelKey.includes('total goluri asiatice') || labelKey.includes('asian total'))
+      && (labelKey.includes('a doua') || labelKey.includes('2nd') || labelKey.includes('second'))
+    ) {
+      addMaxBetLineMarket(normalized, market, 'secondHalfAsianTotalGoals');
+      continue;
+    }
+
+    if (
       labelKey === 'sansa dubla'
       || labelKey === 'double chance'
       || labelKey.includes('sansa dubla')

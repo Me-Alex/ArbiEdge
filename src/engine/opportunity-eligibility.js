@@ -85,6 +85,15 @@ const SAFE_CROSS_MARKETS = new Set([
   'cross_home_cs_no_vs_away_under_0_5',
   'cross_away_cs_yes_vs_home_over_0_5',
   'cross_away_cs_no_vs_home_under_0_5',
+  // H2H / DC ↔ AH half-line partitions (no push).
+  'cross_h2h_home_ah2_plus_0_5',
+  'cross_h2h_home_ah2_plus_1_5',
+  'cross_h2h_away_ah1_plus_0_5',
+  'cross_h2h_away_ah1_plus_1_5',
+  'cross_dc_1x_ah2_minus_0_5',
+  'cross_dc_1x_ah2_minus_1_5',
+  'cross_dc_x2_ah1_minus_0_5',
+  'cross_dc_x2_ah1_minus_1_5',
 ]);
 
 const TOTAL_LINE_MARKET_RE = /^(?:total|asianTotal|firstHalfTotal|secondHalfTotal|firstHalfAsianTotal|secondHalfAsianTotal)(?:Goals|Corners|Cards|Points|Games|Sets)_\d+(?:_\d+)?$/;

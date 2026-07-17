@@ -444,6 +444,48 @@ function normalizeNetBetMarkets(markets, { homeTeam, awayTeam }) {
       continue;
     }
 
+    if (
+      code === 'home_to_score'
+      || ((name.includes('marcheaza') || name.includes('to score') || name.includes('sa inscrie'))
+        && (name.includes('home') || name.includes('gazde') || name.includes('gazda')))
+    ) {
+      addOutcomeMarket(normalized, 'market_marcheaza_home', market, {
+        Yes: 'yes', Da: 'yes', No: 'no', Nu: 'no',
+      }, ['yes', 'no']);
+      continue;
+    }
+
+    if (
+      code === 'away_to_score'
+      || ((name.includes('marcheaza') || name.includes('to score') || name.includes('sa inscrie'))
+        && (name.includes('away') || name.includes('oaspeti') || name.includes('oaspete')))
+    ) {
+      addOutcomeMarket(normalized, 'market_marcheaza_away', market, {
+        Yes: 'yes', Da: 'yes', No: 'no', Nu: 'no',
+      }, ['yes', 'no']);
+      continue;
+    }
+
+    if (
+      code === 'home_clean_sheet'
+      || code === 'away_clean_sheet'
+      || name.includes('clean sheet')
+      || name.includes('fara gol primit')
+      || name.includes('nu primeste gol')
+    ) {
+      const side = (code === 'home_clean_sheet' || name.includes('home') || name.includes('gazda') || name.includes('gazde'))
+        ? 'home'
+        : (code === 'away_clean_sheet' || name.includes('away') || name.includes('oaspete') || name.includes('oaspeti'))
+          ? 'away'
+          : null;
+      if (side) {
+        addOutcomeMarket(normalized, `market_clean_sheet_${side}`, market, {
+          Yes: 'yes', Da: 'yes', No: 'no', Nu: 'no',
+        }, ['yes', 'no']);
+      }
+      continue;
+    }
+
     addGenericNetBetMarket(normalized, market, { homeTeam, awayTeam });
   }
   return normalized;

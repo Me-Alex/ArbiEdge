@@ -107,6 +107,65 @@ test('extracts MaxBet events from Angular state', () => {
   assert.deepEqual(extractMaxBetEventsPayload(htmlWithState()), payload);
 });
 
+test('normalizes MaxBet clean sheets and team totals', () => {
+  const teamPayload = {
+    events: [
+      {
+        a: 2,
+        q: '2',
+        b: 2,
+        c: 1,
+        d: 'RO',
+        f: 1,
+        g: 'Liga 1',
+        j: 'Alpha - Beta',
+        l: 1,
+        n: '2026-07-18T19:00:00.000Z',
+        o: [
+          {
+            b: 2,
+            d: 1,
+            c: 'Final',
+            h: [
+              { c: 1, e: '1', g: 2.1 },
+              { c: 1, e: 'X', g: 3.2 },
+              { c: 1, e: '2', g: 3.4 },
+            ],
+          },
+          {
+            b: 9101,
+            d: 1,
+            c: 'Fara gol primit gazde',
+            h: [
+              { c: 1, e: 'Da', g: 2.5 },
+              { c: 1, e: 'Nu', g: 1.48 },
+            ],
+          },
+          {
+            b: 9102,
+            d: 1,
+            c: 'Total goluri oaspeti',
+            g: ['1.5'],
+            h: [
+              { c: 1, e: 'Peste 1.5', g: 2.2 },
+              { c: 1, e: 'Sub 1.5', g: 1.65 },
+            ],
+          },
+        ],
+        p: [
+          { c: 1, d: 'Alpha' },
+          { c: 2, d: 'Beta' },
+        ],
+      },
+    ],
+  };
+
+  const [event] = normalizeMaxBetPayload(teamPayload, '2026-07-18T10:00:00.000Z');
+  assert.ok(event);
+  assert.deepEqual(event.bookmakers[0].markets.market_clean_sheet_home, { yes: 2.5, no: 1.48 });
+  assert.deepEqual(event.bookmakers[0].markets.market_total_goluri_away_1_5, { over: 2.2, under: 1.65 });
+});
+
 test('normalizes MaxBet period DNB, DC, and second-half totals', () => {
   const periodPayload = {
     events: [

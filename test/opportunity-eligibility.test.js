@@ -84,6 +84,19 @@ test('edge outliers stay in review even when every leg is verified', () => {
   assert.ok(outlier.eligibilityReasonCodes.includes('edge_outlier'));
 });
 
+test('h2h vs AH half-line cross formulas are structurally safe', () => {
+  const opp = evaluateOpportunityEligibility({
+    type: 'cross-market',
+    marketKey: 'cross_h2h_home_ah2_plus_0_5',
+    edge: 0.03,
+    legs: [
+      { bookmaker: 'Book A', verificationStatus: 'verified' },
+      { bookmaker: 'Book B', verificationStatus: 'verified' },
+    ],
+  });
+  assert.equal(opp.structuralStatus, 'approved');
+});
+
 test('team vs match totals cross formulas are structurally safe', () => {
   const {
     isSafeCrossMarket,

@@ -6,8 +6,35 @@ const {
   NETBET_MARKETS_URL,
   NetBetProvider,
   extractNetBetEvents,
+  normalizeNetBetMarkets,
   normalizeNetBetPayload,
 } = require('../src/providers/netbet-provider');
+
+test('normalizes NetBet team to score and clean sheet markets', () => {
+  const markets = normalizeNetBetMarkets([
+    {
+      market_type: 9001,
+      market_code: 'home_to_score',
+      name: 'Gazdele marcheaza',
+      outcomes: [
+        { kind: 'Yes', name: 'Da', odds: 1.4, status: true, visible: true, suspended: false },
+        { kind: 'No', name: 'Nu', odds: 2.8, status: true, visible: true, suspended: false },
+      ],
+    },
+    {
+      market_type: 9002,
+      market_code: 'away_clean_sheet',
+      name: 'Fara gol primit oaspeti',
+      outcomes: [
+        { kind: 'Yes', name: 'Da', odds: 3.1, status: true, visible: true, suspended: false },
+        { kind: 'No', name: 'Nu', odds: 1.35, status: true, visible: true, suspended: false },
+      ],
+    },
+  ], { homeTeam: 'Alpha', awayTeam: 'Beta' });
+
+  assert.deepEqual(markets.market_marcheaza_home, { yes: 1.4, no: 2.8 });
+  assert.deepEqual(markets.market_clean_sheet_away, { yes: 3.1, no: 1.35 });
+});
 
 const detailEvent = {
   id: '1-30082331',
