@@ -72,23 +72,39 @@ async function loadData(refresh = false) {
   if (emptyState) emptyState.hidden = true;
   if (mainContent) mainContent.setAttribute('aria-busy', 'true');
   if (refreshBtn) refreshBtn.disabled = true;
-  if (dataMode) dataMode.textContent = 'Loading';
+  if (dataMode) dataMode.textContent = 'Încărcare';
+  const detail = loading?.querySelector('.state-panel__copy > span:last-child');
+  if (detail) {
+    detail.textContent = 'Colectăm cotele live de la case. Prima scanare poate dura 30–90 secunde.';
+  }
   slowLoadTimer = setTimeout(() => {
-    const detail = loading?.querySelector('.state-panel__copy > span:last-child');
-    if (detail) detail.textContent = 'This is taking longer than expected. The desk is still waiting for the local odds source.';
-  }, 15_000);
+    if (detail) {
+      detail.textContent = 'Încă așteptăm sursele live. Nu reîncărca — colectarea rulează pe server și se cache-uiește.';
+    }
+    if (dataMode) dataMode.textContent = 'Scan lung';
+  }, 12_000);
 
   try {
     const p = new URLSearchParams();
     if (refresh) p.set('refresh', '1');
     if (state.sport) p.set('sport', state.sport);
     const oddsUrl = `/api/odds${p.toString() ? `?${p}` : ''}`;
-    const [odds, opps, vb, bm, jr] = await Promise.all([
-      fetchJson(oddsUrl),
+
+    // Lightweight endpoints first so the shell can paint bookmaker status quickly.
+    const [bm, jr] = await Promise.all([
+      fetchJson('/api/bookmakers').catch(() => state.bookmakerCoverage || {}),
+      fetchJson('/api/bets').catch(() => ({ bets: state.serverJournal || [] })),
+    ]);
+    state.bookmakerCoverage = bm;
+    state.serverJournal = jr.bets || [];
+    try { renderBookmakers(); } catch { /* optional early paint */ }
+    try { renderJournal(); } catch { /* optional early paint */ }
+
+    // Odds is the slow call; opportunities/value reuse the same in-flight refresh.
+    const odds = await fetchJson(oddsUrl);
+    const [opps, vb] = await Promise.all([
       fetchJson('/api/opportunities?sort=edge'),
       fetchJson('/api/value-bets?limit=24'),
-      fetchJson('/api/bookmakers'),
-      fetchJson('/api/bets'),
     ]);
     state.mode = odds.mode || 'demo';
     state.fetchedAt = odds.fetchedAt || new Date().toISOString();
@@ -96,13 +112,18 @@ async function loadData(refresh = false) {
     state.events = odds.events || [];
     state.opportunities = opps.opportunities || [];
     state.valueBets = vb.valueBets || [];
-    state.bookmakerCoverage = bm;
-    state.serverJournal = jr.bets || [];
     state.lastLoadOk = true;
     const hasData = state.events.length > 0 || state.opportunities.length > 0 || state.valueBets.length > 0;
     if (emptyState) emptyState.hidden = hasData;
 
+    // Prefer a queue that actually has items so the UI does not look empty.
     const actionable = state.opportunities.filter((opportunity) => opportunity.eligibility === 'actionable');
+    const review = state.opportunities.filter((opportunity) =>
+      opportunity.eligibility === 'review' || opportunity.confidence === 'review');
+    if (state.scannerTab === 'actionable' && actionable.length === 0 && review.length > 0) {
+      state.scannerTab = 'review';
+    }
+
     const changes = detectArbChanges(actionable);
     if (changes.appeared.length > 0) logActivity(`${changes.appeared.length} new actionable arb${changes.appeared.length === 1 ? '' : 's'}`, 'scanner');
 
@@ -115,7 +136,12 @@ async function loadData(refresh = false) {
     state.lastLoadOk = false;
     if (loading) loading.hidden = true;
     if (error) error.hidden = false;
-    if (errorMsg) errorMsg.textContent = e.message || 'Unknown error';
+    if (errorMsg) {
+      errorMsg.textContent = e.message || 'Eroare necunoscută';
+      if (/fetch|network|failed/i.test(String(e.message || ''))) {
+        errorMsg.textContent = `${e.message} — pornește serverul cu npm start și așteaptă finalizarea primei colectări.`;
+      }
+    }
     error?.setAttribute('tabindex', '-1');
     error?.focus();
   } finally {
@@ -227,17 +253,22 @@ function setupAutoRefresh() {
 function bindEvents() {
   const $ = (s) => document.querySelector(s);
   const $$ = (s) => [...document.querySelectorAll(s)];
+  const on = (selector, event, handler) => {
+    const el = typeof selector === 'string' ? $(selector) : selector;
+    if (!el) return;
+    el.addEventListener(event, handler);
+  };
 
   $$('[data-nav]').forEach((b) => b.addEventListener('click', () => setPage(b.dataset.nav)));
-  $('#search').addEventListener('input', (e) => { state.search = e.target.value.toLowerCase().trim(); renderAllPages(); });
-  $('#sport-selector').addEventListener('change', async (e) => { state.sport = e.target.value; await loadData(true); });
-  $('#refresh-btn').addEventListener('click', () => loadData(true));
-  $('#retry-btn').addEventListener('click', () => loadData(false));
-  $('#empty-refresh').addEventListener('click', () => loadData(true));
-  $('#refresh-interval').addEventListener('change', setupAutoRefresh);
-  $('#filter-min-edge').addEventListener('input', (e) => { state.minEdge = Number(e.target.value || 0); state.scannerVisibleLimit = 50; renderScanner(); });
-  $('#alert-threshold').addEventListener('input', (e) => { state.alertThreshold = Number(e.target.value || 1); });
-  $('#verification-filter').addEventListener('change', (e) => { state.scannerVerificationFilter = e.target.value; state.scannerVisibleLimit = 50; renderScanner(); });
+  on('#search', 'input', (e) => { state.search = e.target.value.toLowerCase().trim(); renderAllPages(); });
+  on('#sport-selector', 'change', async (e) => { state.sport = e.target.value; await loadData(true); });
+  on('#refresh-btn', 'click', () => loadData(true));
+  on('#retry-btn', 'click', () => loadData(false));
+  on('#empty-refresh', 'click', () => loadData(true));
+  on('#refresh-interval', 'change', setupAutoRefresh);
+  on('#filter-min-edge', 'input', (e) => { state.minEdge = Number(e.target.value || 0); state.scannerVisibleLimit = 50; renderScanner(); });
+  on('#alert-threshold', 'input', (e) => { state.alertThreshold = Number(e.target.value || 1); });
+  on('#verification-filter', 'change', (e) => { state.scannerVerificationFilter = e.target.value; state.scannerVisibleLimit = 50; renderScanner(); });
   $$('[data-scanner-tab]').forEach((b) => b.addEventListener('click', () => {
     const requestedTab = b.dataset.scannerTab;
     state.scannerTab = ['actionable', 'review', 'rejected', 'middles'].includes(requestedTab)
@@ -276,58 +307,59 @@ function bindEvents() {
     marketMenu.hidden = true;
     marketToggle?.setAttribute('aria-expanded', 'false');
   });
-  $('#dense-view-toggle').addEventListener('change', toggleDense);
-  $('#filter-reset').addEventListener('click', () => {
-    state.minEdge = 0; $('#filter-min-edge').value = '0'; $('#search').value = '';
-    state.search = ''; state.scannerVerificationFilter = ''; $('#verification-filter').value = '';
+  on('#dense-view-toggle', 'change', toggleDense);
+  on('#filter-reset', 'click', () => {
+    state.minEdge = 0;
+    if ($('#filter-min-edge')) $('#filter-min-edge').value = '0';
+    if ($('#search')) $('#search').value = '';
+    state.search = '';
+    state.scannerVerificationFilter = '';
+    if ($('#verification-filter')) $('#verification-filter').value = '';
     state.scannerVisibleLimit = 50;
     resetSelectedMarketTypes();
     renderAllPages();
   });
-  $('#export-csv').addEventListener('click', exportCsv);
-  // Arb history
-  $('#arb-history-refresh').addEventListener('click', loadArbHistoryPage);
-  $('#arb-history-clear').addEventListener('click', () => { state.arbHistory = { records: [], total: 0 }; renderArbHistory(); });
-  // Favorites & markets
-  $('#show-favorites-only').addEventListener('change', (e) => { state.favoritesOnly = e.target.checked; renderMatches(); });
-  $('#show-all-markets').addEventListener('change', (e) => { state.showAllMarkets = e.target.checked; renderMatches(); });
-  // Sound & theme
-  $('#sound-alert-toggle').addEventListener('change', toggleSound);
-  $('#theme-toggle').addEventListener('click', cycleTheme);
-  // Calculator
-  $('#dutch-add-leg').addEventListener('click', () => { addDutchLeg(); renderDutchSummary(); });
-  $('#dutch-clear').addEventListener('click', () => { $('#dutch-legs').innerHTML = ''; renderDutchSummary(); });
-  $('#dutch-stake').addEventListener('input', renderDutchSummary);
-  $('#arb-check-btn').addEventListener('click', renderArbCheck);
-  ['#tax-stake', '#tax-odds', '#tax-ytd'].forEach((s) => $(s).addEventListener('input', renderTaxCalculator));
-  ['#novig-odds-1', '#novig-odds-x', '#novig-odds-2'].forEach((s) => $(s).addEventListener('input', renderNoVig));
-  $('#mid-check-btn').addEventListener('click', renderMiddle);
-  $('#conv-decimal').addEventListener('input', renderConverter);
-  $('#calc-stake').addEventListener('input', () => { if (state.selectedOdds) state.selectedOdds.stake = Number($('#calc-stake').value || 100); });
-  $('#calc-bankroll').addEventListener('input', renderProbCalculator);
-  $('#calc-save').addEventListener('click', saveCalculatorSelection);
-  $('#journal-clear').addEventListener('click', clearJournalEntries);
-  $('#autostake-compute').addEventListener('click', renderAutoStake);
-  $('#autostake-bankroll').addEventListener('input', renderAutoStake);
-  $('#autostake-max-pct').addEventListener('input', renderAutoStake);
-  // Quick stakes
+  on('#export-csv', 'click', exportCsv);
+  on('#arb-history-refresh', 'click', loadArbHistoryPage);
+  on('#arb-history-clear', 'click', () => { state.arbHistory = { records: [], total: 0 }; renderArbHistory(); });
+  on('#show-favorites-only', 'change', (e) => { state.favoritesOnly = e.target.checked; renderMatches(); });
+  on('#show-all-markets', 'change', (e) => { state.showAllMarkets = e.target.checked; renderMatches(); });
+  on('#sound-alert-toggle', 'change', toggleSound);
+  on('#theme-toggle', 'click', cycleTheme);
+  on('#dutch-add-leg', 'click', () => { addDutchLeg(); renderDutchSummary(); });
+  on('#dutch-clear', 'click', () => { if ($('#dutch-legs')) $('#dutch-legs').innerHTML = ''; renderDutchSummary(); });
+  on('#dutch-stake', 'input', renderDutchSummary);
+  on('#arb-check-btn', 'click', renderArbCheck);
+  ['#tax-stake', '#tax-odds', '#tax-ytd'].forEach((s) => on(s, 'input', renderTaxCalculator));
+  ['#novig-odds-1', '#novig-odds-x', '#novig-odds-2'].forEach((s) => on(s, 'input', renderNoVig));
+  on('#mid-check-btn', 'click', renderMiddle);
+  on('#conv-decimal', 'input', renderConverter);
+  on('#calc-stake', 'input', () => {
+    if (state.selectedOdds) state.selectedOdds.stake = Number($('#calc-stake')?.value || 100);
+  });
+  on('#calc-bankroll', 'input', renderProbCalculator);
+  on('#calc-save', 'click', saveCalculatorSelection);
+  on('#journal-clear', 'click', clearJournalEntries);
+  on('#autostake-compute', 'click', renderAutoStake);
+  on('#autostake-bankroll', 'input', renderAutoStake);
+  on('#autostake-max-pct', 'input', renderAutoStake);
   $$('.qs-btn').forEach((b) => b.addEventListener('click', () => {
-    $('#calc-stake').value = b.dataset.stake;
+    if ($('#calc-stake')) $('#calc-stake').value = b.dataset.stake;
     if (state.selectedOdds) state.selectedOdds.stake = Number(b.dataset.stake);
     renderProbCalculator();
   }));
-  // Modal
-  $('#arb-modal-close').addEventListener('click', closeArbModal);
-  $('#arb-modal-overlay').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeArbModal(); });
-  // Journal filters
-  $('#journal-search').addEventListener('input', (e) => { state.journalSearch = e.target.value; renderJournal(); });
-  $('#journal-status-filter').addEventListener('change', (e) => { state.journalStatusFilter = e.target.value; renderJournal(); });
-  $('#journal-bookmaker-filter').addEventListener('change', (e) => { state.journalBookmakerFilter = e.target.value; renderJournal(); });
-  $('#journal-export').addEventListener('click', exportJournalCsv);
-  $('#journal-import').addEventListener('click', () => $('#journal-import-file').click());
-  $('#journal-import-file').addEventListener('change', async (e) => { await importJournalCsv(e.target.files?.[0]); e.target.value = ''; });
-  // Bet slip drawer
-  $('#bet-slip-toggle').addEventListener('click', toggleBetSlip);
+  on('#arb-modal-close', 'click', closeArbModal);
+  on('#arb-modal-overlay', 'click', (e) => { if (e.target === e.currentTarget) closeArbModal(); });
+  on('#journal-search', 'input', (e) => { state.journalSearch = e.target.value; renderJournal(); });
+  on('#journal-status-filter', 'change', (e) => { state.journalStatusFilter = e.target.value; renderJournal(); });
+  on('#journal-bookmaker-filter', 'change', (e) => { state.journalBookmakerFilter = e.target.value; renderJournal(); });
+  on('#journal-export', 'click', exportJournalCsv);
+  on('#journal-import', 'click', () => $('#journal-import-file')?.click());
+  on('#journal-import-file', 'change', async (e) => {
+    await importJournalCsv(e.target.files?.[0]);
+    e.target.value = '';
+  });
+  on('#bet-slip-toggle', 'click', toggleBetSlip);
 }
 
 function routeFromLocation() {

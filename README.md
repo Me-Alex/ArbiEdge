@@ -223,7 +223,7 @@ npm start
 | `ODDS_API_MAX_SPORTS` | `8` | Maximum explicit plus discovered sports collected in one refresh |
 | `ODDS_API_SPORT_CONCURRENCY` | `3` | Maximum concurrent sport-level Odds API requests |
 | `ODDS_CACHE_TTL_MS` | `60000` | Successful response cache duration |
-| `ODDS_WARM_CACHE_ON_START` | `0` | Start one background odds refresh after the server begins listening |
+| `ODDS_WARM_CACHE_ON_START` | `1` | Start one background odds refresh after the server begins listening |
 | `ODDS_REQUEST_TIMEOUT_MS` | `12000` | HTTP provider timeout |
 | `ODDS_PROVIDER_CONCURRENCY` | `2` | Maximum bookmaker providers collected simultaneously to bound memory use |
 | `ODDS_PROGRESS_EVERY_PROVIDERS` | `4` | Emit one full progressive snapshot after this many completed providers |

@@ -211,15 +211,16 @@ export function applyTheme(theme) {
 }
 
 export function initTheme() {
-  applyTheme(localStorage.getItem('arbDeskTheme') || 'light');
+  // ArbiEdge Edge Terminal is dark-first; keep any saved preference.
+  applyTheme(localStorage.getItem('arbDeskTheme') || 'dark');
 }
 
 export function cycleTheme() {
-  const current = localStorage.getItem('arbDeskTheme') || 'light';
-  const choices = ['light', 'dark', 'system'];
+  const current = localStorage.getItem('arbDeskTheme') || 'dark';
+  const choices = ['dark', 'light', 'system'];
   const next = choices[(choices.indexOf(current) + 1) % choices.length];
   applyTheme(next);
-  toast(`Theme set to ${next}`);
+  toast(`Temă: ${next}`);
 }
 
 export function initSound() {

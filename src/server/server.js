@@ -157,8 +157,9 @@ function startServer() {
         log.error('Autonomous runtime failed to start', { error: error.message });
       });
     } else {
+      // Warm by default so the first browser load is not a multi-minute cold collect.
       warmOddsCache({
-        enabled: parseBooleanFlag(process.env.ODDS_WARM_CACHE_ON_START, false),
+        enabled: parseBooleanFlag(process.env.ODDS_WARM_CACHE_ON_START, true),
         oddsService,
         logger: log,
       });

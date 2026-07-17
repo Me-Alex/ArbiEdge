@@ -96,14 +96,14 @@ function renderEmptyScanner(list, baseOpps) {
   const filteredOut = baseOpps.length > 0 && !areAllMarketTypesSelected();
   const copy = {
     actionable: {
-      eyebrow: 'Safety gate clear',
-      title: 'No verified arbitrage is actionable',
-      body: 'Candidates stay out of this queue until every leg is verified, cross-book, schema-safe, and below the edge ceiling.',
+      eyebrow: 'Poartă de siguranță',
+      title: 'Niciun arbitraj verificat acționabil',
+      body: 'Majoritatea semnalelor stau la „De revizuit” până când fiecare picior are dovadă fidelity pe website (verified). Deschide tab-ul De revizuit pentru candidați.',
     },
     review: {
-      eyebrow: 'Evidence queue clear',
-      title: 'No candidates need verification',
-      body: 'Refresh the feed to check for new candidates with missing, stale, or ambiguous evidence.',
+      eyebrow: 'Coadă de dovezi',
+      title: 'Niciun candidat de revizuit',
+      body: 'Actualizează feed-ul ca să caute noi candidați cu dovezi lipsă, stale sau ambigue.',
     },
     rejected: {
       eyebrow: 'Audit queue clear',
