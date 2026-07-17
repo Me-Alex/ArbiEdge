@@ -83,6 +83,29 @@ test('edge outliers stay in review even when every leg is verified', () => {
   assert.ok(outlier.eligibilityReasonCodes.includes('edge_outlier'));
 });
 
+test('team vs match totals cross formulas are structurally safe', () => {
+  const {
+    isSafeCrossMarket,
+  } = require('../src/engine/opportunity-eligibility');
+  assert.equal(isSafeCrossMarket('cross_totals_totalGoals_2_5_market_total_goluri_home_1_5_market_total_goluri_away_1_5'), true);
+  assert.equal(isSafeCrossMarket('cross_totals_inv_totalGoals_2_5_x_y'), true);
+  assert.equal(isSafeCrossMarket('cross_btts_team_score'), true);
+  assert.equal(isSafeCrossMarket('cross_qualify_home_match_away'), false);
+
+  const totalsCross = evaluateOpportunityEligibility({
+    type: 'cross-market',
+    marketKey: 'cross_totals_totalGoals_2_5_market_total_goluri_home_1_5_market_total_goluri_away_1_5',
+    edge: 0.03,
+    legs: [
+      { bookmaker: 'Book A', verificationStatus: 'unverified' },
+      { bookmaker: 'Book B', verificationStatus: 'unverified' },
+      { bookmaker: 'Book C', verificationStatus: 'unverified' },
+    ],
+  });
+  assert.equal(totalsCross.eligibility, 'review');
+  assert.equal(totalsCross.structuralStatus, 'approved');
+});
+
 test('isSupportedHandicapMarket only approves two-way half lines', () => {
   assert.equal(isSupportedHandicapMarket('asianHandicap_plus_0_5'), true);
   assert.equal(isSupportedHandicapMarket('handicap_minus_1'), false);

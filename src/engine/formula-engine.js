@@ -31,7 +31,7 @@ const {
 } = require('./arbitrage/settlement-formula-scanner');
 
 
-const MIN_VALUE_EDGE = 0.025;
+const MIN_VALUE_EDGE = 0.02;
 const FIDELITY_RISKY_STATUSES = new Set(['mismatch', 'not_found', 'unverifiable']);
 const FIDELITY_REVIEW_STATUSES = new Set(['ambiguous', 'unverified', 'stale', 'partial']);
 const FIDELITY_VERIFIED_STATUS = 'verified';

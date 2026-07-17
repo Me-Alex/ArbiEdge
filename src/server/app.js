@@ -365,6 +365,8 @@ function createApp({
         .split(',')
         .map((value) => value.trim().toLowerCase())
         .filter(Boolean);
+      const sportFilter = String(request.query.sport || '').trim().toLowerCase();
+      const searchFilter = String(request.query.q || request.query.search || '').trim().toLowerCase();
 
       if (profitOnly) opps = opps.filter((o) => o.profit > 0);
       if (trustedOnly) opps = opps.filter((o) => o.confidence === 'trusted');
@@ -375,6 +377,23 @@ function createApp({
       }
       if (typeFilter.length > 0) {
         opps = opps.filter((o) => typeFilter.includes(String(o.type || '').toLowerCase()));
+      }
+      if (sportFilter) {
+        opps = opps.filter((o) => String(o.sport || '').toLowerCase().includes(sportFilter));
+      }
+      if (searchFilter) {
+        opps = opps.filter((o) => {
+          const haystack = [
+            o.eventName,
+            o.marketLabel,
+            o.marketKey,
+            o.competition,
+            o.formulaFamily,
+            o.type,
+            ...(o.legs || []).map((leg) => leg.bookmaker),
+          ].join(' ').toLowerCase();
+          return haystack.includes(searchFilter);
+        });
       }
 
       const sort = request.query.sort || 'edge';

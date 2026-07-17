@@ -116,6 +116,15 @@ function isSupportedHandicapMarket(marketKey) {
   return HANDICAP_LINE_MARKET_RE.test(key) && isHalfLineMarket(key);
 }
 
+/** Dynamic cross keys (team vs match totals) plus the explicit SAFE_CROSS set. */
+function isSafeCrossMarket(marketKey) {
+  const key = String(marketKey || '');
+  if (SAFE_CROSS_MARKETS.has(key)) return true;
+  // Half-line team+match totals identities used by detectTeamMatchTotalArbitrage.
+  if (/^cross_totals(?:_inv)?_/.test(key)) return true;
+  return false;
+}
+
 /** Scan every two-way Asian/European handicap line; half-lines stay actionable. */
 function isScannableHandicapMarket(marketKey) {
   const key = String(marketKey || '');
@@ -175,7 +184,7 @@ function marketStructure(opportunity) {
     return { safe: true, analysis: false };
   }
 
-  if (type === 'cross-market' && SAFE_CROSS_MARKETS.has(marketKey)) {
+  if (type === 'cross-market' && isSafeCrossMarket(marketKey)) {
     return { safe: true, analysis: false };
   }
 
@@ -362,6 +371,7 @@ module.exports = {
   attachOpportunityEligibility,
   evaluateOpportunityEligibility,
   isHalfLineMarket,
+  isSafeCrossMarket,
   isScannableClassicMarket,
   isScannableHandicapMarket,
   isSupportedClassicMarket,

@@ -41,6 +41,14 @@ function renderScannerOverview() {
   const counts = getScannerTabCounts();
   const candidateCount = counts.actionable + counts.review + counts.rejected;
   const typeHint = (() => {
+    const byType = state.opportunitySummary?.byType;
+    if (byType && typeof byType === 'object') {
+      const parts = Object.entries(byType)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 4)
+        .map(([k, v]) => `${v} ${k}`);
+      if (parts.length) return parts.join(' · ');
+    }
     const opps = state.opportunities || [];
     const types = {};
     for (const opp of opps) {

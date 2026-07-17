@@ -13,8 +13,8 @@ const { betOneEventUrl, bookmakerLinkFields } = require('./event-links');
 const BETONE_CONTENT_URL = 'https://cms-api.betone.ro/api/v1/sports/offer/content';
 const BETONE_EVENT_URL = 'https://cms-api.betone.ro/api/v1/sports/offer/event';
 const BETONE_FOOTBALL_STRUCTURE_ID = '001001';
-const DEFAULT_BETONE_MAX_DETAIL_EVENTS = 160;
-const DEFAULT_BETONE_DETAILS_CONCURRENCY = 8;
+const DEFAULT_BETONE_MAX_DETAIL_EVENTS = 220;
+const DEFAULT_BETONE_DETAILS_CONCURRENCY = 10;
 const BETONE_MARKETS = Object.freeze({
   final: 6,
   btts: 4607,
@@ -297,9 +297,140 @@ function normalizeBetOneMarkets(markets, { homeTeam, awayTeam } = {}) {
       continue;
     }
 
+    // Label routing when market ids differ by feed version.
+    const label = normalizeBetOneLabel(market.marketName || market.name || market.displayName);
+    if (routeBetOneLabelMarket(normalized, market, label, { homeTeam, awayTeam })) {
+      continue;
+    }
+
     addGenericBetOneMarket(normalized, market, { homeTeam, awayTeam });
   }
   return normalized;
+}
+
+function normalizeBetOneLabel(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+    .replace(/[^\p{Letter}\p{Number}+\-.]+/gu, ' ')
+    .trim();
+}
+
+function routeBetOneLabelMarket(normalized, market, label, { homeTeam, awayTeam } = {}) {
+  if (!label) return false;
+
+  if (
+    label === 'a doua repriza'
+    || label === '2nd half'
+    || label === 'rezultat a doua repriza'
+    || label === 'second half'
+  ) {
+    addOutcomeMarket(normalized, 'secondHalfH2h', market, {
+      '1': 'home', X: 'draw', '2': 'away',
+    }, ['home', 'draw', 'away']);
+    return Boolean(normalized.secondHalfH2h);
+  }
+
+  if (label.includes('sansa dubla') || label.includes('double chance')) {
+    const key = (label.includes('pauza') || label.includes('prima'))
+      ? 'firstHalfDoubleChance'
+      : (label.includes('a doua') || label.includes('2nd'))
+        ? 'secondHalfDoubleChance'
+        : 'doubleChance';
+    addOutcomeMarket(normalized, key, market, {
+      '1X': 'homeDraw', '12': 'homeAway', X2: 'drawAway',
+    }, ['homeDraw', 'homeAway', 'drawAway']);
+    return Boolean(normalized[key]);
+  }
+
+  if (
+    label.includes('ambele marcheaza')
+    || label.includes('ambele echipe marcheaza')
+    || label.includes('both teams to score')
+    || label === 'gg ng'
+  ) {
+    const key = (label.includes('pauza') || label.includes('prima'))
+      ? 'firstHalfBothTeamsToScore'
+      : (label.includes('a doua') || label.includes('2nd'))
+        ? 'secondHalfBothTeamsToScore'
+        : 'bothTeamsToScore';
+    addOutcomeMarket(normalized, key, market, {
+      GG: 'yes', Da: 'yes', Yes: 'yes', NG: 'no', Nu: 'no', No: 'no',
+    }, ['yes', 'no']);
+    return Boolean(normalized[key]);
+  }
+
+  if ((label.includes('par') && label.includes('impar')) || label.includes('odd even')) {
+    addOutcomeMarket(normalized, 'market_total_goluri_impar_par', market, {
+      Par: 'even', Impar: 'odd', Even: 'even', Odd: 'odd',
+      par: 'even', impar: 'odd',
+    }, ['odd', 'even']);
+    return Boolean(normalized.market_total_goluri_impar_par);
+  }
+
+  if (
+    label.includes('total goluri')
+    && (label.includes('a doua') || label.includes('2nd'))
+  ) {
+    addPlusRangeTotals(normalized, market, 'secondHalfTotalGoals');
+    addLineMarkets(normalized, market, 'secondHalfTotalGoals');
+    return Object.keys(normalized).some((k) => k.startsWith('secondHalfTotalGoals_'));
+  }
+
+  if (label.includes('total cartonase') || label.includes('total cards') || label.includes('yellow')) {
+    addLineMarkets(normalized, market, 'totalCards');
+    return Object.keys(normalized).some((k) => k.startsWith('totalCards_'));
+  }
+
+  if (
+    label.includes('total goluri')
+    && (label.includes('gazde') || label.includes('home') || label.includes('echipa 1'))
+  ) {
+    addLineMarkets(normalized, market, 'market_total_goluri_home');
+    return Object.keys(normalized).some((k) => k.startsWith('market_total_goluri_home_'));
+  }
+
+  if (
+    label.includes('total goluri')
+    && (label.includes('oaspeti') || label.includes('away') || label.includes('echipa 2'))
+  ) {
+    addLineMarkets(normalized, market, 'market_total_goluri_away');
+    return Object.keys(normalized).some((k) => k.startsWith('market_total_goluri_away_'));
+  }
+
+  if (
+    label.includes('marcheaza')
+    && (label.includes('gazde') || label.includes('gazda') || label.includes('home'))
+  ) {
+    addOutcomeMarket(normalized, 'market_marcheaza_home', market, {
+      Da: 'yes', Yes: 'yes', Nu: 'no', No: 'no',
+    }, ['yes', 'no']);
+    return Boolean(normalized.market_marcheaza_home);
+  }
+
+  if (
+    label.includes('marcheaza')
+    && (label.includes('oaspeti') || label.includes('oaspete') || label.includes('away'))
+  ) {
+    addOutcomeMarket(normalized, 'market_marcheaza_away', market, {
+      Da: 'yes', Yes: 'yes', Nu: 'no', No: 'no',
+    }, ['yes', 'no']);
+    return Boolean(normalized.market_marcheaza_away);
+  }
+
+  if (label.includes('se califica') || label.includes('to qualify') || label.includes('merge mai departe')) {
+    addOutcomeMarket(normalized, 'toQualify', market, {
+      '1': 'home', '2': 'away',
+    }, ['home', 'away']);
+    // Team-name outcomes via generic if 1/2 missing.
+    if (!normalized.toQualify) {
+      addGenericBetOneMarket(normalized, { ...market, marketName: 'toQualify' }, { homeTeam, awayTeam });
+    }
+    return Boolean(normalized.toQualify);
+  }
+
+  return false;
 }
 
 function marketsFromListEvent(event) {
