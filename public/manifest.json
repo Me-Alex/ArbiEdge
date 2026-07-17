@@ -4,8 +4,8 @@
   "description": "Verified arbitrage scanner, value bets, calculator, journal, and odds feed for Romanian bookmakers.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#080c11",
-  "theme_color": "#0d9488",
+  "background_color": "#070b10",
+  "theme_color": "#14f1c5",
   "orientation": "any",
   "icons": [
     {

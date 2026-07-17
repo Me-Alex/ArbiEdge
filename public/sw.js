@@ -1,12 +1,12 @@
 // ArbiEdge offline shell. Bump this key whenever the frontend bundle changes.
-const CACHE_VERSION = 'arbiedge-v19';
+const CACHE_VERSION = 'arbiedge-v20';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
-  '/css/design-tokens.css?v=19',
-  '/css/components.css?v=19',
-  '/css/style.css?v=19',
-  '/js/app.js?v=19',
+  '/css/design-tokens.css?v=20',
+  '/css/components.css?v=20',
+  '/css/style.css?v=20',
+  '/js/app.js?v=20',
   '/manifest.json',
 ];
 
