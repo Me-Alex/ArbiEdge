@@ -255,9 +255,163 @@ function normalizeEgtMarkets(markets) {
       continue;
     }
 
+    // Label-based routing when template ids differ by brand or feed version.
+    const label = normalizeEgtLabel(egtMarketLabel(market));
+    if (routeEgtLabelMarket(normalized, market, label)) {
+      continue;
+    }
+
     addGenericEgtMarket(normalized, market);
   }
   return normalized;
+}
+
+function normalizeEgtLabel(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+    .replace(/[^\p{Letter}\p{Number}+\-.]+/gu, ' ')
+    .trim();
+}
+
+function routeEgtLabelMarket(normalized, market, label) {
+  if (!label) return false;
+
+  if (
+    label === 'pauza'
+    || label === 'prima repriza'
+    || label === '1st half'
+    || label === 'rezultat pauza'
+    || label === 'half time'
+  ) {
+    const prices = egtPrices(market, { '1': 'home', X: 'draw', '2': 'away' });
+    if (hasOutcomes(prices, ['home', 'draw', 'away']) && !normalized.firstHalfH2h) {
+      normalized.firstHalfH2h = prices;
+      return true;
+    }
+  }
+
+  if (
+    label === 'a doua repriza'
+    || label === '2nd half'
+    || label === 'rezultat a doua repriza'
+    || label === 'second half'
+  ) {
+    const prices = egtPrices(market, { '1': 'home', X: 'draw', '2': 'away' });
+    if (hasOutcomes(prices, ['home', 'draw', 'away']) && !normalized.secondHalfH2h) {
+      normalized.secondHalfH2h = prices;
+      return true;
+    }
+  }
+
+  if (label.includes('sansa dubla') || label.includes('double chance')) {
+    const prices = egtPrices(market, {
+      '1X': 'homeDraw',
+      '12': 'homeAway',
+      X2: 'drawAway',
+    });
+    const key = (label.includes('pauza') || label.includes('prima'))
+      ? 'firstHalfDoubleChance'
+      : (label.includes('a doua') || label.includes('2nd'))
+        ? 'secondHalfDoubleChance'
+        : 'doubleChance';
+    if (hasOutcomes(prices, ['homeDraw', 'homeAway', 'drawAway']) && !normalized[key]) {
+      normalized[key] = prices;
+      return true;
+    }
+  }
+
+  if (
+    label.includes('ambele marcheaza')
+    || label.includes('ambele echipe marcheaza')
+    || label.includes('both teams to score')
+    || label === 'gg ng'
+  ) {
+    const prices = egtPrices(market, {
+      Da: 'yes', Nu: 'no', Yes: 'yes', No: 'no',
+    });
+    const key = (label.includes('pauza') || label.includes('prima'))
+      ? 'firstHalfBothTeamsToScore'
+      : (label.includes('a doua') || label.includes('2nd'))
+        ? 'secondHalfBothTeamsToScore'
+        : 'bothTeamsToScore';
+    if (hasOutcomes(prices, ['yes', 'no']) && !normalized[key]) {
+      normalized[key] = prices;
+      return true;
+    }
+  }
+
+  if (label.includes('fara egal') || label.includes('draw no bet') || label.includes('egal pariu')) {
+    const prices = egtPrices(market, { '1': 'home', '2': 'away' });
+    if (hasOutcomes(prices, ['home', 'away']) && !normalized.drawNoBet) {
+      normalized.drawNoBet = prices;
+      return true;
+    }
+  }
+
+  if ((label.includes('par') && label.includes('impar')) || label.includes('odd even')) {
+    const prices = egtPrices(market, {
+      Par: 'even', Impar: 'odd', Even: 'even', Odd: 'odd',
+      par: 'even', impar: 'odd',
+    });
+    // egtPrices uses exact column names — also try normalizeOutcomeKey path via generic
+    const viaGeneric = {};
+    for (const outcome of activeOutcomes(market)) {
+      const key = normalizeOutcomeKey(outcome.columnName || outcome.name || outcome.shortName);
+      if ((key === 'odd' || key === 'even') && isDecimalOdds(outcome.odds)) {
+        viaGeneric[key] = outcome.odds;
+      }
+    }
+    const oddEven = hasOutcomes(prices, ['odd', 'even']) ? prices : viaGeneric;
+    if (hasOutcomes(oddEven, ['odd', 'even']) && !normalized.market_total_goluri_impar_par) {
+      normalized.market_total_goluri_impar_par = oddEven;
+      return true;
+    }
+  }
+
+  if (
+    label.includes('total goluri')
+    && (label.includes('pauza') || label.includes('prima'))
+  ) {
+    addEgtLineMarket(normalized, market, 'firstHalfTotalGoals');
+    return Boolean(Object.keys(normalized).some((k) => k.startsWith('firstHalfTotalGoals_')));
+  }
+
+  if (
+    label.includes('total goluri')
+    && (label.includes('a doua') || label.includes('2nd'))
+  ) {
+    addEgtLineMarket(normalized, market, 'secondHalfTotalGoals');
+    return Boolean(Object.keys(normalized).some((k) => k.startsWith('secondHalfTotalGoals_')));
+  }
+
+  if (label.includes('total cornere') || label.includes('total corners')) {
+    addEgtLineMarket(normalized, market, 'totalCorners');
+    return Boolean(Object.keys(normalized).some((k) => k.startsWith('totalCorners_')));
+  }
+
+  if (label.includes('total cartonase') || label.includes('total cards') || label.includes('yellow card')) {
+    addEgtLineMarket(normalized, market, 'totalCards');
+    return Boolean(Object.keys(normalized).some((k) => k.startsWith('totalCards_')));
+  }
+
+  return false;
+}
+
+function addEgtLineMarket(markets, market, baseKey) {
+  const line = lineValue(market);
+  if (!line) return;
+  const prices = {};
+  for (const outcome of activeOutcomes(market)) {
+    const key = normalizeOutcomeKey(outcome.columnName || outcome.name || outcome.shortName);
+    if (['over', 'under'].includes(key) && isDecimalOdds(outcome.odds)) {
+      prices[key] = outcome.odds;
+    }
+  }
+  if (hasOutcomes(prices, ['over', 'under'])) {
+    markets[`${baseKey}_${formatLine(line).replace('.', '_')}`] = prices;
+  }
 }
 
 function addEgtTotalGoals(markets, market) {

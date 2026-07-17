@@ -873,6 +873,13 @@ function detectBttsTotalsSoftCross(event) {
       marketLabel: '2H BTTS No + Over 0.5',
       overLabel: '2H Over 0.5',
     },
+    {
+      bttsKey: 'secondHalfBothTeamsToScore',
+      totalKey: 'secondHalfTotalGoals_1_5',
+      marketKey: 'cross_2H_btts_no_over_1_5',
+      marketLabel: '2H BTTS No + Over 1.5',
+      overLabel: '2H Over 1.5',
+    },
   ];
 
   for (const pair of pairs) {
@@ -1001,17 +1008,24 @@ function detectMiddleBets(event) {
     }
   }
 
-  // Extra candidates: European goals vs Asian goals when lines straddle a window.
-  const euroGoals = lineMarkets.filter((item) => item.groupKey === 'totalGoals');
-  const asianGoals = lineMarkets.filter((item) => item.groupKey === 'asianTotalGoals');
-  for (const lower of euroGoals) {
-    for (const higher of asianGoals) {
-      if (higher.line > lower.line) pushMiddle(lower, higher, { crossFamily: true });
+  // Extra candidates: European vs Asian lines for goals and corners.
+  const crossFamilyPairs = [
+    ['totalGoals', 'asianTotalGoals'],
+    ['totalCorners', 'asianTotalCorners'],
+    ['firstHalfTotalGoals', 'firstHalfAsianTotalGoals'],
+  ];
+  for (const [groupA, groupB] of crossFamilyPairs) {
+    const sideA = lineMarkets.filter((item) => item.groupKey === groupA);
+    const sideB = lineMarkets.filter((item) => item.groupKey === groupB);
+    for (const lower of sideA) {
+      for (const higher of sideB) {
+        if (higher.line > lower.line) pushMiddle(lower, higher, { crossFamily: true });
+      }
     }
-  }
-  for (const lower of asianGoals) {
-    for (const higher of euroGoals) {
-      if (higher.line > lower.line) pushMiddle(lower, higher, { crossFamily: true });
+    for (const lower of sideB) {
+      for (const higher of sideA) {
+        if (higher.line > lower.line) pushMiddle(lower, higher, { crossFamily: true });
+      }
     }
   }
 
@@ -1239,9 +1253,24 @@ function pushThreeWayCross(results, {
 }
 
 function detectBttsTeamScoreArbitrage(event) {
+  return [
+    ...detectBttsTeamScoreForScope(event, {
+      bttsKey: 'bothTeamsToScore',
+      prefix: '',
+      labelPrefix: '',
+    }),
+    ...detectBttsTeamScoreForScope(event, {
+      bttsKey: 'firstHalfBothTeamsToScore',
+      prefix: '1H_',
+      labelPrefix: '1H ',
+    }),
+  ];
+}
+
+function detectBttsTeamScoreForScope(event, { bttsKey, prefix, labelPrefix }) {
   const results = [];
 
-  const bttsBest = findBestPrices(event, 'bothTeamsToScore');
+  const bttsBest = findBestPrices(event, bttsKey);
   const homeScoreBest = findBestPrices(event, 'market_marcheaza_home');
   const awayScoreBest = findBestPrices(event, 'market_marcheaza_away');
   const homeTotal05Best = findBestPrices(event, 'market_total_goluri_home_0_5');
@@ -1265,16 +1294,16 @@ function detectBttsTeamScoreArbitrage(event) {
   // BTTS Yes + Home no score + Away no score (exhaustive partition)
   if (bttsBest.yes && bestHomeNo && bestAwayNo) {
     pushThreeWayCross(results, {
-      marketKey: 'cross_btts_team_score',
-      marketLabel: 'BTTS Yes + Home NS + Away NS',
+      marketKey: `cross_${prefix}btts_team_score`,
+      marketLabel: `${labelPrefix}BTTS Yes + Home NS + Away NS`.trim(),
       legs: [
         {
           outcome: 'yes',
-          label: 'BTTS Yes',
+          label: `${labelPrefix}BTTS Yes`.trim(),
           bookmaker: bttsBest.yes.bookmaker,
           price: bttsBest.yes.price,
           url: bttsBest.yes.url,
-          marketKey: bttsBest.yes.marketKey || 'bothTeamsToScore',
+          marketKey: bttsBest.yes.marketKey || bttsKey,
           verificationStatus: bttsBest.yes.verificationStatus,
         },
         {
@@ -1299,21 +1328,21 @@ function detectBttsTeamScoreArbitrage(event) {
     });
   }
 
-  // BTTS No + Home scores + Away scores (both must score contradicts BTTS No)
+  // BTTS No + Home scores + Away scores
   const bestHomeYes = pickBestPriceEntry(homeScoreBest.yes, homeTotal05Best.over);
   const bestAwayYes = pickBestPriceEntry(awayScoreBest.yes, awayTotal05Best.over);
   if (bttsBest.no && bestHomeYes && bestAwayYes) {
     pushThreeWayCross(results, {
-      marketKey: 'cross_btts_no_both_score',
-      marketLabel: 'BTTS No + Home Scores + Away Scores',
+      marketKey: `cross_${prefix}btts_no_both_score`,
+      marketLabel: `${labelPrefix}BTTS No + Home Scores + Away Scores`.trim(),
       legs: [
         {
           outcome: 'no',
-          label: 'BTTS No',
+          label: `${labelPrefix}BTTS No`.trim(),
           bookmaker: bttsBest.no.bookmaker,
           price: bttsBest.no.price,
           url: bttsBest.no.url,
-          marketKey: bttsBest.no.marketKey || 'bothTeamsToScore',
+          marketKey: bttsBest.no.marketKey || bttsKey,
           verificationStatus: bttsBest.no.verificationStatus,
         },
         {
@@ -1338,55 +1367,57 @@ function detectBttsTeamScoreArbitrage(event) {
     });
   }
 
-  // Pairwise: Home scores Yes vs Away clean sheet Yes (mutually exclusive & exhaustive for "did home score?")
-  if (bestHomeYes && bestHomeNo) {
-    pushCrossMarketPair(results, {
-      marketKey: 'cross_home_score_vs_no',
-      marketLabel: 'Home Scores Yes/No',
-      legA: {
-        outcome: 'yes',
-        label: 'Home Scores',
-        bookmaker: bestHomeYes.bookmaker,
-        price: bestHomeYes.price,
-        url: bestHomeYes.url,
-        marketKey: bestHomeYes.marketKey || 'market_marcheaza_home',
-        verificationStatus: bestHomeYes.verificationStatus,
-      },
-      legB: {
-        outcome: 'no',
-        label: 'Home No Score',
-        bookmaker: bestHomeNo.bookmaker,
-        price: bestHomeNo.price,
-        url: bestHomeNo.url,
-        marketKey: bestHomeNo.marketKey || 'market_marcheaza_home',
-        verificationStatus: bestHomeNo.verificationStatus,
-      },
-    });
-  }
+  // Pairwise yes/no only for full-time scope (same team markets).
+  if (!prefix) {
+    if (bestHomeYes && bestHomeNo) {
+      pushCrossMarketPair(results, {
+        marketKey: 'cross_home_score_vs_no',
+        marketLabel: 'Home Scores Yes/No',
+        legA: {
+          outcome: 'yes',
+          label: 'Home Scores',
+          bookmaker: bestHomeYes.bookmaker,
+          price: bestHomeYes.price,
+          url: bestHomeYes.url,
+          marketKey: bestHomeYes.marketKey || 'market_marcheaza_home',
+          verificationStatus: bestHomeYes.verificationStatus,
+        },
+        legB: {
+          outcome: 'no',
+          label: 'Home No Score',
+          bookmaker: bestHomeNo.bookmaker,
+          price: bestHomeNo.price,
+          url: bestHomeNo.url,
+          marketKey: bestHomeNo.marketKey || 'market_marcheaza_home',
+          verificationStatus: bestHomeNo.verificationStatus,
+        },
+      });
+    }
 
-  if (bestAwayYes && bestAwayNo) {
-    pushCrossMarketPair(results, {
-      marketKey: 'cross_away_score_vs_no',
-      marketLabel: 'Away Scores Yes/No',
-      legA: {
-        outcome: 'yes',
-        label: 'Away Scores',
-        bookmaker: bestAwayYes.bookmaker,
-        price: bestAwayYes.price,
-        url: bestAwayYes.url,
-        marketKey: bestAwayYes.marketKey || 'market_marcheaza_away',
-        verificationStatus: bestAwayYes.verificationStatus,
-      },
-      legB: {
-        outcome: 'no',
-        label: 'Away No Score',
-        bookmaker: bestAwayNo.bookmaker,
-        price: bestAwayNo.price,
-        url: bestAwayNo.url,
-        marketKey: bestAwayNo.marketKey || 'market_marcheaza_away',
-        verificationStatus: bestAwayNo.verificationStatus,
-      },
-    });
+    if (bestAwayYes && bestAwayNo) {
+      pushCrossMarketPair(results, {
+        marketKey: 'cross_away_score_vs_no',
+        marketLabel: 'Away Scores Yes/No',
+        legA: {
+          outcome: 'yes',
+          label: 'Away Scores',
+          bookmaker: bestAwayYes.bookmaker,
+          price: bestAwayYes.price,
+          url: bestAwayYes.url,
+          marketKey: bestAwayYes.marketKey || 'market_marcheaza_away',
+          verificationStatus: bestAwayYes.verificationStatus,
+        },
+        legB: {
+          outcome: 'no',
+          label: 'Away No Score',
+          bookmaker: bestAwayNo.bookmaker,
+          price: bestAwayNo.price,
+          url: bestAwayNo.url,
+          marketKey: bestAwayNo.marketKey || 'market_marcheaza_away',
+          verificationStatus: bestAwayNo.verificationStatus,
+        },
+      });
+    }
   }
 
   return results;

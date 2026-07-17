@@ -392,9 +392,11 @@ function createApp({
           opps.sort((a, b) => b.edge - a.edge);
       }
 
+      const summary = summarizeOpportunities(opps);
       response.json({
         opportunities: opps.slice(0, limit),
         total: opps.length,
+        summary,
         fetchedAt: data.fetchedAt,
       });
     } catch (error) {
@@ -737,6 +739,28 @@ function auditIssueCountMetrics(issueCounts = {}) {
       numericMetric(issueCounts?.[issueKey]),
     ]),
   );
+}
+
+function summarizeOpportunities(opportunities = []) {
+  const byEligibility = {};
+  const byType = {};
+  for (const opportunity of opportunities) {
+    const eligibility = opportunity?.type === 'middle'
+      ? 'analysis'
+      : (opportunity?.eligibility || 'review');
+    const type = opportunity?.type || 'classic';
+    byEligibility[eligibility] = (byEligibility[eligibility] || 0) + 1;
+    byType[type] = (byType[type] || 0) + 1;
+  }
+  return {
+    total: opportunities.length,
+    byEligibility,
+    byType,
+    review: byEligibility.review || 0,
+    actionable: byEligibility.actionable || 0,
+    rejected: byEligibility.rejected || 0,
+    analysis: byEligibility.analysis || 0,
+  };
 }
 
 function numericMetric(value) {

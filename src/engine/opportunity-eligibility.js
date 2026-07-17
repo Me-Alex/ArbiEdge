@@ -56,9 +56,12 @@ const SAFE_CROSS_MARKETS = new Set([
   'cross_1H_btts_no_over_0_5',
   'cross_1H_btts_no_over_1_5',
   'cross_2H_btts_no_over_0_5',
+  'cross_2H_btts_no_over_1_5',
   // Exhaustive partitions (overlap states only improve worst-case).
   'cross_btts_team_score',
   'cross_btts_no_both_score',
+  'cross_1H_btts_team_score',
+  'cross_1H_btts_no_both_score',
   'cross_home_score_vs_no',
   'cross_away_score_vs_no',
 ]);

@@ -119,7 +119,7 @@ function renderEmptyScanner(list, baseOpps) {
     review: {
       eyebrow: 'Candidați matematici',
       title: 'Niciun candidat de arbitraj',
-      body: 'Nu există încă combinații cross-book cu edge pozitiv. Apasă Scan, așteaptă colectarea live (30–90s) și verifică că modul e „live”, nu offline.',
+      body: 'Nu există încă combinații cross-book cu edge pozitiv. Apasă Scan, așteaptă colectarea live (30–90s) și verifică modul „live”. Cache-ul de pe server se încălzește la pornire — nu reîncărca pagina în timpul scanului.',
     },
     rejected: {
       eyebrow: 'Audit queue clear',
