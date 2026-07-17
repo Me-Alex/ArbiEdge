@@ -153,8 +153,10 @@ async function loadData(refresh = false) {
         : state.opportunities.filter((opportunity) => opportunity.eligibility === 'rejected').length;
       const middles = summary?.byType?.middle
         ?? state.opportunities.filter((opportunity) => opportunity.type === 'middle').length;
+      const topFamily = summary?.topFamilies?.[0];
+      const multiFeed = Number(summary?.multiFeed || 0);
       logActivity(
-        `${state.opportunities.length} semnale · ${actionable} acționabile · ${review} candidați · ${rejected} respinse · ${middles} middles`,
+        `${state.opportunities.length} semnale · ${actionable} acționabile · ${review} candidați · ${rejected} respinse · ${middles} middles${topFamily ? ` · top: ${topFamily.family} (${topFamily.count})` : ''}${multiFeed ? ` · ${multiFeed} multi-feed` : ''}`,
         'scanner',
       );
       if (dataMode) {

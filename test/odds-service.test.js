@@ -355,6 +355,34 @@ test('coalesces concurrent refresh requests', async () => {
   assert.equal(calls, 1);
 });
 
+test('fail-closed mode does not serve stale cache after a live failure', async () => {
+  let calls = 0;
+  let currentTime = new Date('2026-06-21T12:00:00Z');
+  const service = new OddsService({
+    liveProvider: {
+      name: 'Fortuna',
+      getOdds: async () => {
+        calls += 1;
+        if (calls === 1) {
+          return {
+            events: liveEvents,
+            providers: [{ name: 'Fortuna', ok: true, events: 1, durationMs: 10 }],
+          };
+        }
+        throw new Error('provider down');
+      },
+    },
+    demoProvider: { getOdds: async () => demoEvents },
+    cacheTtlMs: 1_000,
+    failClosed: true,
+    now: () => currentTime,
+  });
+
+  await service.getOdds();
+  currentTime = new Date('2026-06-21T12:00:05Z');
+  await assert.rejects(() => service.getOdds(), /provider down/);
+});
+
 test('fail-closed mode never substitutes demo odds for a live failure', async () => {
   const service = new OddsService({
     liveProvider: { name: 'Broken', getOdds: async () => { throw new Error('blocked'); } },

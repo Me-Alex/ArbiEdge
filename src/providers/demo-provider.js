@@ -162,11 +162,11 @@ function createBookmaker(name, home, draw, away, baseTime, eventIndex, bookmaker
     };
     markets.market_clean_sheet_home = {
       yes: round(2.18 + eventIndex * 0.06 - bookmakerIndex * 0.03 + bookmakerIndex * 0.08),
-      no: round(1.64 + bookmakerIndex * 0.05),
+      no: round(1.64 + bookmakerIndex * 0.05 + bookmakerIndex * 0.12),
     };
     markets.market_clean_sheet_away = {
       yes: round(2.72 + eventIndex * 0.07 - bookmakerIndex * 0.04 + bookmakerIndex * 0.09),
-      no: round(1.44 + bookmakerIndex * 0.05),
+      no: round(1.44 + bookmakerIndex * 0.05 + bookmakerIndex * 0.11),
     };
     markets.totalGoals_3_5 = {
       over: round(2.62 + bookmakerIndex * 0.11),

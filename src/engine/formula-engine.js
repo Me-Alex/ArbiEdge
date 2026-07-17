@@ -769,7 +769,74 @@ function detectCrossMarketArbitrage(event) {
     ...detectDnbVsDoubleChanceCross(event),
     ...detectH2hVsDnbMirrorCross(event),
     ...detectQualifyVsDnbCross(event),
+    ...detectCsNoVsOpponentScoreCross(event),
   ];
+}
+
+/**
+ * Clean-sheet No ≡ opponent scored. Pair Home CS No with Away scores No (and
+ * inverse) for exhaustive yes/no coverage when books split the two markets.
+ */
+function detectCsNoVsOpponentScoreCross(event) {
+  const results = [];
+  const homeScore = findBestPrices(event, 'market_marcheaza_home');
+  const awayScore = findBestPrices(event, 'market_marcheaza_away');
+  const homeCs = findBestPrices(event, 'market_clean_sheet_home');
+  const awayCs = findBestPrices(event, 'market_clean_sheet_away');
+
+  // Home CS No (away scored) vs Away scores No
+  if (homeCs.no && awayScore.no) {
+    pushCrossMarketPair(results, {
+      marketKey: 'cross_home_cs_no_vs_away_ns',
+      marketLabel: 'Home CS No + Away No Score',
+      legA: {
+        outcome: 'no',
+        label: 'Home CS No',
+        bookmaker: homeCs.no.bookmaker,
+        price: homeCs.no.price,
+        url: homeCs.no.url,
+        marketKey: homeCs.no.marketKey || 'market_clean_sheet_home',
+        verificationStatus: homeCs.no.verificationStatus,
+      },
+      legB: {
+        outcome: 'no',
+        label: 'Away No Score',
+        bookmaker: awayScore.no.bookmaker,
+        price: awayScore.no.price,
+        url: awayScore.no.url,
+        marketKey: awayScore.no.marketKey || 'market_marcheaza_away',
+        verificationStatus: awayScore.no.verificationStatus,
+      },
+    });
+  }
+
+  // Away CS No (home scored) vs Home scores No
+  if (awayCs.no && homeScore.no) {
+    pushCrossMarketPair(results, {
+      marketKey: 'cross_away_cs_no_vs_home_ns',
+      marketLabel: 'Away CS No + Home No Score',
+      legA: {
+        outcome: 'no',
+        label: 'Away CS No',
+        bookmaker: awayCs.no.bookmaker,
+        price: awayCs.no.price,
+        url: awayCs.no.url,
+        marketKey: awayCs.no.marketKey || 'market_clean_sheet_away',
+        verificationStatus: awayCs.no.verificationStatus,
+      },
+      legB: {
+        outcome: 'no',
+        label: 'Home No Score',
+        bookmaker: homeScore.no.bookmaker,
+        price: homeScore.no.price,
+        url: homeScore.no.url,
+        marketKey: homeScore.no.marketKey || 'market_marcheaza_home',
+        verificationStatus: homeScore.no.verificationStatus,
+      },
+    });
+  }
+
+  return results;
 }
 
 /**
@@ -1287,7 +1354,7 @@ function detectMiddleBets(event) {
 
   // Pair any lower Over with higher Under in the same family (not only adjacent
   // lines) so e.g. Over 2.5 / Under 3.5 is found when 3.0 sits between them.
-  const MAX_MIDDLE_GAP = 2.5;
+  const MAX_MIDDLE_GAP = 3.0;
   const pushMiddle = (lower, higher, { crossFamily = false } = {}) => {
     if (higher.line <= lower.line) return;
     const gap = higher.line - lower.line;

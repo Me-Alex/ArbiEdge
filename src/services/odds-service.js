@@ -95,7 +95,8 @@ class OddsService {
         now: this.now,
       });
       // Prefer last good snapshot over hard failure when possible (UI stays usable).
-      if (this.cache?.value?.events?.length > 0) {
+      // Fail-closed production mode must never paper over a live outage with stale data.
+      if (!this.failClosed && this.cache?.value?.events?.length > 0) {
         return this.cache.value;
       }
       throw error;

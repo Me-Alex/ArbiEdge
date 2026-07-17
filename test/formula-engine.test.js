@@ -920,6 +920,30 @@ test('detectCrossMarketArbitrage finds 1H 1X2 + 1H DNB mirror cover', () => {
   assert.ok(results.some((item) => item.marketKey === 'cross_1H_h2h_home_dnb_away'));
 });
 
+test('detectCrossMarketArbitrage finds Home CS No + Away No Score cover', () => {
+  const event = makeEvent({
+    bookmakers: [
+      {
+        name: 'BookA',
+        markets: {
+          market_clean_sheet_home: { yes: 2.4, no: 1.65 },
+          market_marcheaza_away: { yes: 1.5, no: 2.6 },
+        },
+      },
+      {
+        name: 'BookB',
+        markets: {
+          market_clean_sheet_home: { yes: 2.3, no: 1.55 },
+          market_marcheaza_away: { yes: 1.45, no: 2.8 },
+        },
+      },
+    ],
+  });
+  // best home CS no 1.65 + best away no score 2.8 → 1/1.65 + 1/2.8 < 1
+  const results = detectCrossMarketArbitrage(event);
+  assert.ok(results.some((item) => item.marketKey === 'cross_home_cs_no_vs_away_ns'));
+});
+
 test('detectCrossMarketArbitrage finds home-score vs away clean-sheet cover', () => {
   const event = makeEvent({
     bookmakers: [

@@ -251,12 +251,75 @@ function normalizeStanleybetFamilyMarkets(markets) {
       continue;
     }
 
+    if (isTeamScoreMarket(marketKey, market)) {
+      const prices = outcomePrices(market, { yes: 'yes', no: 'no' });
+      const scoreKey = teamScoreMarketKey(marketKey, market);
+      if (hasOutcomes(prices, ['yes', 'no']) && scoreKey && !normalized[scoreKey]) {
+        normalized[scoreKey] = prices;
+      }
+      continue;
+    }
+
+    if (isCleanSheetMarket(marketKey, market)) {
+      const prices = outcomePrices(market, { yes: 'yes', no: 'no' });
+      const csKey = cleanSheetMarketKey(marketKey, market);
+      if (hasOutcomes(prices, ['yes', 'no']) && csKey && !normalized[csKey]) {
+        normalized[csKey] = prices;
+      }
+      continue;
+    }
+
+    if (marketKey === 'toQualify' || isToQualifyMarket(market)) {
+      const prices = outcomePrices(market, { home: 'home', away: 'away' });
+      if (hasOutcomes(prices, ['home', 'away']) && !normalized.toQualify) {
+        normalized.toQualify = prices;
+      }
+      continue;
+    }
+
     const prices = genericOutcomePrices(market);
     if (marketKey && hasAnyCompleteMarket({ [marketKey]: prices }) && !normalized[marketKey]) {
       normalized[marketKey] = prices;
     }
   }
   return normalized;
+}
+
+function isTeamScoreMarket(marketKey, market) {
+  if (marketKey === 'market_marcheaza_home' || marketKey === 'market_marcheaza_away') return true;
+  const key = labelKey(market?.name);
+  return key.includes('marcheaza') || key.includes('to_score') || key.includes('sa_inscrie');
+}
+
+function teamScoreMarketKey(marketKey, market) {
+  if (marketKey === 'market_marcheaza_home' || marketKey === 'market_marcheaza_away') return marketKey;
+  const key = labelKey(market?.name);
+  if (key.includes('gazda') || key.includes('gazde') || key.includes('home') || key.includes('echipa_1')) {
+    return 'market_marcheaza_home';
+  }
+  if (key.includes('oaspete') || key.includes('oaspeti') || key.includes('away') || key.includes('echipa_2')) {
+    return 'market_marcheaza_away';
+  }
+  return null;
+}
+
+function isCleanSheetMarket(marketKey, market) {
+  if (marketKey === 'market_clean_sheet_home' || marketKey === 'market_clean_sheet_away') return true;
+  const key = labelKey(market?.name);
+  return key.includes('clean_sheet') || key.includes('fara_gol_primit');
+}
+
+function cleanSheetMarketKey(marketKey, market) {
+  if (marketKey === 'market_clean_sheet_home' || marketKey === 'market_clean_sheet_away') return marketKey;
+  const key = labelKey(market?.name);
+  if (key.includes('gazda') || key.includes('gazde') || key.includes('home')) return 'market_clean_sheet_home';
+  if (key.includes('oaspete') || key.includes('oaspeti') || key.includes('away')) return 'market_clean_sheet_away';
+  return null;
+}
+
+function isToQualifyMarket(market) {
+  const key = labelKey(market?.name);
+  return key.includes('califica') || key.includes('to_qualify') || key.includes('merge_mai_departe');
 }
 
 function addTotalGoalsMarket(markets, market, baseKey = 'totalGoals') {
