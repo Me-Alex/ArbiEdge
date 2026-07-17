@@ -1710,7 +1710,7 @@ function getAllOpportunities(events, options = {}) {
       opps.push(finalizeOpportunity(tmt, event, eventName, finalizationOptions));
     }
   }
-  return dedupeOpportunities(opps);
+  return dedupeOpportunities(opps).sort((a, b) => Number(b.edge || 0) - Number(a.edge || 0));
 }
 
 /** Keep the best edge when two detectors emit the same event/market/legs fingerprint. */

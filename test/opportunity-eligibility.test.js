@@ -48,6 +48,9 @@ test('isSupportedClassicMarket only approves explicit exhaustive schemas', () =>
   assert.equal(isSupportedClassicMarket('toQualify'), true);
   assert.equal(isSupportedClassicMarket('market_marcheaza_home'), true);
   assert.equal(isSupportedClassicMarket('totalGoals_2'), false);
+  assert.equal(isSupportedClassicMarket('market_total_goluri_home_1_5'), true);
+  assert.equal(isSupportedClassicMarket('market_total_goluri_away_0_5'), true);
+  assert.equal(isSupportedClassicMarket('market_total_goluri_home_1'), false);
 });
 
 test('push-settlement math candidates stay in review instead of rejected', () => {

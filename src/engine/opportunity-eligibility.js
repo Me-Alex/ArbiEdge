@@ -88,6 +88,8 @@ function isSupportedClassicMarket(marketKey) {
   const key = String(marketKey || '');
   if (SAFE_CLASSIC_MARKETS.has(key)) return true;
   if (YES_NO_TEAM_MARKET_RE.test(key)) return true;
+  // Team O/U half-lines are exhaustive 2-way (no push) — same as match totals.
+  if (TEAM_TOTAL_MARKET_RE.test(key) && isHalfLineMarket(key)) return true;
   return TOTAL_LINE_MARKET_RE.test(key) && isHalfLineMarket(key);
 }
 

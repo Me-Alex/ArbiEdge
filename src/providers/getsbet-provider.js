@@ -367,7 +367,13 @@ function normalizeGetsBetMarket(market, selections, match) {
     return outcomeMarket('h2h', selections, { home: 'home', draw: 'draw', away: 'away' }, ['home', 'draw', 'away']);
   }
 
-  if (bettingTypeId === '76' || label.includes('ambele echipe marcheaza')) {
+  if (bettingTypeId === '76' || label.includes('ambele echipe marcheaza') || label.includes('ambele marcheaza')) {
+    if (label.includes('pauza') || label.includes('prima repriza') || label.includes('1st half')) {
+      return outcomeMarket('firstHalfBothTeamsToScore', selections, { yes: 'yes', no: 'no' }, ['yes', 'no']);
+    }
+    if (label.includes('a doua') || label.includes('2nd half')) {
+      return outcomeMarket('secondHalfBothTeamsToScore', selections, { yes: 'yes', no: 'no' }, ['yes', 'no']);
+    }
     return outcomeMarket('bothTeamsToScore', selections, { yes: 'yes', no: 'no' }, ['yes', 'no']);
   }
 
@@ -383,16 +389,58 @@ function normalizeGetsBetMarket(market, selections, match) {
     }, ['home', 'draw', 'away']);
   }
 
-  if (label.includes('pariul se ramburseaza') || label.includes('draw no bet')) {
+  if (
+    label === 'pauza'
+    || label === 'prima repriza'
+    || label === 'rezultat pauza'
+    || (label.includes('1x2') && (label.includes('pauza') || label.includes('prima')))
+  ) {
+    return outcomeMarket('firstHalfH2h', selections, { home: 'home', draw: 'draw', away: 'away' }, ['home', 'draw', 'away']);
+  }
+
+  if (
+    label === 'a doua repriza'
+    || label === 'rezultat a doua repriza'
+    || (label.includes('1x2') && (label.includes('a doua') || label.includes('2nd')))
+  ) {
+    return outcomeMarket('secondHalfH2h', selections, { home: 'home', draw: 'draw', away: 'away' }, ['home', 'draw', 'away']);
+  }
+
+  if (label.includes('pariul se ramburseaza') || label.includes('draw no bet') || label.includes('fara egal')) {
     return outcomeMarket('drawNoBet', selections, { home: 'home', away: 'away' }, ['home', 'away']);
   }
 
   if (label.includes('sansa dubla') || label.includes('double chance')) {
-    return outcomeMarket('doubleChance', selections, {
+    const dcKey = (label.includes('pauza') || label.includes('prima'))
+      ? 'firstHalfDoubleChance'
+      : (label.includes('a doua') || label.includes('2nd'))
+        ? 'secondHalfDoubleChance'
+        : 'doubleChance';
+    return outcomeMarket(dcKey, selections, {
       homeDraw: 'homeDraw',
       homeAway: 'homeAway',
       drawAway: 'drawAway',
     }, ['homeDraw', 'homeAway', 'drawAway']);
+  }
+
+  if (
+    label.includes('par impar')
+    || label.includes('impar par')
+    || label.includes('odd even')
+    || label.includes('goluri par')
+  ) {
+    return outcomeMarket('market_total_goluri_impar_par', selections, {
+      odd: 'odd',
+      even: 'even',
+    }, ['odd', 'even']);
+  }
+
+  if (label.includes('total cartonase') || label.includes('cartonase peste sub')) {
+    return lineMarket(periodLineBaseKey(market, label, {
+      fulltime: ['totalCards', 'asianTotalCards'],
+      firstHalf: ['firstHalfTotalCards', 'firstHalfAsianTotalCards'],
+      secondHalf: ['secondHalfTotalCards', 'secondHalfAsianTotalCards'],
+    }), selections, market);
   }
 
   if (bettingTypeId === '47' && label.includes('total peste sub')) {

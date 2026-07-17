@@ -287,6 +287,62 @@ function normalizeNetBetMarkets(markets, { homeTeam, awayTeam }) {
       continue;
     }
 
+    // market_code / name based expansions when type ids differ by feed version.
+    const code = String(market.market_code || '').toLowerCase();
+    const name = String(market.name || market.market_name || '').toLowerCase();
+
+    if (code === 'draw_no_bet' || code === 'dnb' || name.includes('draw no bet') || name.includes('fara egal')) {
+      addOutcomeMarket(normalized, 'drawNoBet', market, {
+        W1: 'home', Home: 'home', '1': 'home',
+        W2: 'away', Away: 'away', '2': 'away',
+      }, ['home', 'away']);
+      continue;
+    }
+
+    if (code === 'odd_even' || code === 'goals_odd_even' || (name.includes('par') && name.includes('impar'))) {
+      addOutcomeMarket(normalized, 'market_total_goluri_impar_par', market, {
+        Odd: 'odd', Even: 'even', Par: 'even', Impar: 'odd',
+        odd: 'odd', even: 'even',
+      }, ['odd', 'even']);
+      continue;
+    }
+
+    if (code === 'total_corners' || name.includes('total cornere') || name.includes('total corners')) {
+      addLineMarkets(normalized, market, 'totalCorners');
+      continue;
+    }
+
+    if (code === 'total_cards' || name.includes('total cartonase') || name.includes('total cards')) {
+      addLineMarkets(normalized, market, 'totalCards');
+      continue;
+    }
+
+    if (
+      code === '2nd_half_result'
+      || code === 'second_half_1x2'
+      || name.includes('a doua repriza') && (name.includes('1x2') || name.includes('rezultat') || name === 'a doua repriza')
+    ) {
+      addOutcomeMarket(normalized, 'secondHalfH2h', market, {
+        W1: 'home', Home: 'home', '1': 'home',
+        X: 'draw', Draw: 'draw',
+        W2: 'away', Away: 'away', '2': 'away',
+      }, ['home', 'draw', 'away']);
+      continue;
+    }
+
+    if (code === '2nd_half_total' || code === 'second_half_total_goals') {
+      addLineMarkets(normalized, market, 'secondHalfTotalGoals');
+      continue;
+    }
+
+    if (code === 'to_qualify' || name.includes('to qualify') || name.includes('califica')) {
+      addOutcomeMarket(normalized, 'toQualify', market, {
+        W1: 'home', Home: 'home', '1': 'home',
+        W2: 'away', Away: 'away', '2': 'away',
+      }, ['home', 'away']);
+      continue;
+    }
+
     addGenericNetBetMarket(normalized, market, { homeTeam, awayTeam });
   }
   return normalized;

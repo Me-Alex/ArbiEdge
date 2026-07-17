@@ -256,10 +256,42 @@ function normalizeUnibetMarkets(propositions, { homeTeam, awayTeam } = {}) {
 
 function normalizeUnibetProposition(proposition, { homeTeam, awayTeam }) {
   const type = String(proposition.propositionType || '').toLowerCase();
+  const propositionName = normalizeLabel(proposition.name || proposition.displayName);
+
   if (type === '1x2') {
     return mapUnibetOutcomes(
       proposition,
       'h2h',
+      { 1: 'home', x: 'draw', 2: 'away' },
+      ['home', 'draw', 'away'],
+    );
+  }
+
+  if (
+    type === '1st_half_1x2'
+    || type === 'half_time_result'
+    || type === '1st_half_result'
+    || propositionName === 'pauza'
+    || propositionName === 'prima repriza'
+    || propositionName === '1st half'
+  ) {
+    return mapUnibetOutcomes(
+      proposition,
+      'firstHalfH2h',
+      { 1: 'home', x: 'draw', 2: 'away' },
+      ['home', 'draw', 'away'],
+    );
+  }
+
+  if (
+    type === '2nd_half_1x2'
+    || type === '2nd_half_result'
+    || propositionName === 'a doua repriza'
+    || propositionName === '2nd half'
+  ) {
+    return mapUnibetOutcomes(
+      proposition,
+      'secondHalfH2h',
       { 1: 'home', x: 'draw', 2: 'away' },
       ['home', 'draw', 'away'],
     );
@@ -274,6 +306,21 @@ function normalizeUnibetProposition(proposition, { homeTeam, awayTeam }) {
     );
   }
 
+  if (
+    type === '1st_half_double_chance'
+    || type === 'half_time_double_chance'
+    || propositionName.includes('sansa dubla') && (
+      propositionName.includes('pauza') || propositionName.includes('prima')
+    )
+  ) {
+    return mapUnibetOutcomes(
+      proposition,
+      'firstHalfDoubleChance',
+      { '1x': 'homeDraw', 12: 'homeAway', x2: 'drawAway' },
+      ['homeDraw', 'homeAway', 'drawAway'],
+    );
+  }
+
   if (type === 'both_teams_to_score') {
     return mapUnibetOutcomes(
       proposition,
@@ -283,12 +330,35 @@ function normalizeUnibetProposition(proposition, { homeTeam, awayTeam }) {
     );
   }
 
-  if (type === 'total') {
+  if (
+    type === '1st_half_both_teams_to_score'
+    || type === 'both_teams_to_score_1st_half'
+    || (propositionName.includes('ambele') && (
+      propositionName.includes('pauza') || propositionName.includes('prima')
+    ))
+  ) {
+    return mapUnibetOutcomes(
+      proposition,
+      'firstHalfBothTeamsToScore',
+      { da: 'yes', yes: 'yes', nu: 'no', no: 'no' },
+      ['yes', 'no'],
+    );
+  }
+
+  if (type === 'total' || type === 'match_total') {
     return mapUnibetLineMarket(proposition, 'totalGoals');
   }
 
-  if (type === '1st_half_total') {
+  if (type === 'asian_total' || type === 'asian_total_goals') {
+    return mapUnibetLineMarket(proposition, 'asianTotalGoals');
+  }
+
+  if (type === '1st_half_total' || type === 'half_time_total') {
     return mapUnibetLineMarket(proposition, 'firstHalfTotalGoals');
+  }
+
+  if (type === '2nd_half_total') {
+    return mapUnibetLineMarket(proposition, 'secondHalfTotalGoals');
   }
 
   if (type === 'draw_no_bet') {
@@ -300,9 +370,43 @@ function normalizeUnibetProposition(proposition, { homeTeam, awayTeam }) {
     );
   }
 
-  const propositionName = normalizeLabel(proposition.name || proposition.displayName);
-  if (propositionName === 'total cornere' || type === 'corner_total') {
+  if (
+    type === 'odd_even'
+    || type === 'goals_odd_even'
+    || propositionName.includes('par impar')
+    || propositionName.includes('odd even')
+  ) {
+    return mapUnibetOutcomes(
+      proposition,
+      'market_total_goluri_impar_par',
+      { par: 'even', impar: 'odd', even: 'even', odd: 'odd' },
+      ['odd', 'even'],
+    );
+  }
+
+  if (
+    propositionName === 'total cornere'
+    || type === 'corner_total'
+    || type === 'total_corners'
+  ) {
     return mapUnibetLineMarket(proposition, 'totalCorners');
+  }
+
+  if (
+    propositionName.includes('total cartonase')
+    || type === 'card_total'
+    || type === 'total_cards'
+  ) {
+    return mapUnibetLineMarket(proposition, 'totalCards');
+  }
+
+  if (type === 'to_qualify' || propositionName.includes('califica') || propositionName.includes('qualify')) {
+    return mapUnibetOutcomes(
+      proposition,
+      'toQualify',
+      { 1: 'home', 2: 'away' },
+      ['home', 'away'],
+    );
   }
 
   return normalizeGenericUnibetMarket(proposition, { homeTeam, awayTeam });

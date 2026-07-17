@@ -126,10 +126,17 @@ async function loadData(refresh = false) {
       state.scannerTab = 'review';
     }
     if (state.opportunities.length > 0) {
+      const rejected = state.opportunities.filter((opportunity) => opportunity.eligibility === 'rejected').length;
+      const middles = state.opportunities.filter((opportunity) => opportunity.type === 'middle').length;
       logActivity(
-        `${state.opportunities.length} semnale · ${actionable.length} acționabile · ${review.length} candidați`,
+        `${state.opportunities.length} semnale · ${actionable.length} acționabile · ${review.length} candidați · ${rejected} respinse · ${middles} middles`,
         'scanner',
       );
+      if (dataMode) {
+        dataMode.textContent = state.mode === 'demo'
+          ? `Demo · ${review.length} candidați`
+          : `Live · ${review.length} candidați · ${actionable.length} OK`;
+      }
     }
 
     const changes = detectArbChanges(actionable);
