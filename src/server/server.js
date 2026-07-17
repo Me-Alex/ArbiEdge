@@ -32,7 +32,8 @@ const log = createLogger({ level: process.env.LOG_LEVEL || 'info', json: process
 const port = parsePositiveInteger(process.env.PORT, 3000);
 const cacheTtlMs = parsePositiveInteger(
   process.env.ODDS_CACHE_TTL_MS,
-  60_000,
+  // Slightly longer default keeps cold UI responsive between provider rounds.
+  90_000,
 );
 const { configuredProviders, liveProviderName } = buildProviderConfig(process.env);
 

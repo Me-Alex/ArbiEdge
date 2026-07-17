@@ -85,6 +85,17 @@ const MARKET_ALIASES = {
     '1st half both teams to score',
     'gg pauza',
   ],
+  firstHalfDrawNoBet: [
+    'fara egal pauza',
+    'dnb pauza',
+    '1st half draw no bet',
+    'draw no bet first half',
+  ],
+  secondHalfDrawNoBet: [
+    'fara egal a doua repriza',
+    'dnb a doua repriza',
+    '2nd half draw no bet',
+  ],
 };
 
 const PERIOD_ALIASES = {
@@ -174,6 +185,12 @@ function parseMarketDescriptor(marketKey) {
   }
   if (key === 'secondHalfBothTeamsToScore') {
     return { marketKey: key, marketFamily: 'bothTeamsToScore', period: 'secondHalf', line: null, teamScope: null };
+  }
+  if (key === 'firstHalfDrawNoBet') {
+    return { marketKey: key, marketFamily: 'firstHalfDrawNoBet', period: 'firstHalf', line: null, teamScope: null };
+  }
+  if (key === 'secondHalfDrawNoBet') {
+    return { marketKey: key, marketFamily: 'secondHalfDrawNoBet', period: 'secondHalf', line: null, teamScope: null };
   }
   if (key === 'toQualify') {
     return { marketKey: key, marketFamily: 'toQualify', period: 'overtime', line: null, teamScope: null };

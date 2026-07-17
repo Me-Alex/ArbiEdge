@@ -57,6 +57,8 @@ const SAFE_CROSS_MARKETS = new Set([
   'cross_btts_no_asian_over_1_5',
   'cross_1H_btts_no_over_0_5',
   'cross_1H_btts_no_over_1_5',
+  'cross_1H_btts_no_asian_over_0_5',
+  'cross_1H_btts_no_asian_over_1_5',
   'cross_2H_btts_no_over_0_5',
   'cross_2H_btts_no_over_1_5',
   // Exhaustive partitions (overlap states only improve worst-case).

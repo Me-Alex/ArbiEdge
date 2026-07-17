@@ -226,8 +226,9 @@ function renderOpportunityCard(opportunity) {
     <div class="arb-card__signal">
       <div class="value-card__metric"><span>Model edge</span><strong>${formatPct(opportunity.edge)}</strong></div>
       <div class="value-card__metric"><span>${escapeHtml(profitLabel)}</span><strong class="${eligibility === 'actionable' ? 'arb-card__profit' : ''}">${Number(opportunity.profit) >= 0 ? '+' : ''}${Number(opportunity.profit).toFixed(2)} RON</strong></div>
-      <div class="value-card__metric"><span>Bookmakers</span><strong>${opportunity.sameBook ? '1 · blocked' : new Set((opportunity.legs || []).map((leg) => leg.bookmaker)).size}${Number(opportunity.independentFeedCount) > 0 ? ` · ${opportunity.independentFeedCount} feed` : ''}</strong></div>
+      <div class="value-card__metric"><span>Bookmakers</span><strong>${opportunity.sameBook ? '1 · blocked' : new Set((opportunity.legs || []).map((leg) => leg.bookmaker)).size}${Number(opportunity.independentFeedCount) >= 2 ? ` · ${opportunity.independentFeedCount} feed` : Number(opportunity.independentFeedCount) === 1 ? ' · 1 feed' : ''}</strong></div>
     </div>
+    ${Number(opportunity.independentFeedCount) >= 2 ? '<div class="muted-line scanner-feed-badge">Independent feeds · better execution diversity</div>' : ''}
     ${renderReasons(opportunity, eligibility)}
     <div class="arb-card__footer">
       <button class="${eligibility === 'actionable' ? 'primary-button' : 'ghost-button'} arb-detail-btn" type="button">${primaryLabel}</button>

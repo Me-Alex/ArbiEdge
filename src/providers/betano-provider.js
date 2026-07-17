@@ -1,5 +1,6 @@
 const {
   genericMarketKey,
+  handicapMarketKey,
   hasAnyCompleteMarket,
   hasCompleteOutcomes,
   isDecimalOdds,
@@ -151,11 +152,54 @@ function normalizeTypedBetanoMarket(market, teams = []) {
   if (['2HOU', 'SHOU'].includes(type) || /total goluri.*(a doua|2nd)/i.test(market.name || '')) {
     return lineMarketFromBetano(market, 'secondHalfTotalGoals');
   }
+  if (['AOTG', 'ASOU', 'ATOU'].includes(type) || /total goluri asiatice|asian total/i.test(market.name || '')) {
+    return lineMarketFromBetano(market, 'asianTotalGoals');
+  }
   if (['TCOR', 'OUCR', 'CRNR'].includes(type) || /total cornere|total corners/i.test(market.name || '')) {
     return lineMarketFromBetano(market, 'totalCorners');
   }
   if (['TCAR', 'OUCD', 'CARD'].includes(type) || /cartonas|cards|booking/i.test(market.name || '')) {
     return lineMarketFromBetano(market, 'totalCards');
+  }
+
+  // Team totals
+  if (['TTHG', 'HTOU', 'OU1'].includes(type) || /total goluri.*(gazde|gazda|home)/i.test(market.name || '')) {
+    return lineMarketFromBetano(market, 'market_total_goluri_home');
+  }
+  if (['TTAG', 'ATOU2', 'OU2'].includes(type) || /total goluri.*(oaspeti|oaspete|away)/i.test(market.name || '')) {
+    return lineMarketFromBetano(market, 'market_total_goluri_away');
+  }
+
+  // Team to score / clean sheet
+  if (['HTSC', 'HTTS'].includes(type) || /gazde.*marcheaza|gazda.*marcheaza|home to score/i.test(market.name || '')) {
+    const prices = yesNoPrices(market);
+    if (prices) return { key: 'market_marcheaza_home', prices };
+  }
+  if (['ATSC', 'ATTS'].includes(type) || /oaspeti.*marcheaza|oaspete.*marcheaza|away to score/i.test(market.name || '')) {
+    const prices = yesNoPrices(market);
+    if (prices) return { key: 'market_marcheaza_away', prices };
+  }
+  if (/fara gol primit|clean sheet/i.test(market.name || '')) {
+    const name = String(market.name || '').toLowerCase();
+    const prices = yesNoPrices(market);
+    if (prices) {
+      if (/gazda|gazde|home/.test(name)) return { key: 'market_clean_sheet_home', prices };
+      if (/oaspete|oaspeti|away/.test(name)) return { key: 'market_clean_sheet_away', prices };
+    }
+  }
+
+  // Asian handicap (2-way)
+  if (['AHCP', 'ASAH', 'GAHC'].includes(type) || /handicap asiatic|asian handicap/i.test(market.name || '')) {
+    return handicapMarketFromBetano(market, 'asianHandicap', teams);
+  }
+
+  // Half-period draw no bet (full-time DNOB handled above)
+  if (['HDNB', '1DNB'].includes(type) || /fara egal.*(pauza|prima)|dnb.*(1st|half)/i.test(market.name || '')) {
+    const home = teamSelectionPrice(market.selections, teams[0], ['1', 'home']);
+    const away = teamSelectionPrice(market.selections, teams[1], ['2', 'away']);
+    if (isDecimalOdds(home) && isDecimalOdds(away)) {
+      return { key: 'firstHalfDrawNoBet', prices: { home, away } };
+    }
   }
 
   // Odd/even goals
@@ -174,6 +218,39 @@ function normalizeTypedBetanoMarket(market, teams = []) {
   }
 
   return null;
+}
+
+function handicapMarketFromBetano(market, baseKey, teams = []) {
+  const prices = {};
+  let homeLine = null;
+  for (const selection of market.selections || []) {
+    if (!isActiveBetanoSelection(selection) || !isDecimalOdds(selection.price)) continue;
+    const raw = String(selection.name || selection.title || '');
+    const line = Number(selection.handicap ?? selection.line ?? selection.argument);
+    const side = raw === '1' || /home|1\s*\(/i.test(raw)
+      ? 'home'
+      : raw === '2' || /away|2\s*\(/i.test(raw)
+        ? 'away'
+        : null;
+    if (!side) {
+      // Team-name based sides when available.
+      if (teams[0] && teamNamesCompatible(raw, teams[0])) {
+        prices.home = selection.price;
+        if (Number.isFinite(line)) homeLine = line;
+        continue;
+      }
+      if (teams[1] && teamNamesCompatible(raw, teams[1])) {
+        prices.away = selection.price;
+        continue;
+      }
+      continue;
+    }
+    prices[side] = selection.price;
+    if (side === 'home' && Number.isFinite(line)) homeLine = line;
+  }
+  if (!prices.home || !prices.away || !Number.isFinite(homeLine)) return null;
+  const key = handicapMarketKey(baseKey, homeLine);
+  return key ? { key, prices: { home: prices.home, away: prices.away } } : null;
 }
 
 function normalizeGenericBetanoMarket(market) {

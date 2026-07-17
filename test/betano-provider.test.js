@@ -78,6 +78,14 @@ test('normalizes browser-collected Betano markets', async () => {
               { name: 'X2', price: 2.75 },
             ],
           },
+          {
+            type: 'TTHG',
+            name: 'Total goluri gazde',
+            selections: [
+              { name: 'Peste 1.5', price: 2.1 },
+              { name: 'Sub 1.5', price: 1.7 },
+            ],
+          },
         ],
       }],
     },
@@ -116,6 +124,10 @@ test('normalizes browser-collected Betano markets', async () => {
     homeDraw: 1.12,
     homeAway: 1.22,
     drawAway: 2.75,
+  });
+  assert.deepEqual(events[0].bookmakers[0].markets.market_total_goluri_home_1_5, {
+    over: 2.1,
+    under: 1.7,
   });
 });
 

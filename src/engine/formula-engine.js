@@ -768,7 +768,67 @@ function detectCrossMarketArbitrage(event) {
     ...detectTeamScoreVsCleanSheetCross(event),
     ...detectDnbVsDoubleChanceCross(event),
     ...detectH2hVsDnbMirrorCross(event),
+    ...detectQualifyVsDnbCross(event),
   ];
+}
+
+/**
+ * Soft: To-qualify Home vs Away DNB (and inverse). Extra-time qualification and
+ * DNB push on draw mean this is review-only (unsupported_formula / push).
+ */
+function detectQualifyVsDnbCross(event) {
+  const results = [];
+  const qualify = findBestPrices(event, 'toQualify');
+  const dnb = findBestPrices(event, 'drawNoBet');
+  if (qualify.home && dnb.away) {
+    pushCrossMarketPair(results, {
+      marketKey: 'cross_qualify_home_dnb_away',
+      marketLabel: 'To Qualify Home + DNB Away',
+      legA: {
+        outcome: 'home',
+        label: 'Qualify 1',
+        bookmaker: qualify.home.bookmaker,
+        price: qualify.home.price,
+        url: qualify.home.url,
+        marketKey: qualify.home.marketKey || 'toQualify',
+        verificationStatus: qualify.home.verificationStatus,
+      },
+      legB: {
+        outcome: 'away',
+        label: 'DNB 2',
+        bookmaker: dnb.away.bookmaker,
+        price: dnb.away.price,
+        url: dnb.away.url,
+        marketKey: dnb.away.marketKey || 'drawNoBet',
+        verificationStatus: dnb.away.verificationStatus,
+      },
+    });
+  }
+  if (qualify.away && dnb.home) {
+    pushCrossMarketPair(results, {
+      marketKey: 'cross_qualify_away_dnb_home',
+      marketLabel: 'To Qualify Away + DNB Home',
+      legA: {
+        outcome: 'away',
+        label: 'Qualify 2',
+        bookmaker: qualify.away.bookmaker,
+        price: qualify.away.price,
+        url: qualify.away.url,
+        marketKey: qualify.away.marketKey || 'toQualify',
+        verificationStatus: qualify.away.verificationStatus,
+      },
+      legB: {
+        outcome: 'home',
+        label: 'DNB 1',
+        bookmaker: dnb.home.bookmaker,
+        price: dnb.home.price,
+        url: dnb.home.url,
+        marketKey: dnb.home.marketKey || 'drawNoBet',
+        verificationStatus: dnb.home.verificationStatus,
+      },
+    });
+  }
+  return results;
 }
 
 /**
@@ -1115,6 +1175,20 @@ function detectBttsTotalsSoftCross(event) {
       marketKey: 'cross_1H_btts_no_over_1_5',
       marketLabel: '1H BTTS No + Over 1.5',
       overLabel: '1H Over 1.5',
+    },
+    {
+      bttsKey: 'firstHalfBothTeamsToScore',
+      totalKey: 'firstHalfAsianTotalGoals_0_5',
+      marketKey: 'cross_1H_btts_no_asian_over_0_5',
+      marketLabel: '1H BTTS No + Asian Over 0.5',
+      overLabel: '1H Asian Over 0.5',
+    },
+    {
+      bttsKey: 'firstHalfBothTeamsToScore',
+      totalKey: 'firstHalfAsianTotalGoals_1_5',
+      marketKey: 'cross_1H_btts_no_asian_over_1_5',
+      marketLabel: '1H BTTS No + Asian Over 1.5',
+      overLabel: '1H Asian Over 1.5',
     },
     {
       bttsKey: 'secondHalfBothTeamsToScore',
@@ -2053,7 +2127,7 @@ function opportunityFingerprint(opportunity) {
   ].join('::');
 }
 
-function getValueBets(events, maxBets = 30) {
+function getValueBets(events, maxBets = 40) {
   const bets = [];
   for (const event of events) {
     const eventName = `${event.homeTeam} vs ${event.awayTeam}`;
