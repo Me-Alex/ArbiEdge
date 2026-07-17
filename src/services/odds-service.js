@@ -8,7 +8,7 @@ class OddsService {
   constructor({
     liveProvider = null,
     demoProvider,
-    cacheTtlMs = 60_000,
+    cacheTtlMs = 90_000,
     now = () => new Date(),
     oddsAudit = auditOdds,
     maxSnapshots = 2,

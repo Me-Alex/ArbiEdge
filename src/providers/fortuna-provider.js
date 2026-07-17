@@ -469,6 +469,60 @@ function normalizeFortunaMarket(market, context = {}) {
   ) {
     return mapOutcomes(market, 'secondHalfH2h', { 1: 'home', X: 'draw', 2: 'away' }, ['home', 'draw', 'away']);
   }
+  if (
+    synthetic === '2nd_half_both_teams_to_score'
+    || synthetic === 'both_teams_to_score_in_2nd_half'
+    || (synthetic.includes('2nd_half') && synthetic.includes('both_team'))
+    || (synthetic.includes('both_team') && synthetic.includes('2nd_half'))
+  ) {
+    return mapOutcomes(
+      market,
+      'secondHalfBothTeamsToScore',
+      { Da: 'yes', Nu: 'no', Yes: 'yes', No: 'no' },
+      ['yes', 'no'],
+    );
+  }
+  if (
+    synthetic === '1st_half_draw_no_bet'
+    || synthetic === 'half_time_draw_no_bet'
+    || (synthetic.includes('draw_no_bet') && synthetic.includes('1st_half'))
+    || (synthetic.includes('fara_egal') && synthetic.includes('pauza'))
+  ) {
+    return mapOutcomes(market, 'firstHalfDrawNoBet', { 1: 'home', 2: 'away' }, ['home', 'away']);
+  }
+  if (
+    synthetic === '2nd_half_draw_no_bet'
+    || (synthetic.includes('draw_no_bet') && synthetic.includes('2nd_half'))
+  ) {
+    return mapOutcomes(market, 'secondHalfDrawNoBet', { 1: 'home', 2: 'away' }, ['home', 'away']);
+  }
+  if (
+    synthetic === 'asian_total_goals'
+    || synthetic === 'total_goals_asian'
+    || synthetic.includes('asian_total_goal')
+  ) {
+    return normalizeLineMarket(market, 'asianTotalGoals');
+  }
+  if (
+    synthetic === 'asian_total_corners'
+    || synthetic.includes('asian') && synthetic.includes('corner')
+  ) {
+    return normalizeLineMarket(market, 'asianTotalCorners');
+  }
+  if (
+    synthetic.includes('home_to_score')
+    || synthetic.includes('home_team_to_score')
+    || synthetic === 'home_scores'
+  ) {
+    return mapOutcomes(market, 'market_marcheaza_home', { Da: 'yes', Nu: 'no', Yes: 'yes', No: 'no' }, ['yes', 'no']);
+  }
+  if (
+    synthetic.includes('away_to_score')
+    || synthetic.includes('away_team_to_score')
+    || synthetic === 'away_scores'
+  ) {
+    return mapOutcomes(market, 'market_marcheaza_away', { Da: 'yes', Nu: 'no', Yes: 'yes', No: 'no' }, ['yes', 'no']);
+  }
   if (isMatchHandicapKey(synthetic)) {
     return normalizeHandicapMarket(market, context);
   }

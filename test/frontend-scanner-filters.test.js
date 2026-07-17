@@ -112,8 +112,8 @@ test('scanner market type selection controls visible opportunities and CSV rows'
 
   assert.deepEqual(visible.map((opp) => opp.eventName), ['Goals Game']);
   assert.deepEqual(buildScannerCsvRows(visible), [
-    ['Event', 'Market', 'Queue', 'Edge', 'Model Profit', 'Evidence', 'Reasons', 'Legs'],
-    ['Goals Game', 'Goals', 'actionable', '4.0%', '4.00', 'verified', '', 'Over@BookB:verified'],
+    ['Event', 'Kickoff', 'Market', 'Type', 'FormulaFamily', 'Queue', 'Edge', 'Model Profit', 'IndependentFeeds', 'Evidence', 'Reasons', 'Legs'],
+    ['Goals Game', '', 'Goals', '', '', 'actionable', '4.0%', '4.00', '', 'verified', '', 'Over@BookB:verified'],
   ]);
 });
 

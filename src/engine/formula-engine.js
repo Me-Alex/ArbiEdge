@@ -1204,6 +1204,20 @@ function detectBttsTotalsSoftCross(event) {
       marketLabel: '2H BTTS No + Over 1.5',
       overLabel: '2H Over 1.5',
     },
+    {
+      bttsKey: 'secondHalfBothTeamsToScore',
+      totalKey: 'secondHalfAsianTotalGoals_0_5',
+      marketKey: 'cross_2H_btts_no_asian_over_0_5',
+      marketLabel: '2H BTTS No + Asian Over 0.5',
+      overLabel: '2H Asian Over 0.5',
+    },
+    {
+      bttsKey: 'secondHalfBothTeamsToScore',
+      totalKey: 'secondHalfAsianTotalGoals_1_5',
+      marketKey: 'cross_2H_btts_no_asian_over_1_5',
+      marketLabel: '2H BTTS No + Asian Over 1.5',
+      overLabel: '2H Asian Over 1.5',
+    },
   ];
 
   for (const pair of pairs) {
@@ -1590,6 +1604,11 @@ function detectBttsTeamScoreArbitrage(event) {
       bttsKey: 'firstHalfBothTeamsToScore',
       prefix: '1H_',
       labelPrefix: '1H ',
+    }),
+    ...detectBttsTeamScoreForScope(event, {
+      bttsKey: 'secondHalfBothTeamsToScore',
+      prefix: '2H_',
+      labelPrefix: '2H ',
     }),
   ];
 }

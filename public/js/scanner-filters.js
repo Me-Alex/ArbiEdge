@@ -148,14 +148,31 @@ export function getScannerTabName(tab = 'actionable') {
 }
 
 export function buildScannerCsvRows(opportunities) {
-  const rows = [['Event', 'Market', 'Queue', 'Edge', 'Model Profit', 'Evidence', 'Reasons', 'Legs']];
+  const rows = [[
+    'Event',
+    'Kickoff',
+    'Market',
+    'Type',
+    'FormulaFamily',
+    'Queue',
+    'Edge',
+    'Model Profit',
+    'IndependentFeeds',
+    'Evidence',
+    'Reasons',
+    'Legs',
+  ]];
   for (const opp of opportunities || []) {
     rows.push([
       opp.eventName || '',
+      opp.kickoff || '',
       opp.marketLabel || opp.marketKey || '',
+      opp.type || '',
+      opp.formulaFamily || '',
       getOpportunityEligibility(opp),
       `${(Number(opp.edge || 0) * 100).toFixed(1)}%`,
       Number(opp.profit || 0).toFixed(2),
+      String(opp.independentFeedCount ?? ''),
       getOpportunityVerificationStatuses(opp).join(' | '),
       (opp.eligibilityReasons || []).join(' | '),
       (opp.legs || []).map((leg) => `${leg.label}@${leg.bookmaker}:${leg.verificationStatus || 'unverified'}`).join(' | '),

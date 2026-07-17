@@ -379,6 +379,67 @@ function normalizeUfoMarket(market, context = {}) {
     return mapUfoOutcomes(market, 'secondHalfH2h', { 1: 'home', X: 'draw', 2: 'away' }, ['home', 'draw', 'away']);
   }
 
+  if (
+    synthetic === '2nd_half_both_teams_to_score'
+    || synthetic === 'both_teams_to_score_in_2nd_half'
+    || (synthetic.includes('2nd_half') && synthetic.includes('both_team'))
+    || (synthetic.includes('both_team') && synthetic.includes('2nd_half'))
+  ) {
+    return mapUfoOutcomes(
+      market,
+      'secondHalfBothTeamsToScore',
+      { Da: 'yes', Nu: 'no', Yes: 'yes', No: 'no' },
+      ['yes', 'no'],
+    );
+  }
+
+  if (
+    synthetic === '1st_half_draw_no_bet'
+    || synthetic === 'half_time_draw_no_bet'
+    || (synthetic.includes('draw_no_bet') && synthetic.includes('1st_half'))
+    || (synthetic.includes('fara_egal') && synthetic.includes('pauza'))
+  ) {
+    return mapUfoOutcomes(market, 'firstHalfDrawNoBet', { 1: 'home', 2: 'away' }, ['home', 'away']);
+  }
+
+  if (
+    synthetic === '2nd_half_draw_no_bet'
+    || (synthetic.includes('draw_no_bet') && synthetic.includes('2nd_half'))
+  ) {
+    return mapUfoOutcomes(market, 'secondHalfDrawNoBet', { 1: 'home', 2: 'away' }, ['home', 'away']);
+  }
+
+  if (
+    synthetic === 'asian_total_goals'
+    || synthetic === 'total_goals_asian'
+    || synthetic.includes('asian_total_goal')
+  ) {
+    return normalizeUfoLineMarket(market, 'asianTotalGoals');
+  }
+
+  if (
+    synthetic === 'asian_total_corners'
+    || (synthetic.includes('asian') && synthetic.includes('corner'))
+  ) {
+    return normalizeUfoLineMarket(market, 'asianTotalCorners');
+  }
+
+  if (
+    synthetic.includes('home_to_score')
+    || synthetic.includes('home_team_to_score')
+    || synthetic === 'home_scores'
+  ) {
+    return mapUfoOutcomes(market, 'market_marcheaza_home', { Da: 'yes', Nu: 'no', Yes: 'yes', No: 'no' }, ['yes', 'no']);
+  }
+
+  if (
+    synthetic.includes('away_to_score')
+    || synthetic.includes('away_team_to_score')
+    || synthetic === 'away_scores'
+  ) {
+    return mapUfoOutcomes(market, 'market_marcheaza_away', { Da: 'yes', Nu: 'no', Yes: 'yes', No: 'no' }, ['yes', 'no']);
+  }
+
   if (isMatchHandicapKey(synthetic)) {
     return normalizeUfoHandicapMarket(market, context);
   }
