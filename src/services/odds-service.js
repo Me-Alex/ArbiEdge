@@ -55,7 +55,21 @@ class OddsService {
       return this.cache.value;
     }
 
+    // Stale-while-revalidate: concurrent clients can use the last snapshot (up to
+    // 5 minutes old) while another request is already refreshing the feed.
     if (this.inFlight) {
+      const staleEvents = this.cache?.value?.events;
+      const staleAgeMs = this.cache?.createdAtMs != null
+        ? nowMs - this.cache.createdAtMs
+        : null;
+      if (
+        Array.isArray(staleEvents)
+        && staleEvents.length > 0
+        && Number.isFinite(staleAgeMs)
+        && staleAgeMs < 5 * 60_000
+      ) {
+        return this.cache.value;
+      }
       return this.inFlight;
     }
 
@@ -80,6 +94,10 @@ class OddsService {
         error,
         now: this.now,
       });
+      // Prefer last good snapshot over hard failure when possible (UI stays usable).
+      if (this.cache?.value?.events?.length > 0) {
+        return this.cache.value;
+      }
       throw error;
     } finally {
       this.inFlight = null;

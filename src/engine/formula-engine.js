@@ -777,20 +777,43 @@ function detectCrossMarketArbitrage(event) {
  * on the DNB stake return, so classic dutch underestimates floor → review only.
  */
 function detectH2hVsDnbMirrorCross(event) {
+  return [
+    ...detectH2hVsDnbForScope(event, {
+      h2hKey: 'h2h',
+      dnbKey: 'drawNoBet',
+      prefix: '',
+      labelPrefix: '',
+    }),
+    ...detectH2hVsDnbForScope(event, {
+      h2hKey: 'firstHalfH2h',
+      dnbKey: 'firstHalfDrawNoBet',
+      prefix: '1H_',
+      labelPrefix: '1H ',
+    }),
+    ...detectH2hVsDnbForScope(event, {
+      h2hKey: 'secondHalfH2h',
+      dnbKey: 'secondHalfDrawNoBet',
+      prefix: '2H_',
+      labelPrefix: '2H ',
+    }),
+  ];
+}
+
+function detectH2hVsDnbForScope(event, { h2hKey, dnbKey, prefix, labelPrefix }) {
   const results = [];
-  const h2h = findBestPrices(event, 'h2h');
-  const dnb = findBestPrices(event, 'drawNoBet');
+  const h2h = findBestPrices(event, h2hKey);
+  const dnb = findBestPrices(event, dnbKey);
   if (h2h.home && dnb.away) {
     pushCrossMarketPair(results, {
-      marketKey: 'cross_h2h_home_dnb_away',
-      marketLabel: '1 (1X2) + DNB Away',
+      marketKey: `cross_${prefix}h2h_home_dnb_away`,
+      marketLabel: `${labelPrefix}1 (1X2) + DNB Away`.trim(),
       legA: {
         outcome: 'home',
         label: '1',
         bookmaker: h2h.home.bookmaker,
         price: h2h.home.price,
         url: h2h.home.url,
-        marketKey: h2h.home.marketKey || 'h2h',
+        marketKey: h2h.home.marketKey || h2hKey,
         verificationStatus: h2h.home.verificationStatus,
       },
       legB: {
@@ -799,22 +822,22 @@ function detectH2hVsDnbMirrorCross(event) {
         bookmaker: dnb.away.bookmaker,
         price: dnb.away.price,
         url: dnb.away.url,
-        marketKey: dnb.away.marketKey || 'drawNoBet',
+        marketKey: dnb.away.marketKey || dnbKey,
         verificationStatus: dnb.away.verificationStatus,
       },
     });
   }
   if (h2h.away && dnb.home) {
     pushCrossMarketPair(results, {
-      marketKey: 'cross_h2h_away_dnb_home',
-      marketLabel: '2 (1X2) + DNB Home',
+      marketKey: `cross_${prefix}h2h_away_dnb_home`,
+      marketLabel: `${labelPrefix}2 (1X2) + DNB Home`.trim(),
       legA: {
         outcome: 'away',
         label: '2',
         bookmaker: h2h.away.bookmaker,
         price: h2h.away.price,
         url: h2h.away.url,
-        marketKey: h2h.away.marketKey || 'h2h',
+        marketKey: h2h.away.marketKey || h2hKey,
         verificationStatus: h2h.away.verificationStatus,
       },
       legB: {
@@ -823,7 +846,7 @@ function detectH2hVsDnbMirrorCross(event) {
         bookmaker: dnb.home.bookmaker,
         price: dnb.home.price,
         url: dnb.home.url,
-        marketKey: dnb.home.marketKey || 'drawNoBet',
+        marketKey: dnb.home.marketKey || dnbKey,
         verificationStatus: dnb.home.verificationStatus,
       },
     });

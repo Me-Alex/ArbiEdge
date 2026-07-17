@@ -280,8 +280,18 @@ function normalizeSuperbetMarketGroup(group, { homeTeam, awayTeam }) {
     );
   }
 
-  if (isMatchDrawNoBetLabel(label)) {
-    return mapSuperbetTeamOutcomes(group, 'drawNoBet', { homeTeam, awayTeam });
+  if (
+    normalizedLabel.includes('fara egal')
+    || normalizedLabel.includes('draw no bet')
+    || normalizedLabel.includes('egal pariu')
+    || isMatchDrawNoBetLabel(label)
+  ) {
+    const dnbKey = (normalizedLabel.includes('pauza') || normalizedLabel.includes('prima'))
+      ? 'firstHalfDrawNoBet'
+      : (normalizedLabel.includes('a doua') || normalizedLabel.includes('2nd'))
+        ? 'secondHalfDrawNoBet'
+        : 'drawNoBet';
+    return mapSuperbetTeamOutcomes(group, dnbKey, { homeTeam, awayTeam });
   }
 
   if (normalizedLabel === 'pauza sau final') {

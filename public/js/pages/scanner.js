@@ -41,7 +41,14 @@ function renderScannerOverview() {
   const counts = getScannerTabCounts();
   const candidateCount = counts.actionable + counts.review + counts.rejected;
   const typeHint = (() => {
-    const byType = state.opportunitySummary?.byType;
+    const summary = state.opportunitySummary;
+    if (summary?.topFamilies?.length) {
+      const parts = summary.topFamilies.slice(0, 4).map((item) => `${item.count} ${item.family}`);
+      const multi = Number(summary.multiFeed || 0);
+      if (multi > 0) parts.push(`${multi} multi-feed`);
+      return parts.join(' · ');
+    }
+    const byType = summary?.byType;
     if (byType && typeof byType === 'object') {
       const parts = Object.entries(byType)
         .sort((a, b) => b[1] - a[1])

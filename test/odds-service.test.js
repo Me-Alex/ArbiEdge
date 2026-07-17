@@ -286,6 +286,48 @@ test('reuses cached results until the TTL expires', async () => {
   assert.equal(calls, 2);
 });
 
+test('serves stale cache to concurrent clients while a refresh is in flight', async () => {
+  let resolveRefresh;
+  let calls = 0;
+  let currentTime = new Date('2026-06-21T12:00:00Z');
+  const service = new OddsService({
+    liveProvider: {
+      name: 'Fortuna',
+      getOdds: async () => {
+        calls += 1;
+        if (calls === 1) {
+          return {
+            events: liveEvents,
+            providers: [{ name: 'Fortuna', ok: true, events: 1, durationMs: 10 }],
+          };
+        }
+        return new Promise((resolve) => {
+          resolveRefresh = () => resolve({
+            events: liveEvents,
+            providers: [{ name: 'Fortuna', ok: true, events: 1, durationMs: 10 }],
+          });
+        });
+      },
+    },
+    demoProvider: { getOdds: async () => demoEvents },
+    cacheTtlMs: 1_000,
+    now: () => currentTime,
+  });
+
+  await service.getOdds();
+  assert.equal(calls, 1);
+
+  currentTime = new Date('2026-06-21T12:00:02Z'); // past TTL
+  const pending = service.getOdds(); // starts refresh #2
+  await Promise.resolve();
+  const stale = await service.getOdds(); // should SWR without waiting
+  assert.equal(stale.events.length, liveEvents.length);
+  assert.equal(calls, 2);
+
+  resolveRefresh();
+  await pending;
+});
+
 test('coalesces concurrent refresh requests', async () => {
   let resolveLive;
   let calls = 0;

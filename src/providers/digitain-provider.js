@@ -426,9 +426,94 @@ function normalizeDigitainMarkets(matchBets, { homeTeam, awayTeam } = {}) {
         '1': 'home',
         '2': 'away',
       });
-      if (hasOutcomes(prices, ['home', 'away']) && !markets.drawNoBet) {
-        markets.drawNoBet = prices;
+      const dnbKey = marketName.includes('pauza') || marketName.includes('prima')
+        ? 'firstHalfDrawNoBet'
+        : marketName.includes('a doua') || marketName.includes('repriza 2')
+          ? 'secondHalfDrawNoBet'
+          : 'drawNoBet';
+      if (hasOutcomes(prices, ['home', 'away']) && !markets[dnbKey]) {
+        markets[dnbKey] = prices;
       }
+      continue;
+    }
+
+    if (
+      marketName.includes('total goluri asiatice')
+      || marketName.includes('asian total goals')
+      || marketName.includes('goluri asian')
+    ) {
+      addDigitainLineMarkets(markets, market, 'asianTotalGoals');
+      continue;
+    }
+
+    if (
+      marketName.includes('total goluri')
+      && (marketName.includes('gazde') || marketName.includes('gazda') || marketName.includes('home') || marketName.includes('echipa 1'))
+    ) {
+      addDigitainLineMarkets(markets, market, 'market_total_goluri_home');
+      continue;
+    }
+
+    if (
+      marketName.includes('total goluri')
+      && (marketName.includes('oaspeti') || marketName.includes('oaspete') || marketName.includes('away') || marketName.includes('echipa 2'))
+    ) {
+      addDigitainLineMarkets(markets, market, 'market_total_goluri_away');
+      continue;
+    }
+
+    if (
+      (marketName.includes('marcheaza') || marketName.includes('to score'))
+      && (marketName.includes('gazde') || marketName.includes('gazda') || marketName.includes('home'))
+    ) {
+      const prices = digitainPrices(market, {
+        Da: 'yes', Nu: 'no', Yes: 'yes', No: 'no',
+      });
+      if (hasOutcomes(prices, ['yes', 'no']) && !markets.market_marcheaza_home) {
+        markets.market_marcheaza_home = prices;
+      }
+      continue;
+    }
+
+    if (
+      (marketName.includes('marcheaza') || marketName.includes('to score'))
+      && (marketName.includes('oaspeti') || marketName.includes('oaspete') || marketName.includes('away'))
+    ) {
+      const prices = digitainPrices(market, {
+        Da: 'yes', Nu: 'no', Yes: 'yes', No: 'no',
+      });
+      if (hasOutcomes(prices, ['yes', 'no']) && !markets.market_marcheaza_away) {
+        markets.market_marcheaza_away = prices;
+      }
+      continue;
+    }
+
+    if (
+      marketName.includes('sansa dubla')
+      || marketName.includes('double chance')
+    ) {
+      const prices = digitainPrices(market, {
+        '1X': 'homeDraw',
+        '12': 'homeAway',
+        X2: 'drawAway',
+      });
+      const dcKey = marketName.includes('pauza') || marketName.includes('prima')
+        ? 'firstHalfDoubleChance'
+        : marketName.includes('a doua') || marketName.includes('repriza 2')
+          ? 'secondHalfDoubleChance'
+          : 'doubleChance';
+      if (hasOutcomes(prices, ['homeDraw', 'homeAway', 'drawAway']) && !markets[dcKey]) {
+        markets[dcKey] = prices;
+      }
+      continue;
+    }
+
+    if (
+      marketName.includes('handicap asiatic')
+      || marketName.includes('asian handicap')
+    ) {
+      // Generic line handler via handicapMarketKey paths in generic normalizer.
+      addGenericDigitainMarket(markets, market, { homeTeam, awayTeam });
       continue;
     }
 
