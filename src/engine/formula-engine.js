@@ -791,7 +791,8 @@ function detectCrossMarketArbitrage(event) {
  */
 function detectH2hDcVsAhHalfCross(event) {
   const results = [];
-  const halfLines = [0.5, 1.5];
+  // Common half-lines on RO books; 2.5 appears on short-priced favourites.
+  const halfLines = [0.5, 1.5, 2.5];
   const h2h = findBestPrices(event, 'h2h');
   const dc = findBestPrices(event, 'doubleChance');
 
@@ -2326,23 +2327,13 @@ function pushThreeWayCross(results, {
 }
 
 function detectBttsTeamScoreArbitrage(event) {
-  return [
-    ...detectBttsTeamScoreForScope(event, {
-      bttsKey: 'bothTeamsToScore',
-      prefix: '',
-      labelPrefix: '',
-    }),
-    ...detectBttsTeamScoreForScope(event, {
-      bttsKey: 'firstHalfBothTeamsToScore',
-      prefix: '1H_',
-      labelPrefix: '1H ',
-    }),
-    ...detectBttsTeamScoreForScope(event, {
-      bttsKey: 'secondHalfBothTeamsToScore',
-      prefix: '2H_',
-      labelPrefix: '2H ',
-    }),
-  ];
+  // Full-time BTTS only: team-to-score / clean-sheet / team O/U 0.5 markets are
+  // FT-scoped in providers. Pairing them with half BTTS produced false edges.
+  return detectBttsTeamScoreForScope(event, {
+    bttsKey: 'bothTeamsToScore',
+    prefix: '',
+    labelPrefix: '',
+  });
 }
 
 function detectBttsTeamScoreForScope(event, { bttsKey, prefix, labelPrefix }) {

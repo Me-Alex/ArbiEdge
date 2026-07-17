@@ -430,6 +430,16 @@ function normalizeBetconstructMarkets(rawMarkets, { homeTeam, awayTeam } = {}) {
       }, ['yes', 'no']);
       continue;
     }
+    if (
+      typeKey === 'secondhalfbothteamstoscore'
+      || typeKey === 'bothteamstoscoresecondhalf'
+      || typeKey === '2ndhalfbothteamstoscore'
+    ) {
+      addOutcomeMarket(normalized, 'secondHalfBothTeamsToScore', events, {
+        Yes: 'yes', No: 'no',
+      }, ['yes', 'no']);
+      continue;
+    }
     if (typeKey === 'drawnobet' || typeKey === 'dnb') {
       addOutcomeMarket(normalized, 'drawNoBet', events, {
         P1: 'home', P2: 'away', '1': 'home', '2': 'away',
@@ -495,6 +505,13 @@ function normalizeBetconstructMarkets(rawMarkets, { homeTeam, awayTeam } = {}) {
       addOverUnderMarket(normalized, `firstHalfAsianTotalGoals_${lineKey(line)}`, events);
       continue;
     }
+    if (
+      (typeKey === 'secondhalfoverunderasian' || typeKey === '2ndhalfoverunderasian')
+      && Number.isFinite(line)
+    ) {
+      addOverUnderMarket(normalized, `secondHalfAsianTotalGoals_${lineKey(line)}`, events);
+      continue;
+    }
     if (['team1overunder', 'team1totaloverunderasian'].includes(typeKey) && Number.isFinite(line)) {
       addOverUnderMarket(normalized, `market_total_goluri_home_${lineKey(line)}`, events);
       continue;
@@ -513,6 +530,38 @@ function normalizeBetconstructMarkets(rawMarkets, { homeTeam, awayTeam } = {}) {
       addOutcomeMarket(normalized, 'market_marcheaza_away', events, {
         Yes: 'yes', No: 'no',
       }, ['yes', 'no']);
+      continue;
+    }
+    if (
+      typeKey === 'team1cleansheet'
+      || typeKey === 'team1clean_sheet'
+      || typeKey === 'homecleansheet'
+      || typeKey === 'homeclean_sheet'
+    ) {
+      addOutcomeMarket(normalized, 'market_clean_sheet_home', events, {
+        Yes: 'yes', No: 'no',
+      }, ['yes', 'no']);
+      continue;
+    }
+    if (
+      typeKey === 'team2cleansheet'
+      || typeKey === 'team2clean_sheet'
+      || typeKey === 'awaycleansheet'
+      || typeKey === 'awayclean_sheet'
+    ) {
+      addOutcomeMarket(normalized, 'market_clean_sheet_away', events, {
+        Yes: 'yes', No: 'no',
+      }, ['yes', 'no']);
+      continue;
+    }
+    if (
+      typeKey === 'toqualify'
+      || typeKey === 'willqualify'
+      || typeKey === 'qualify'
+    ) {
+      addOutcomeMarket(normalized, 'toQualify', events, {
+        P1: 'home', P2: 'away', '1': 'home', '2': 'away', Yes: 'home', No: 'away',
+      }, ['home', 'away']);
       continue;
     }
     if (typeKey === 'asianhandicap') {

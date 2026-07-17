@@ -189,6 +189,44 @@ test('normalizes core BetConstruct football market families', () => {
   assert.deepEqual(markets.market_marcheaza_away, { yes: 1.18, no: 3.88 });
 });
 
+test('normalizes BetConstruct clean sheets, to-qualify, and 2H BTTS', () => {
+  const markets = normalizeBetconstructMarkets({
+    50: {
+      type: 'Team1CleanSheet',
+      event: {
+        1: { type: 'Yes', price: 2.4 },
+        2: { type: 'No', price: 1.5 },
+      },
+    },
+    51: {
+      type: 'Team2CleanSheet',
+      event: {
+        1: { type: 'Yes', price: 3.1 },
+        2: { type: 'No', price: 1.35 },
+      },
+    },
+    52: {
+      type: 'ToQualify',
+      event: {
+        1: { type: 'P1', price: 1.6 },
+        2: { type: 'P2', price: 2.3 },
+      },
+    },
+    53: {
+      type: 'SecondHalfBothTeamsToScore',
+      event: {
+        1: { type: 'Yes', price: 2.1 },
+        2: { type: 'No', price: 1.7 },
+      },
+    },
+  }, { homeTeam: 'Suwon', awayTeam: 'Seoul E-Land' });
+
+  assert.deepEqual(markets.market_clean_sheet_home, { yes: 2.4, no: 1.5 });
+  assert.deepEqual(markets.market_clean_sheet_away, { yes: 3.1, no: 1.35 });
+  assert.deepEqual(markets.toQualify, { home: 1.6, away: 2.3 });
+  assert.deepEqual(markets.secondHalfBothTeamsToScore, { yes: 2.1, no: 1.7 });
+});
+
 test('normalizes real matches and rejects antepost competitions', () => {
   const events = normalizeBetconstructPayload(fixturePayload(), {
     bookmaker: 'ExampleBet',

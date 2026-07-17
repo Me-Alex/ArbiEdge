@@ -85,10 +85,17 @@ async function loadData(refresh = false) {
       const ready = await fetchJson('/api/readiness');
       if (!detail) return;
       if (ready?.status === 'warming') {
-        detail.textContent = `Server se încălzește${ready.reason ? ` (${ready.reason})` : ''}. Nu reîncărca — colectarea rulează pe server.`;
-        if (dataMode) dataMode.textContent = 'Warming';
+        const eventsHint = Number(ready?.diagnostics?.cache?.events || 0);
+        const inFlight = ready?.diagnostics?.inFlight ? 'refresh în curs' : null;
+        const bits = [ready.reason, inFlight, eventsHint > 0 ? `${eventsHint} evenimente în cache` : null]
+          .filter(Boolean);
+        detail.textContent = `Server se încălzește${bits.length ? ` (${bits.join(' · ')})` : ''}. Nu reîncărca — colectarea rulează pe server.`;
+        if (dataMode) dataMode.textContent = eventsHint > 0 ? `Warming · ${eventsHint} ev` : 'Warming';
       } else if (ready?.status === 'ready') {
-        detail.textContent = 'Sursele răspund — finalizăm încărcarea cotelor și a candidaților…';
+        const eventsHint = Number(ready?.diagnostics?.cache?.events || ready?.diagnostics?.lastRefresh?.events || 0);
+        detail.textContent = eventsHint > 0
+          ? `Sursele răspund (${eventsHint} evenimente) — finalizăm încărcarea cotelor și a candidaților…`
+          : 'Sursele răspund — finalizăm încărcarea cotelor și a candidaților…';
         if (dataMode) dataMode.textContent = 'Gata · încărcare';
       }
     } catch {

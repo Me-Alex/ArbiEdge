@@ -914,6 +914,30 @@ test('detectCrossMarketArbitrage finds exhaustive 1 vs AH2(+0.5) half-line cover
   assert.ok(hit.edge > 0);
 });
 
+test('detectCrossMarketArbitrage finds 1 vs AH2(+2.5) half-line covers', () => {
+  const event = makeEvent({
+    bookmakers: [
+      {
+        name: 'BookA',
+        markets: {
+          h2h: { home: 1.7, draw: 4.0, away: 5.0 },
+          asianHandicap_minus_2_5: { home: 1.9, away: 1.95 },
+        },
+      },
+      {
+        name: 'BookB',
+        markets: {
+          h2h: { home: 1.65, draw: 4.1, away: 5.2 },
+          asianHandicap_minus_2_5: { home: 1.85, away: 2.6 },
+        },
+      },
+    ],
+  });
+  // home 1.7 + AH2(+2.5) away 2.6 → 1/1.7 + 1/2.6 ≈ 0.973
+  const results = detectCrossMarketArbitrage(event);
+  assert.ok(results.some((item) => item.marketKey === 'cross_h2h_home_ah2_plus_2_5'));
+});
+
 test('detectCrossMarketArbitrage finds DC 1X + AH0 Away soft covers', () => {
   const event = makeEvent({
     bookmakers: [
@@ -1207,6 +1231,19 @@ test('detectBttsTeamScoreArbitrage finds edge from BTTS and Team clean sheets', 
   assert.strictEqual(results[0].legs[0].bookmaker, 'BookA');
   assert.strictEqual(results[0].legs[1].bookmaker, 'BookB');
   assert.strictEqual(results[0].legs[2].bookmaker, 'BookC');
+});
+
+test('detectBttsTeamScoreArbitrage does not pair half BTTS with full-time team markets', () => {
+  const event = makeEvent({
+    bookmakers: [
+      { name: 'BookA', markets: { firstHalfBothTeamsToScore: { yes: 2.2, no: 1.7 } } },
+      { name: 'BookB', markets: { market_marcheaza_home: { no: 4.0 } } },
+      { name: 'BookC', markets: { market_marcheaza_away: { no: 4.0 } } },
+    ],
+  });
+  const results = detectBttsTeamScoreArbitrage(event);
+  assert.ok(!results.some((item) => String(item.marketKey).includes('1H_')));
+  assert.strictEqual(results.length, 0);
 });
 
 test('detectTeamMatchTotalArbitrage finds edge from team totals vs match totals', () => {

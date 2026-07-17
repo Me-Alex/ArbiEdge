@@ -64,12 +64,9 @@ const SAFE_CROSS_MARKETS = new Set([
   'cross_2H_btts_no_asian_over_0_5',
   'cross_2H_btts_no_asian_over_1_5',
   // Exhaustive partitions (overlap states only improve worst-case).
+  // FT BTTS only — team score / CS / team O/U markets are full-time scoped.
   'cross_btts_team_score',
   'cross_btts_no_both_score',
-  'cross_1H_btts_team_score',
-  'cross_1H_btts_no_both_score',
-  'cross_2H_btts_team_score',
-  'cross_2H_btts_no_both_score',
   'cross_home_score_vs_no',
   'cross_away_score_vs_no',
   'cross_home_score_vs_away_cs',
@@ -88,12 +85,16 @@ const SAFE_CROSS_MARKETS = new Set([
   // H2H / DC ↔ AH half-line partitions (no push).
   'cross_h2h_home_ah2_plus_0_5',
   'cross_h2h_home_ah2_plus_1_5',
+  'cross_h2h_home_ah2_plus_2_5',
   'cross_h2h_away_ah1_plus_0_5',
   'cross_h2h_away_ah1_plus_1_5',
+  'cross_h2h_away_ah1_plus_2_5',
   'cross_dc_1x_ah2_minus_0_5',
   'cross_dc_1x_ah2_minus_1_5',
+  'cross_dc_1x_ah2_minus_2_5',
   'cross_dc_x2_ah1_minus_0_5',
   'cross_dc_x2_ah1_minus_1_5',
+  'cross_dc_x2_ah1_minus_2_5',
 ]);
 
 const TOTAL_LINE_MARKET_RE = /^(?:total|asianTotal|firstHalfTotal|secondHalfTotal|firstHalfAsianTotal|secondHalfAsianTotal)(?:Goals|Corners|Cards|Points|Games|Sets)_\d+(?:_\d+)?$/;
