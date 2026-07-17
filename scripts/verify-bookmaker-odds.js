@@ -336,6 +336,9 @@ async function verifyCandidateOnPage(page, candidate, {
     await acceptCookiePrompt(page);
     await page.waitForLoadState('networkidle', { timeout: 12_000 }).catch(() => {});
     await page.waitForTimeout(1_000);
+    // Expand/scroll market sections so pure BTTS/totals cards enter the DOM
+    // (Superbet and similar SPAs only render above-the-fold markets first).
+    await prepareBookmakerEventPage(page, candidate);
   } finally {
     networkEvidence.stop();
   }
@@ -545,10 +548,12 @@ function createNetworkEvidenceCollector(page, candidate) {
 }
 
 async function collectNetworkRows(response, candidate, targetHostname) {
-  if (!targetHostname || response.status() >= 400) return [];
+  if (response.status() >= 400) return [];
   const url = response.url();
   const hostname = safeHostname(url);
-  if (!hostname || hostname !== targetHostname) return [];
+  // Accept same-site responses and known sportsbook API/CDN hosts. Superbet
+  // serves offer JSON from Fastly, Digitain/EGT/XSport use separate API hosts.
+  if (!hostname || !isAllowedNetworkEvidenceHost(hostname, targetHostname)) return [];
   const headers = response.headers();
   const contentType = headers['content-type'] || '';
   const length = Number(headers['content-length'] || 0);
@@ -558,12 +563,82 @@ async function collectNetworkRows(response, candidate, targetHostname) {
   return extractNetworkRowsFromBody(body, candidate, url);
 }
 
+function isAllowedNetworkEvidenceHost(hostname, bookmakerHostname) {
+  const host = String(hostname || '').toLowerCase();
+  const bookmakerHost = String(bookmakerHostname || '').toLowerCase();
+  if (!host) return false;
+  if (bookmakerHost && (host === bookmakerHost || host.endsWith(`.${bookmakerHost}`))) {
+    return true;
+  }
+  // Shared Romanian sportsbook infrastructure used by multiple brands.
+  return /(?:^|\.)(?:fastly\.(?:net|com)|cloudfront\.net|akamaihd\.net|edgekey\.net|edgesuite\.net|freetls\.fastly\.net|digitain|egt-digital|nsoft|xsport|exalogic|sportradar|kambi|openbet|beter|betconstruct)/i.test(host)
+    || /(?:api|offer|sportsbook|datastore|distribution)/i.test(host);
+}
+
+async function prepareBookmakerEventPage(page, candidate) {
+  try {
+    await acceptCookiePrompt(page);
+    // Click common market-group tabs / "Toate piețele" expanders when present.
+    const clickLabels = [
+      'Toate',
+      'Toate piețele',
+      'All markets',
+      'Piețe',
+      'Markets',
+      'Goluri',
+      'Goals',
+      'Ambele echipe',
+      'GG',
+      'BTTS',
+    ];
+    for (const label of clickLabels) {
+      const locator = page.getByRole('button', { name: new RegExp(`^${escapeRegExp(label)}$`, 'i') }).first();
+      if (await locator.count().catch(() => 0)) {
+        await locator.click({ timeout: 800 }).catch(() => {});
+      }
+      const textLocator = page.locator(`text=${label}`).first();
+      if (await textLocator.count().catch(() => 0)) {
+        await textLocator.click({ timeout: 800 }).catch(() => {});
+      }
+    }
+
+    // Scroll through the event page so lazy-rendered market cards mount.
+    for (const y of [400, 900, 1400, 2000, 2800, 0]) {
+      await page.evaluate((scrollY) => window.scrollTo(0, scrollY), y).catch(() => {});
+      await page.waitForTimeout(250).catch(() => {});
+    }
+
+    // Prefer scrolling a market card that mentions the first missing market family.
+    const marketHints = (candidate?.prices || [])
+      .map((check) => check.marketLabel || check.marketKey)
+      .filter(Boolean)
+      .slice(0, 6);
+    for (const hint of marketHints) {
+      const card = page.locator(`text=/${escapeRegExp(String(hint)).slice(0, 24)}/i`).first();
+      if (await card.count().catch(() => 0)) {
+        await card.scrollIntoViewIfNeeded().catch(() => {});
+        await page.waitForTimeout(200).catch(() => {});
+      }
+    }
+  } catch {
+    // Page preparation is best-effort; verification still runs on whatever rendered.
+  }
+}
+
+function escapeRegExp(value) {
+  return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function networkBodyMatchesCandidate(body, candidate) {
   const normalized = normalizeText(body);
   const homeFound = containsText(normalized, candidate?.event?.homeTeam);
   const awayFound = containsText(normalized, candidate?.event?.awayTeam);
+  const eventId = String(candidate?.event?.id || '').split(':').pop();
+  const idFound = Boolean(eventId) && (
+    String(body).includes(eventId) || normalized.includes(normalizeText(eventId))
+  );
   const priceFound = (candidate?.prices || []).some((check) => textContainsPrice(body, check.price));
-  return homeFound && awayFound && priceFound;
+  return ((homeFound && awayFound) || idFound) && priceFound;
 }
 
 function extractNetworkRowsFromBody(body, candidate, url) {
@@ -582,16 +657,22 @@ function extractNetworkRowsFromBody(body, candidate, url) {
   };
 
   if (parsed) {
+    // Prefer compact market+outcome+price rows for Superbet-style offer payloads.
     visitJsonNodes(parsed, (node) => {
-      if (node && typeof node === 'object') {
-        maybePush(JSON.stringify(node));
+      if (!node || typeof node !== 'object' || Array.isArray(node)) return;
+      const marketName = node.marketName || node.market || node.name || node.market_name;
+      const outcomeName = node.outcomeName || node.selectionName || node.oddName || node.name;
+      const price = node.price ?? node.odd ?? node.odds ?? node.decimalPrice;
+      if (marketName && outcomeName && Number.isFinite(Number(price))) {
+        maybePush(`${marketName} ${outcomeName} ${Number(price).toFixed(2)}`);
       }
+      maybePush(JSON.stringify(node));
     });
   } else {
     maybePush(body.slice(0, 2500));
   }
 
-  return rows.slice(0, 80);
+  return rows.slice(0, 120);
 }
 
 function visitJsonNodes(node, visit, depth = 0) {
@@ -752,6 +833,8 @@ module.exports = {
   collectPriceChecks,
   decimalPriceVariants,
   eventMeetsMinHours,
+  isAllowedNetworkEvidenceHost,
+  networkBodyMatchesCandidate,
   providerMatches,
   selectCandidate,
   slug,

@@ -7,6 +7,8 @@ const {
   collectPriceChecks,
   decimalPriceVariants,
   eventMeetsMinHours,
+  isAllowedNetworkEvidenceHost,
+  networkBodyMatchesCandidate,
   providerMatches,
   selectCandidate,
   textContainsPrice,
@@ -14,6 +16,29 @@ const {
 
 test('decimalPriceVariants supports dot, comma, fixed, and trimmed prices', () => {
   assert.deepEqual(decimalPriceVariants(3.8), ['3.80', '3,80', '3.8', '3,8']);
+});
+
+test('allows Superbet Fastly API hosts for network fidelity evidence', () => {
+  assert.equal(
+    isAllowedNetworkEvidenceHost('production-superbet-offer-ro.freetls.fastly.net', 'superbet.ro'),
+    true,
+  );
+  assert.equal(isAllowedNetworkEvidenceHost('exalogic.lasvegas.ro', 'lasvegas.ro'), true);
+  assert.equal(isAllowedNetworkEvidenceHost('evil.example', 'superbet.ro'), false);
+});
+
+test('network body matches by event id when team names are abbreviated', () => {
+  const candidate = {
+    event: { id: 'superbet:13865104', homeTeam: 'Mainz', awayTeam: 'Kaiserslautern' },
+    prices: [{ price: 1.4 }],
+  };
+  assert.equal(
+    networkBodyMatchesCandidate(
+      JSON.stringify({ eventId: 13865104, marketName: 'Ambele echipe marcheaza', name: 'Da', price: 1.4 }),
+      candidate,
+    ),
+    true,
+  );
 });
 
 test('textContainsPrice matches standalone decimal odds only', () => {

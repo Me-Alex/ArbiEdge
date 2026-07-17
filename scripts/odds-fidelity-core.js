@@ -60,7 +60,15 @@ const MARKET_ALIASES = {
   h2h: ['1x2', 'rezultat final', 'final', 'castigator', 'match winner', 'winner'],
   doubleChance: ['sansa dubla', 'double chance'],
   drawNoBet: ['egal pariul se ramburseaza', 'draw no bet', 'dnb'],
-  bothTeamsToScore: ['ambele echipe marcheaza', 'both teams to score', 'btts', 'gg'],
+  // Prefer full labels first. Short "gg" is still accepted, but combo cards
+  // such as "GG & Over 2.5" are rejected by isContaminatedMarketContext().
+  bothTeamsToScore: [
+    'ambele echipe marcheaza',
+    'ambele marcheaza',
+    'both teams to score',
+    'btts',
+    'gg',
+  ],
   totalGoals: ['total goluri', 'goluri total', 'total goals', 'goluri', 'goals'],
   totalPoints: ['total puncte', 'puncte total', 'total points', 'points'],
   totalGames: ['total jocuri', 'jocuri total', 'total games', 'games'],
@@ -264,18 +272,23 @@ function verifyOddAgainstText(record, visibleText, options = {}) {
 
 function evaluateContextBlock(block, record, priceTolerance) {
   const normalizedBlock = normalizeText(block.text);
-  const marketFound = hasAnyAlias(normalizedBlock, marketAliasesForRecord(record));
+  const contaminated = isContaminatedMarketContext(record, normalizedBlock, block.text);
+  const marketFound = !contaminated && hasAnyAlias(normalizedBlock, marketAliasesForRecord(record));
   const lineFound = record.line === null || record.line === undefined || lineTokenFound(normalizedBlock, record.line);
   const outcomeFound = hasAnyAlias(normalizedBlock, outcomeAliasesForRecord(record));
   const periodFound = periodMatches(normalizedBlock, record.period);
   const priceMatch = textContainsPrice(block.text, record.endpointPrice, priceTolerance);
-  const websitePrice = priceMatch?.price || bestWebsitePrice(block.text, record);
+  // Only harvest a website price from pure market context. Combo cards
+  // (e.g. "GG & Over 2.5") must not be treated as the standalone market.
+  const websitePrice = contaminated
+    ? null
+    : (priceMatch?.price || bestWebsitePrice(block.text, record));
   const contextMatched = marketFound && lineFound && outcomeFound && periodFound;
 
   return {
     ...block,
     contextMatched,
-    priceMatched: Boolean(priceMatch),
+    priceMatched: Boolean(priceMatch) && !contaminated,
     websitePrice,
     evidence: {
       source: block.source,
@@ -286,13 +299,53 @@ function evaluateContextBlock(block, record, priceTolerance) {
       lineFound,
       outcomeFound,
       periodFound,
-      priceFound: Boolean(priceMatch),
+      priceFound: Boolean(priceMatch) && !contaminated,
       contextMatched,
+      contaminated,
       contextSample: sampleText(block.text),
       marketAliases: marketAliasesForRecord(record),
       outcomeAliases: outcomeAliasesForRecord(record),
     },
   };
+}
+
+/**
+ * Reject multi-leg promo/combo cards when verifying a single canonical market.
+ * Superbet carousels often show "GG & Peste 2.5" next to pure BTTS; those must
+ * not be accepted as evidence for bothTeamsToScore or totalGoals alone.
+ */
+function isContaminatedMarketContext(record, normalizedBlock, rawText = '') {
+  const family = parseMarketDescriptor(record.marketKey).marketFamily;
+  const text = String(normalizedBlock || '');
+  const raw = normalizeText(rawText || '');
+  const haystack = `${text} ${raw}`.trim();
+  if (!haystack) return false;
+
+  const hasComboConnector = /\b(gg|btts|ambele)\b.{0,24}\b(&|si|sau|and|or|\+|\/)\b|\b(&|si|sau|and|or|\+|\/)\b.{0,24}\b(gg|btts|peste|sub|over|under)\b/.test(haystack)
+    || /\b(gg|btts)\s*&\s*/.test(haystack)
+    || /\bgg\s+(sau|si|and|or)\s+/.test(haystack)
+    || /\bambele\s+echipe\s+marcheaza\s*(&|si|sau|and|or)/.test(haystack);
+
+  if (family === 'bothTeamsToScore') {
+    // Pure BTTS card should not also name a goals-total combo leg.
+    if (hasComboConnector && /\b(peste|sub|over|under|goluri|goals)\b/.test(haystack)) {
+      return true;
+    }
+    // "GG & Peste 2.5 goluri - Da 1.57" style carousel items.
+    if (/\b(gg|btts)\b.{0,40}\b(peste|sub|over|under)\b/.test(haystack)
+      && /\b(peste|sub|over|under)\b.{0,12}\d/.test(haystack)) {
+      return true;
+    }
+  }
+
+  if (family === 'totalGoals' || family === 'totalCorners' || family === 'totalCards') {
+    // Pure totals should not live inside a BTTS combo card.
+    if (hasComboConnector && /\b(gg|btts|ambele)\b/.test(haystack)) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 function buildContextBlocks(visibleText, record, contextRows = []) {

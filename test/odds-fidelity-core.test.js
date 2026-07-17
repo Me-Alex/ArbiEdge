@@ -195,6 +195,59 @@ test('can verify from proven network-payload context tied to visible event page'
   assert.equal(result.evidence.networkUrl, 'https://example.test/api/event/1');
 });
 
+test('rejects Superbet-style BTTS combo carousel as pure bothTeamsToScore evidence', () => {
+  const record = expected({
+    marketKey: 'bothTeamsToScore',
+    outcome: 'yes',
+    price: 1.4,
+  });
+  const text = `
+    Brommapojkarna vs GAIS
+    Allsvenskan football event page
+    Final 1 1.53 X 4.45 2 4.60
+  `;
+
+  const result = verifyOddAgainstText(record, text, {
+    contextRows: [{
+      source: 'dom-row',
+      selector: 'li.sds-base-carousel-item',
+      text: '129+ au pariat pe asta GG & Peste 2.5 goluri - Da 1.57',
+    }],
+  });
+
+  assert.notEqual(result.status, FIDELITY_STATUSES.verified);
+  assert.notEqual(result.status, FIDELITY_STATUSES.mismatch);
+  assert.ok(
+    result.status === FIDELITY_STATUSES.notFound
+    || result.status === FIDELITY_STATUSES.ambiguous
+    || result.websitePrice == null,
+  );
+});
+
+test('verifies pure Ambele echipe marcheaza market for bothTeamsToScore', () => {
+  const record = expected({
+    marketKey: 'bothTeamsToScore',
+    outcome: 'yes',
+    price: 1.4,
+  });
+  const text = `
+    Brommapojkarna vs GAIS
+    Allsvenskan football event page
+  `;
+
+  const result = verifyOddAgainstText(record, text, {
+    contextRows: [{
+      source: 'dom-row',
+      selector: 'div.single-market-card',
+      text: 'Ambele echipe marcheaza Da 1.40 Nu 2.75',
+    }],
+  });
+
+  assert.equal(result.status, FIDELITY_STATUSES.verified);
+  assert.equal(result.websitePrice, 1.4);
+  assert.equal(result.evidence.contaminated, false);
+});
+
 test('rejects first-half website context for a full-time corners endpoint odd', () => {
   const record = expected({
     marketKey: 'totalCorners_6_5',
