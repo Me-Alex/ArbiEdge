@@ -461,6 +461,88 @@ function routeXsportLabelMarket(normalized, market) {
 
   if (label.includes('total cornere') || label.includes('total corners')) {
     addXsportOverUnderMarket(normalized, market, 'totalCorners');
+    return;
+  }
+
+  if (
+    (label.includes('total') && (label.includes('asiatic') || label.includes('asian')))
+    && (label.includes('gol') || label.includes('goal'))
+  ) {
+    const base = (label.includes('pauza') || label.includes('prima') || label.includes('1st'))
+      ? 'firstHalfAsianTotalGoals'
+      : (label.includes('a doua') || label.includes('2nd') || label.includes('second'))
+        ? 'secondHalfAsianTotalGoals'
+        : 'asianTotalGoals';
+    addXsportOverUnderMarket(normalized, market, base);
+    return;
+  }
+
+  if (label.includes('sansa dubla') || label.includes('double chance')) {
+    const key = (label.includes('pauza') || label.includes('prima') || label.includes('1st'))
+      ? 'firstHalfDoubleChance'
+      : (label.includes('a doua') || label.includes('2nd') || label.includes('second'))
+        ? 'secondHalfDoubleChance'
+        : 'doubleChance';
+    // XSport often splits DC into separate markets; try full three-way first.
+    addXsportOutcomeMarket(normalized, key, market, {
+      1: 'homeDraw',
+      2: 'homeAway',
+      3: 'drawAway',
+    }, ['homeDraw', 'homeAway', 'drawAway']);
+    return;
+  }
+
+  if (
+    (label.includes('marcheaza') || label.includes('to score') || label.includes('sa inscrie'))
+    && (label.includes('gazda') || label.includes('gazde') || label.includes('home'))
+  ) {
+    addXsportOutcomeMarket(normalized, 'market_marcheaza_home', market, {
+      1: 'yes',
+      2: 'no',
+    }, ['yes', 'no']);
+    return;
+  }
+
+  if (
+    (label.includes('marcheaza') || label.includes('to score') || label.includes('sa inscrie'))
+    && (label.includes('oaspete') || label.includes('oaspeti') || label.includes('away'))
+  ) {
+    addXsportOutcomeMarket(normalized, 'market_marcheaza_away', market, {
+      1: 'yes',
+      2: 'no',
+    }, ['yes', 'no']);
+    return;
+  }
+
+  if (
+    label.includes('fara gol primit')
+    || label.includes('clean sheet')
+    || label.includes('nu primeste gol')
+  ) {
+    const side = (label.includes('gazda') || label.includes('gazde') || label.includes('home'))
+      ? 'home'
+      : (label.includes('oaspete') || label.includes('oaspeti') || label.includes('away'))
+        ? 'away'
+        : null;
+    if (side) {
+      addXsportOutcomeMarket(normalized, `market_clean_sheet_${side}`, market, {
+        1: 'yes',
+        2: 'no',
+      }, ['yes', 'no']);
+    }
+    return;
+  }
+
+  if (
+    label.includes('se califica')
+    || label.includes('to qualify')
+    || label.includes('calificare')
+    || label.includes('merge mai departe')
+  ) {
+    addXsportOutcomeMarket(normalized, 'toQualify', market, {
+      1: 'home',
+      2: 'away',
+    }, ['home', 'away']);
   }
 }
 

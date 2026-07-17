@@ -965,6 +965,33 @@ test('detectCrossMarketArbitrage discovers non-default AH half-lines from the ev
   assert.ok(results.some((item) => item.marketKey === 'cross_h2h_home_ah2_plus_3_5'));
 });
 
+test('detectCrossMarketArbitrage surfaces to-qualify vs double-chance soft pairs', () => {
+  const event = makeEvent({
+    bookmakers: [
+      {
+        name: 'BookA',
+        markets: {
+          toQualify: { home: 1.6, away: 2.3 },
+          doubleChance: { homeDraw: 1.35, homeAway: 1.28, drawAway: 1.55 },
+        },
+      },
+      {
+        name: 'BookB',
+        markets: {
+          toQualify: { home: 1.55, away: 2.45 },
+          doubleChance: { homeDraw: 1.32, homeAway: 1.25, drawAway: 2.2 },
+        },
+      },
+    ],
+  });
+  // qualify home 1.6 + X2 2.2 → 1/1.6 + 1/2.2 ≈ 1.08 — need better
+  event.bookmakers[0].markets.toQualify.home = 1.75;
+  event.bookmakers[1].markets.doubleChance.drawAway = 2.4;
+  // 1.75 + 2.4 → 1/1.75 + 1/2.4 ≈ 0.988
+  const results = detectCrossMarketArbitrage(event);
+  assert.ok(results.some((item) => item.marketKey === 'cross_qualify_home_dc_x2'));
+});
+
 test('detectCrossMarketArbitrage finds DC 1X + AH0 Away soft covers', () => {
   const event = makeEvent({
     bookmakers: [

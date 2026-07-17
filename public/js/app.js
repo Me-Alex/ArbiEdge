@@ -125,10 +125,14 @@ async function loadData(refresh = false) {
     try { renderBookmakers(); } catch { /* optional early paint */ }
     try { renderJournal(); } catch { /* optional early paint */ }
 
-    // Odds is the slow call; opportunities/value reuse the same in-flight refresh.
-    const odds = await fetchJson(oddsUrl);
-    const [opps, vb] = await Promise.all([
-      fetchJson('/api/opportunities?sort=edge'),
+    // Fetch odds, opportunities, and value-bets together so the scanner paints
+    // candidates as soon as any cached/in-flight refresh is usable (cold start).
+    const sort = state.scannerSort === 'feeds' || state.scannerSort === 'kickoff'
+      ? state.scannerSort
+      : 'edge';
+    const [odds, opps, vb] = await Promise.all([
+      fetchJson(oddsUrl),
+      fetchJson(`/api/opportunities?sort=${encodeURIComponent(sort)}`),
       fetchJson('/api/value-bets?limit=40'),
     ]);
     state.mode = odds.mode || 'demo';

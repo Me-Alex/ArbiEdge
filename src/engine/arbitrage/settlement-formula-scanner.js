@@ -132,8 +132,9 @@ function totalsBandDefinitions(anchor) {
 
 function resultSubstitutionDefinitions(options = {}) {
   const handicapDoubleChanceLines = options.handicapDoubleChanceLines
-    || [-1, -0.75, -0.5, -0.25, 0, 0.25, 0.5, 0.75, 1];
-  const halfHandicapLines = options.halfHandicapLines || [0.5, 1.5, -0.5, -1.5];
+    || [-2, -1.5, -1.25, -1, -0.75, -0.5, -0.25, 0, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 2];
+  const halfHandicapLines = options.halfHandicapLines
+    || [0.5, 1.5, 2.5, 3.5, -0.5, -1.5, -2.5, -3.5];
   const ah = (side, line) => selection(
     'handicap',
     `AH${side === 'home' ? '1' : '2'}(${formatLine(line)})`,
@@ -351,13 +352,15 @@ function createAdditionalFormulaDefinitions(options = {}) {
 function createSettlementFormulaDefinitions(options = {}) {
   // Wider default line grid → more formula candidates when books post those lines.
   const handicapLines = options.handicapLines || [
-    -1.5, -1.25, -1, -0.75, -0.5, -0.25, 0, 0.25, 0.5, 0.75, 1, 1.25, 1.5,
+    -2.5, -2, -1.75, -1.5, -1.25, -1, -0.75, -0.5, -0.25, 0,
+    0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.5,
   ];
   const bridgeLines = options.bridgeLines || [
-    -1, -0.75, -0.5, -0.25, 0.25, 0.5, 0.75, 1,
+    -1.5, -1.25, -1, -0.75, -0.5, -0.25, 0.25, 0.5, 0.75, 1, 1.25, 1.5,
   ];
+  // 1.0 … 10.5 in half-goal steps (skip 0.5 anchor — band uses anchor±0.5).
   const totalsAnchors = options.totalsAnchors
-    || Array.from({ length: 16 }, (_, index) => (index + 1) * 0.5 + 0.5); // 1, 1.5, … 8.5
+    || Array.from({ length: 20 }, (_, index) => index * 0.5 + 1); // 1 … 10.5
 
   return [
     ...handicapLines.flatMap(resultHandicapDefinitions),

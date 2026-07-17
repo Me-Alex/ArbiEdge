@@ -777,7 +777,69 @@ function detectCrossMarketArbitrage(event) {
     ...detectAhZeroVsDnbCross(event),
     ...detectDcVsAhZeroCross(event),
     ...detectH2hDcVsAhHalfCross(event),
+    ...detectQualifyVsDcCross(event),
   ];
+}
+
+/**
+ * Soft review covers: To Qualify Home + DC X2 (and inverse).
+ * Not exhaustive under ET/penalties settlement — stays unsupported_formula → review.
+ */
+function detectQualifyVsDcCross(event) {
+  const results = [];
+  const qualify = findBestPrices(event, 'toQualify');
+  const dc = findBestPrices(event, 'doubleChance');
+  if (!qualify.home || !qualify.away) return results;
+
+  if (qualify.home && dc.drawAway) {
+    pushCrossMarketPair(results, {
+      marketKey: 'cross_qualify_home_dc_x2',
+      marketLabel: 'To Qualify Home + X2 (DC)',
+      legA: {
+        outcome: 'home',
+        label: 'Qualify 1',
+        bookmaker: qualify.home.bookmaker,
+        price: qualify.home.price,
+        url: qualify.home.url,
+        marketKey: qualify.home.marketKey || 'toQualify',
+        verificationStatus: qualify.home.verificationStatus,
+      },
+      legB: {
+        outcome: 'drawAway',
+        label: 'X2',
+        bookmaker: dc.drawAway.bookmaker,
+        price: dc.drawAway.price,
+        url: dc.drawAway.url,
+        marketKey: dc.drawAway.marketKey || 'doubleChance',
+        verificationStatus: dc.drawAway.verificationStatus,
+      },
+    });
+  }
+  if (qualify.away && dc.homeDraw) {
+    pushCrossMarketPair(results, {
+      marketKey: 'cross_qualify_away_dc_1x',
+      marketLabel: 'To Qualify Away + 1X (DC)',
+      legA: {
+        outcome: 'away',
+        label: 'Qualify 2',
+        bookmaker: qualify.away.bookmaker,
+        price: qualify.away.price,
+        url: qualify.away.url,
+        marketKey: qualify.away.marketKey || 'toQualify',
+        verificationStatus: qualify.away.verificationStatus,
+      },
+      legB: {
+        outcome: 'homeDraw',
+        label: '1X',
+        bookmaker: dc.homeDraw.bookmaker,
+        price: dc.homeDraw.price,
+        url: dc.homeDraw.url,
+        marketKey: dc.homeDraw.marketKey || 'doubleChance',
+        verificationStatus: dc.homeDraw.verificationStatus,
+      },
+    });
+  }
+  return results;
 }
 
 /**
@@ -1990,7 +2052,8 @@ function detectMiddleBets(event) {
 
   // Pair any lower Over with higher Under in the same family (not only adjacent
   // lines) so e.g. Over 2.5 / Under 3.5 is found when 3.0 sits between them.
-  const MAX_MIDDLE_GAP = 3.0;
+  // Wider windows surface more analysis middles (still non-actionable).
+  const MAX_MIDDLE_GAP = 4.0;
   const pushMiddle = (lower, higher, { crossFamily = false } = {}) => {
     if (higher.line <= lower.line) return;
     const gap = higher.line - lower.line;

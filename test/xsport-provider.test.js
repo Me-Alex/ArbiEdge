@@ -166,6 +166,47 @@ test('normalizes XSport period markets from labels when ids are brand-specific',
   assert.deepEqual(event.bookmakers[0].markets.secondHalfBothTeamsToScore, { yes: 2.1, no: 1.7 });
 });
 
+test('normalizes XSport team score, clean sheet, and asian totals from labels', () => {
+  const nextPayload = structuredClone(payload);
+  nextPayload.avs.avs[0].scs.push(
+    {
+      cs: 90010,
+      d: 'Gazdele marcheaza',
+      eqs: [
+        { ce: 1, q: 135 },
+        { ce: 2, q: 310 },
+      ],
+    },
+    {
+      cs: 90011,
+      d: 'Fara gol primit oaspeti',
+      eqs: [
+        { ce: 1, q: 280 },
+        { ce: 2, q: 140 },
+      ],
+    },
+    {
+      cs: 90012,
+      d: 'Total goluri asiatice',
+      h: 250,
+      eqs: [
+        { ce: 1, q: 185 },
+        { ce: 2, q: 195 },
+      ],
+    },
+  );
+
+  const [event] = normalizeXsportPayload(nextPayload, {
+    bookmaker: 'LasVegas',
+    fetchedAt: '2026-06-29T10:00:00.000Z',
+    eventOrigin: 'https://www.lasvegas.ro',
+  });
+
+  assert.deepEqual(event.bookmakers[0].markets.market_marcheaza_home, { yes: 1.35, no: 3.1 });
+  assert.deepEqual(event.bookmakers[0].markets.market_clean_sheet_away, { yes: 2.8, no: 1.4 });
+  assert.deepEqual(event.bookmakers[0].markets.asianTotalGoals_2_5, { under: 1.85, over: 1.95 });
+});
+
 test('loads XSport payloads for each configured lookahead day', async () => {
   const requests = [];
   const provider = new XSportProvider({
