@@ -2,6 +2,7 @@ const { ProviderError } = require('./the-odds-api-provider');
 const {
   formatLine,
   genericMarketKey,
+  handicapMarketKey,
   hasAnyCompleteMarket,
   hasCompleteOutcomes,
   isDecimalOdds,
@@ -532,8 +533,7 @@ function normalizeDigitainMarkets(matchBets, { homeTeam, awayTeam } = {}) {
       marketName.includes('handicap asiatic')
       || marketName.includes('asian handicap')
     ) {
-      // Generic line handler via handicapMarketKey paths in generic normalizer.
-      addGenericDigitainMarket(markets, market, { homeTeam, awayTeam });
+      addDigitainAsianHandicap(markets, market, { homeTeam, awayTeam });
       continue;
     }
 
@@ -581,6 +581,40 @@ function addDigitainLineMarkets(markets, market, baseKey) {
   for (const [line, prices] of grouped) {
     if (hasOutcomes(prices, ['over', 'under'])) {
       markets[`${baseKey}_${line.replace('.', '_')}`] = prices;
+    }
+  }
+}
+
+function addDigitainAsianHandicap(markets, market) {
+  const grouped = new Map();
+  for (const outcome of Array.isArray(market?.mbOutcomes) ? market.mbOutcomes : []) {
+    if (outcome?.mboActive === false) continue;
+    const odd = isDecimalOdds(outcome.mboOddValue) ? outcome.mboOddValue : outcome.bValue;
+    if (!isDecimalOdds(odd)) continue;
+
+    const name = localizedText(outcome.mboType || outcome.mboDisplayName);
+    let side = normalizeOutcomeKey(name);
+    let line = Number.isFinite(Number(outcome.argument)) ? Number(outcome.argument) : null;
+
+    const embedded = String(name || '').trim().match(
+      /^(?:H)?([12]|home|away)\s*[(\[]?\s*([+-]?\d+(?:[.,]\d+)?)\s*[)\]]?$/i,
+    );
+    if (embedded) {
+      const token = embedded[1].toLowerCase();
+      side = (token === '1' || token === 'home') ? 'home' : 'away';
+      line = Number(String(embedded[2]).replace(',', '.'));
+    }
+
+    if (!['home', 'away'].includes(side) || !Number.isFinite(line)) continue;
+    const homeLine = side === 'home' ? line : -line;
+    if (!grouped.has(homeLine)) grouped.set(homeLine, {});
+    grouped.get(homeLine)[side] = odd;
+  }
+
+  for (const [homeLine, prices] of grouped.entries()) {
+    if (['home', 'away'].every((side) => isDecimalOdds(prices[side]))) {
+      const key = handicapMarketKey('asianHandicap', homeLine);
+      if (key && !markets[key]) markets[key] = prices;
     }
   }
 }

@@ -99,13 +99,28 @@ export function getFilteredScannerOpportunities(scannerState) {
   }
 
   const pinned = scannerState.pinnedArbs instanceof Set ? scannerState.pinnedArbs : new Set();
+  const sortMode = scannerState.scannerSort || 'edge';
   return [...opps].sort((left, right) => {
     const leftPinned = pinned.has(opportunityId(left)) ? 1 : 0;
     const rightPinned = pinned.has(opportunityId(right)) ? 1 : 0;
     if (leftPinned !== rightPinned) return rightPinned - leftPinned;
+
     const edgeDiff = Number(right.edge || 0) - Number(left.edge || 0);
-    // Within ~0.3pp edge, prefer multi-feed candidates (better execution diversity).
     const feedDiff = Number(right.independentFeedCount || 0) - Number(left.independentFeedCount || 0);
+    const kickoffDiff = String(left.kickoff || '').localeCompare(String(right.kickoff || ''));
+
+    if (sortMode === 'feeds') {
+      if (feedDiff !== 0) return feedDiff;
+      if (Math.abs(edgeDiff) > 1e-9) return edgeDiff;
+      return kickoffDiff;
+    }
+    if (sortMode === 'kickoff') {
+      if (kickoffDiff !== 0) return kickoffDiff;
+      if (Math.abs(edgeDiff) > 1e-9) return edgeDiff;
+      return feedDiff;
+    }
+
+    // Default: edge first; within ~0.3pp prefer multi-feed.
     if (Math.abs(edgeDiff) <= 0.003 && feedDiff !== 0) return feedDiff;
     if (Math.abs(edgeDiff) > 1e-9) return edgeDiff;
     return feedDiff;

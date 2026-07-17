@@ -131,6 +131,44 @@ test('scanner minFeeds filter keeps only multi-feed candidates', async () => {
   );
 });
 
+test('scanner sort modes order by feeds or kickoff', async () => {
+  const { getFilteredScannerOpportunities } = await loadScannerFilters();
+  const base = [
+    {
+      eventName: 'Late High Edge',
+      marketKey: 'h2h',
+      edge: 0.05,
+      eligibility: 'review',
+      independentFeedCount: 1,
+      kickoff: '2026-07-20T20:00:00Z',
+    },
+    {
+      eventName: 'Soon Multi',
+      marketKey: 'h2h',
+      edge: 0.03,
+      eligibility: 'review',
+      independentFeedCount: 3,
+      kickoff: '2026-07-18T12:00:00Z',
+    },
+  ];
+
+  assert.deepEqual(
+    getFilteredScannerOpportunities(makeState({ scannerSort: 'feeds', opportunities: base }))
+      .map((opp) => opp.eventName),
+    ['Soon Multi', 'Late High Edge'],
+  );
+  assert.deepEqual(
+    getFilteredScannerOpportunities(makeState({ scannerSort: 'kickoff', opportunities: base }))
+      .map((opp) => opp.eventName),
+    ['Soon Multi', 'Late High Edge'],
+  );
+  assert.deepEqual(
+    getFilteredScannerOpportunities(makeState({ scannerSort: 'edge', opportunities: base }))
+      .map((opp) => opp.eventName),
+    ['Late High Edge', 'Soon Multi'],
+  );
+});
+
 test('scanner market counts are calculated after base filters and active tab', async () => {
   const { getScannerMarketTypeCounts } = await loadScannerFilters();
   const scannerState = makeState({

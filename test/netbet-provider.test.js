@@ -36,6 +36,33 @@ test('normalizes NetBet team to score and clean sheet markets', () => {
   assert.deepEqual(markets.market_clean_sheet_away, { yes: 3.1, no: 1.35 });
 });
 
+test('normalizes NetBet Asian handicap and period DNB without swallowing FT DNB', () => {
+  const markets = normalizeNetBetMarkets([
+    {
+      market_type: 9101,
+      market_code: 'asian_handicap',
+      name: 'Handicap asiatic',
+      outcomes: [
+        { kind: 'Home', name: 'Home (-0.5)', odds: 1.9, status: true, visible: true, suspended: false },
+        { kind: 'Away', name: 'Away (+0.5)', odds: 1.9, status: true, visible: true, suspended: false },
+      ],
+    },
+    {
+      market_type: 9102,
+      market_code: '1st_half_dnb',
+      name: 'Fara egal pauza',
+      outcomes: [
+        { kind: 'W1', name: '1', odds: 1.45, status: true, visible: true, suspended: false },
+        { kind: 'W2', name: '2', odds: 2.7, status: true, visible: true, suspended: false },
+      ],
+    },
+  ], { homeTeam: 'Alpha', awayTeam: 'Beta' });
+
+  assert.deepEqual(markets.asianHandicap_minus_0_5, { home: 1.9, away: 1.9 });
+  assert.deepEqual(markets.firstHalfDrawNoBet, { home: 1.45, away: 2.7 });
+  assert.equal(markets.drawNoBet, undefined);
+});
+
 const detailEvent = {
   id: '1-30082331',
   sport_slug: 'football',

@@ -309,6 +309,32 @@ test('normalizes Unibet period DNB and half asian totals', () => {
   assert.deepEqual(markets.firstHalfAsianTotalGoals_1_5, { over: 1.85, under: 1.95 });
 });
 
+test('normalizes Unibet Asian handicap markets', () => {
+  const markets = normalizeUnibetMarkets([
+    {
+      propositionType: 'asian_handicap',
+      status: 'Active',
+      name: 'Handicap asiatic',
+      options: [
+        { optionDisplayName: '1 (-0.5)', price: 1.88 },
+        { optionDisplayName: '2 (+0.5)', price: 1.92 },
+      ],
+    },
+    {
+      propositionType: 'asian_handicap',
+      status: 'Active',
+      name: 'Handicap asiatic',
+      options: [
+        { optionDisplayName: '1', handicap: 0.5, price: 1.7 },
+        { optionDisplayName: '2', handicap: -0.5, price: 2.1 },
+      ],
+    },
+  ]);
+
+  assert.deepEqual(markets.asianHandicap_minus_0_5, { home: 1.88, away: 1.92 });
+  assert.deepEqual(markets.asianHandicap_plus_0_5, { home: 1.7, away: 2.1 });
+});
+
 test('keeps direct Unibet detail payloads and retries only failed detail URLs in browser', async () => {
   const firstContest = { ...contest, propositionCount: 2 };
   const secondContest = {

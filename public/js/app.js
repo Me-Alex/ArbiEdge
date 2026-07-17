@@ -320,6 +320,7 @@ function bindEvents() {
   on('#refresh-interval', 'change', setupAutoRefresh);
   on('#filter-min-edge', 'input', (e) => { state.minEdge = Number(e.target.value || 0); state.scannerVisibleLimit = 50; renderScanner(); });
   on('#filter-min-feeds', 'input', (e) => { state.minFeeds = Number(e.target.value || 0); state.scannerVisibleLimit = 50; renderScanner(); });
+  on('#scanner-sort', 'change', (e) => { state.scannerSort = e.target.value || 'edge'; state.scannerVisibleLimit = 50; renderScanner(); });
   on('#alert-threshold', 'input', (e) => { state.alertThreshold = Number(e.target.value || 1); });
   on('#verification-filter', 'change', (e) => { state.scannerVerificationFilter = e.target.value; state.scannerVisibleLimit = 50; renderScanner(); });
   $$('[data-scanner-tab]').forEach((b) => b.addEventListener('click', () => {
@@ -364,8 +365,10 @@ function bindEvents() {
   on('#filter-reset', 'click', () => {
     state.minEdge = 0;
     state.minFeeds = 0;
+    state.scannerSort = 'edge';
     if ($('#filter-min-edge')) $('#filter-min-edge').value = '0';
     if ($('#filter-min-feeds')) $('#filter-min-feeds').value = '0';
+    if ($('#scanner-sort')) $('#scanner-sort').value = 'edge';
     if ($('#search')) $('#search').value = '';
     state.search = '';
     state.scannerVerificationFilter = '';

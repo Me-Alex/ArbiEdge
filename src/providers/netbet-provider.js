@@ -291,7 +291,15 @@ function normalizeNetBetMarkets(markets, { homeTeam, awayTeam }) {
     const code = String(market.market_code || '').toLowerCase();
     const name = String(market.name || market.market_name || '').toLowerCase();
 
-    if (code === 'draw_no_bet' || code === 'dnb' || name.includes('draw no bet') || name.includes('fara egal')) {
+    if (
+      (code === 'draw_no_bet' || code === 'dnb' || name.includes('draw no bet') || name.includes('fara egal'))
+      && !name.includes('pauza')
+      && !name.includes('prima')
+      && !name.includes('1st')
+      && !name.includes('a doua')
+      && !name.includes('2nd')
+      && !name.includes('second')
+    ) {
       addOutcomeMarket(normalized, 'drawNoBet', market, {
         W1: 'home', Home: 'home', '1': 'home',
         W2: 'away', Away: 'away', '2': 'away',
@@ -389,8 +397,7 @@ function normalizeNetBetMarkets(markets, { homeTeam, awayTeam }) {
       || name.includes('asian handicap')
       || name.includes('handicap asiatic')
     ) {
-      // Generic path builds signed AH keys when outcomes carry lines.
-      addGenericNetBetMarket(normalized, market, { homeTeam, awayTeam });
+      addNetBetAsianHandicap(normalized, market);
       continue;
     }
 
@@ -544,6 +551,27 @@ function addNetBetHandicap3Way(markets, market) {
   for (const [homeLine, prices] of grouped) {
     if (['home', 'draw', 'away'].every((outcome) => isDecimalOdds(prices[outcome]))) {
       markets[handicapMarketKey('handicap3Way', homeLine)] = prices;
+    }
+  }
+}
+
+function addNetBetAsianHandicap(markets, market) {
+  const grouped = new Map();
+  for (const outcome of activeOutcomes(market)) {
+    const parsed = parseNetBetHandicapOutcome(outcome);
+    if (!parsed || parsed.side === 'draw' || !isDecimalOdds(outcome.odds)) {
+      continue;
+    }
+    if (!grouped.has(parsed.homeLine)) {
+      grouped.set(parsed.homeLine, {});
+    }
+    grouped.get(parsed.homeLine)[parsed.side] = outcome.odds;
+  }
+
+  for (const [homeLine, prices] of grouped) {
+    if (['home', 'away'].every((outcome) => isDecimalOdds(prices[outcome]))) {
+      const key = handicapMarketKey('asianHandicap', homeLine);
+      if (key && !markets[key]) markets[key] = prices;
     }
   }
 }

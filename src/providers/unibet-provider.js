@@ -2,6 +2,7 @@ const { ProviderError } = require('./the-odds-api-provider');
 const {
   formatLine,
   genericMarketKey,
+  handicapMarketKey,
   hasAnyCompleteMarket,
   hasCompleteOutcomes,
   isDecimalOdds,
@@ -247,8 +248,11 @@ function normalizeUnibetMarkets(propositions, { homeTeam, awayTeam } = {}) {
     }
 
     const normalized = normalizeUnibetProposition(proposition, { homeTeam, awayTeam });
-    if (normalized && !markets[normalized.key]) {
-      markets[normalized.key] = normalized.prices;
+    const items = Array.isArray(normalized) ? normalized : (normalized ? [normalized] : []);
+    for (const item of items) {
+      if (item?.key && item.prices && !markets[item.key]) {
+        markets[item.key] = item.prices;
+      }
     }
   }
   return markets;
@@ -351,6 +355,16 @@ function normalizeUnibetProposition(proposition, { homeTeam, awayTeam }) {
 
   if (type === 'asian_total' || type === 'asian_total_goals') {
     return mapUnibetLineMarket(proposition, 'asianTotalGoals');
+  }
+
+  if (
+    type === 'asian_handicap'
+    || type === 'asian_handicap_goals'
+    || type === 'handicap_asian'
+    || propositionName.includes('handicap asiatic')
+    || propositionName.includes('asian handicap')
+  ) {
+    return mapUnibetAsianHandicapMarket(proposition, { homeTeam, awayTeam });
   }
 
   if (type === '1st_half_total' || type === 'half_time_total') {
@@ -591,6 +605,58 @@ function mapUnibetLineMarket(proposition, baseKey) {
   return isPositiveLine(line) && ['over', 'under'].every((outcome) => isDecimalOdds(prices[outcome]))
     ? { key: `${baseKey}_${line.replace('.', '_')}`, prices }
     : null;
+}
+
+/**
+ * Map 2-way Asian handicap. Options may carry handicap/line on the option or
+ * embed signed lines in the display name (e.g. "1 (-0.5)").
+ * Returns an array of complete line markets (caller merges into event markets).
+ */
+function mapUnibetAsianHandicapMarket(proposition, { homeTeam, awayTeam } = {}) {
+  const grouped = new Map();
+  for (const option of proposition.options || []) {
+    if (!isDecimalOdds(option.price)) continue;
+    const parsed = parseUnibetHandicapOption(option, { homeTeam, awayTeam });
+    if (!parsed) continue;
+    if (!grouped.has(parsed.homeLine)) grouped.set(parsed.homeLine, {});
+    grouped.get(parsed.homeLine)[parsed.side] = option.price;
+  }
+
+  const results = [];
+  for (const [homeLine, prices] of grouped.entries()) {
+    if (['home', 'away'].every((side) => isDecimalOdds(prices[side]))) {
+      const key = handicapMarketKey('asianHandicap', homeLine);
+      if (key) results.push({ key, prices });
+    }
+  }
+  return results.length > 0 ? results : null;
+}
+
+function parseUnibetHandicapOption(option, { homeTeam, awayTeam } = {}) {
+  const raw = String(option.optionDisplayName || option.name || '').trim();
+  const rawLine = option.handicap ?? option.line ?? option.point ?? option.points;
+  const fromName = raw.match(/^([12]|home|away|1|2)\s*[(\[]?\s*([+-]?\d+(?:[.,]\d+)?)\s*[)\]]?$/i)
+    || raw.match(/^H([12])\s*([+-]?\d+(?:[.,]\d+)?)$/i);
+  if (fromName) {
+    const token = String(fromName[1]).toLowerCase();
+    const side = (token === '1' || token === 'home' || token === 'h1') ? 'home' : 'away';
+    // H([12]) capture is only 1|2
+    const sideFromH = raw.match(/^H([12])/i);
+    const resolvedSide = sideFromH
+      ? (sideFromH[1] === '1' ? 'home' : 'away')
+      : side;
+    const line = Number(String(fromName[2]).replace(',', '.'));
+    if (!Number.isFinite(line)) return null;
+    return { side: resolvedSide, homeLine: resolvedSide === 'home' ? line : -line };
+  }
+
+  const sideKey = normalizeUnibetOutcomeKey(raw, { homeTeam, awayTeam })
+    || normalizeOutcomeKey(raw);
+  const line = Number(rawLine);
+  if (['home', 'away'].includes(sideKey) && Number.isFinite(line)) {
+    return { side: sideKey, homeLine: sideKey === 'home' ? line : -line };
+  }
+  return null;
 }
 
 function normalizeGenericUnibetMarket(proposition, { homeTeam, awayTeam }) {

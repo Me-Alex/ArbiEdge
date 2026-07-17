@@ -380,6 +380,29 @@ test('normalizes Digitain clean-sheet markets from labels', () => {
   });
 });
 
+test('normalizes Digitain Asian handicap markets from labels', () => {
+  const ahPayload = structuredClone(payload);
+  ahPayload.data.events[0].matchBets.push({
+    idBet: '901',
+    mbActive: true,
+    mbDisplayName: { 2: 'Asian handicap', 42: 'Handicap asiatic' },
+    mbOutcomes: [
+      { mboActive: true, mboType: { 2: '1', 42: '1' }, argument: -0.5, mboOddValue: 1.93 },
+      { mboActive: true, mboType: { 2: '2', 42: '2' }, argument: 0.5, mboOddValue: 1.87 },
+    ],
+  });
+
+  const [event] = normalizeDigitainPayload(ahPayload, {
+    bookmaker: 'Winner',
+    fetchedAt: '2026-06-21T20:00:00.000Z',
+  });
+
+  assert.deepEqual(event.bookmakers[0].markets.asianHandicap_minus_0_5, {
+    home: 1.93,
+    away: 1.87,
+  });
+});
+
 test('configures 888 with its public Romanian Digitain endpoint', async () => {
   const requests = [];
   const provider = new EightEightEightProvider({
