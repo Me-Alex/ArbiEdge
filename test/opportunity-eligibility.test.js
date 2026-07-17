@@ -45,6 +45,24 @@ test('isSupportedClassicMarket only approves explicit exhaustive schemas', () =>
   assert.equal(isSupportedClassicMarket('market_custom'), false);
   assert.equal(isSupportedClassicMarket('totalPoints_224_5'), true);
   assert.equal(isSupportedClassicMarket('totalGames_22_5'), true);
+  assert.equal(isSupportedClassicMarket('toQualify'), true);
+  assert.equal(isSupportedClassicMarket('market_marcheaza_home'), true);
+  assert.equal(isSupportedClassicMarket('totalGoals_2'), false);
+});
+
+test('push-settlement math candidates stay in review instead of rejected', () => {
+  const integerTotal = evaluateOpportunityEligibility({
+    type: 'classic',
+    marketKey: 'totalGoals_2',
+    edge: 0.03,
+    legs: [
+      { bookmaker: 'Book A', verificationStatus: 'unverified' },
+      { bookmaker: 'Book B', verificationStatus: 'unverified' },
+    ],
+  });
+  assert.equal(integerTotal.eligibility, 'review');
+  assert.ok(integerTotal.eligibilityReasonCodes.includes('push_settlement'));
+  assert.ok(integerTotal.eligibilityReasonCodes.includes('verification_missing'));
 });
 
 test('isSupportedHandicapMarket only approves two-way half lines', () => {

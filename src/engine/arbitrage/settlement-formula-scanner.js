@@ -131,14 +131,16 @@ function totalsBandDefinitions(anchor) {
 }
 
 function resultSubstitutionDefinitions(options = {}) {
-  const handicapDoubleChanceLines = options.handicapDoubleChanceLines || [0, -0.25, 0.25];
+  const handicapDoubleChanceLines = options.handicapDoubleChanceLines
+    || [-1, -0.75, -0.5, -0.25, 0, 0.25, 0.5, 0.75, 1];
+  const halfHandicapLines = options.halfHandicapLines || [0.5, 1.5, -0.5, -1.5];
   const ah = (side, line) => selection(
     'handicap',
     `AH${side === 'home' ? '1' : '2'}(${formatLine(line)})`,
     { side, line },
   );
 
-  return [
+  const definitions = [
     {
       id: 'result_home_x_ah2_0',
       family: 'result-dnb',
@@ -166,24 +168,6 @@ function resultSubstitutionDefinitions(options = {}) {
       selections: [ah('home', 0), selection('h2h', 'X', { outcome: 'draw' }), ah('away', 0)],
     },
     {
-      id: 'result_home_ah2_p0_5',
-      family: 'result-half-handicap',
-      label: '1 - AH2(+0.5)',
-      selections: [selection('h2h', '1', { outcome: 'home' }), ah('away', 0.5)],
-    },
-    {
-      id: 'result_away_ah1_p0_5',
-      family: 'result-half-handicap',
-      label: '2 - AH1(+0.5)',
-      selections: [selection('h2h', '2', { outcome: 'away' }), ah('home', 0.5)],
-    },
-    {
-      id: 'draw_ah1_m0_5_ah2_m0_5',
-      family: 'result-half-handicap',
-      label: 'X - AH1(-0.5) - AH2(-0.5)',
-      selections: [selection('h2h', 'X', { outcome: 'draw' }), ah('home', -0.5), ah('away', -0.5)],
-    },
-    {
       id: 'dc_1x_ah2_m0_5',
       family: 'double-chance-handicap',
       label: '1X - AH2(-0.5)',
@@ -195,25 +179,88 @@ function resultSubstitutionDefinitions(options = {}) {
       label: 'X2 - AH1(-0.5)',
       selections: [selection('doubleChance', 'X2', { outcome: 'drawAway' }), ah('home', -0.5)],
     },
-    ...handicapDoubleChanceLines.flatMap((line) => {
-      const formatted = formatLine(line);
-      const token = definitionToken(line);
-      return [
-        {
-          id: `ah1_${token}_x2`,
-          family: 'handicap-double-chance',
-          label: `AH1(${formatted}) - X2`,
-          selections: [ah('home', line), selection('doubleChance', 'X2', { outcome: 'drawAway' })],
-        },
-        {
-          id: `ah2_${token}_1x`,
-          family: 'handicap-double-chance',
-          label: `AH2(${formatted}) - 1X`,
-          selections: [ah('away', line), selection('doubleChance', '1X', { outcome: 'homeDraw' })],
-        },
-      ];
-    }),
+    {
+      id: 'dc_12_x',
+      family: 'double-chance-result',
+      label: '12 - X',
+      selections: [
+        selection('doubleChance', '12', { outcome: 'homeAway' }),
+        selection('h2h', 'X', { outcome: 'draw' }),
+      ],
+    },
+    {
+      id: 'dc_1x_2',
+      family: 'double-chance-result',
+      label: '1X - 2',
+      selections: [
+        selection('doubleChance', '1X', { outcome: 'homeDraw' }),
+        selection('h2h', '2', { outcome: 'away' }),
+      ],
+    },
+    {
+      id: 'dc_x2_1',
+      family: 'double-chance-result',
+      label: 'X2 - 1',
+      selections: [
+        selection('doubleChance', 'X2', { outcome: 'drawAway' }),
+        selection('h2h', '1', { outcome: 'home' }),
+      ],
+    },
   ];
+
+  for (const line of halfHandicapLines) {
+    const formatted = formatLine(line);
+    const token = definitionToken(line);
+    // 1 vs AH2(+0.5) style halves: exhaustive for home win vs not.
+    if (line > 0) {
+      definitions.push(
+        {
+          id: `result_home_ah2_${token}`,
+          family: 'result-half-handicap',
+          label: `1 - AH2(${formatted})`,
+          selections: [selection('h2h', '1', { outcome: 'home' }), ah('away', line)],
+        },
+        {
+          id: `result_away_ah1_${token}`,
+          family: 'result-half-handicap',
+          label: `2 - AH1(${formatted})`,
+          selections: [selection('h2h', '2', { outcome: 'away' }), ah('home', line)],
+        },
+      );
+    } else {
+      definitions.push({
+        id: `draw_ah1_${token}_ah2_${token}`,
+        family: 'result-half-handicap',
+        label: `X - AH1(${formatted}) - AH2(${formatted})`,
+        selections: [
+          selection('h2h', 'X', { outcome: 'draw' }),
+          ah('home', line),
+          ah('away', line),
+        ],
+      });
+    }
+  }
+
+  for (const line of handicapDoubleChanceLines) {
+    const formatted = formatLine(line);
+    const token = definitionToken(line);
+    definitions.push(
+      {
+        id: `ah1_${token}_x2`,
+        family: 'handicap-double-chance',
+        label: `AH1(${formatted}) - X2`,
+        selections: [ah('home', line), selection('doubleChance', 'X2', { outcome: 'drawAway' })],
+      },
+      {
+        id: `ah2_${token}_1x`,
+        family: 'handicap-double-chance',
+        label: `AH2(${formatted}) - 1X`,
+        selections: [ah('away', line), selection('doubleChance', '1X', { outcome: 'homeDraw' })],
+      },
+    );
+  }
+
+  return definitions;
 }
 
 function isQuarterLine(line) {
@@ -302,9 +349,15 @@ function createAdditionalFormulaDefinitions(options = {}) {
  * football total that providers expose.
  */
 function createSettlementFormulaDefinitions(options = {}) {
-  const handicapLines = options.handicapLines || [0, -0.25, 0.25];
-  const bridgeLines = options.bridgeLines || [-0.25, 0.25];
-  const totalsAnchors = options.totalsAnchors || Array.from({ length: 12 }, (_, index) => index + 1);
+  // Wider default line grid → more formula candidates when books post those lines.
+  const handicapLines = options.handicapLines || [
+    -1.5, -1.25, -1, -0.75, -0.5, -0.25, 0, 0.25, 0.5, 0.75, 1, 1.25, 1.5,
+  ];
+  const bridgeLines = options.bridgeLines || [
+    -1, -0.75, -0.5, -0.25, 0.25, 0.5, 0.75, 1,
+  ];
+  const totalsAnchors = options.totalsAnchors
+    || Array.from({ length: 16 }, (_, index) => (index + 1) * 0.5 + 0.5); // 1, 1.5, … 8.5
 
   return [
     ...handicapLines.flatMap(resultHandicapDefinitions),

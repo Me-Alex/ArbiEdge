@@ -21,6 +21,8 @@ const {
   MAX_ACTIONABLE_EDGE,
   attachOpportunityEligibility,
   evaluateOpportunityEligibility,
+  isScannableClassicMarket,
+  isScannableHandicapMarket,
   isSupportedClassicMarket,
   isSupportedHandicapMarket,
 } = require('./opportunity-eligibility');
@@ -57,8 +59,15 @@ const MARKET_OUTCOMES = {
   drawNoBet: ['home', 'away'],
   firstHalfDrawNoBet: ['home', 'away'],
   secondHalfDrawNoBet: ['home', 'away'],
-  // Double chance — 3 mutually exhaustive outcomes
+  toQualify: ['home', 'away'],
+  market_marcheaza_home: ['yes', 'no'],
+  market_marcheaza_away: ['yes', 'no'],
+  market_clean_sheet_home: ['yes', 'no'],
+  market_clean_sheet_away: ['yes', 'no'],
+  // Double chance — overlapping outcomes (not classic-scanned)
   doubleChance: ['homeDraw', 'homeAway', 'drawAway'],
+  firstHalfDoubleChance: ['homeDraw', 'homeAway', 'drawAway'],
+  secondHalfDoubleChance: ['homeDraw', 'homeAway', 'drawAway'],
 };
 
 const MARKET_LABELS = {
@@ -66,12 +75,18 @@ const MARKET_LABELS = {
   firstHalfH2h: '1st Half 1X2',
   secondHalfH2h: '2nd Half 1X2',
   doubleChance: 'Double Chance',
+  firstHalfDoubleChance: '1st Half Double Chance',
+  secondHalfDoubleChance: '2nd Half Double Chance',
   bothTeamsToScore: 'BTTS',
   drawNoBet: 'Draw No Bet',
   firstHalfDrawNoBet: '1st Half DNB',
   secondHalfDrawNoBet: '2nd Half DNB',
   toQualify: 'To Qualify',
   halfTimeOrFullTime: 'HT/FT',
+  market_marcheaza_home: 'Home to Score',
+  market_marcheaza_away: 'Away to Score',
+  market_clean_sheet_home: 'Home Clean Sheet',
+  market_clean_sheet_away: 'Away Clean Sheet',
 };
 
 const MARKET_DESCRIPTIONS = {
@@ -79,12 +94,18 @@ const MARKET_DESCRIPTIONS = {
   firstHalfH2h: 'Result at half-time — Home / Draw / Away',
   secondHalfH2h: 'Result in second half — Home / Draw / Away',
   doubleChance: 'Two of three outcomes — 1X / 12 / X2',
+  firstHalfDoubleChance: 'First-half double chance — 1X / 12 / X2',
+  secondHalfDoubleChance: 'Second-half double chance — 1X / 12 / X2',
   bothTeamsToScore: 'Will both teams score at least one goal?',
   drawNoBet: 'Home or Away wins; stake refunded on a draw',
   firstHalfDrawNoBet: 'Half-time DNB — stake refunded if level at HT',
   secondHalfDrawNoBet: 'Second-half DNB — stake refunded if level at 2nd half',
   toQualify: 'Which team advances to the next round',
   halfTimeOrFullTime: 'Predict result at half-time AND full-time',
+  market_marcheaza_home: 'Will the home team score at least one goal?',
+  market_marcheaza_away: 'Will the away team score at least one goal?',
+  market_clean_sheet_home: 'Will the home team concede zero goals?',
+  market_clean_sheet_away: 'Will the away team concede zero goals?',
 };
 
 const LINE_MARKET_FAMILIES = [
@@ -523,7 +544,9 @@ function statusFromNode(node) {
 
 /* ===== Formula 1: Classic cross-book arbitrage ===== */
 function detectArbitrage(event, marketKey, sportKey) {
-  if (!isSupportedClassicMarket(marketKey)) return null;
+  // Scannable includes push/integer lines and yes/no team markets so more
+  // mathematical candidates surface; eligibility still gates actionable.
+  if (!isScannableClassicMarket(marketKey)) return null;
   if (isInvalidFormulaLineMarket(marketKey)) return null;
 
   const best = findBestPrices(event, marketKey);
@@ -582,96 +605,154 @@ function detectArbitrage(event, marketKey, sportKey) {
   };
 }
 
-/* ===== Formula 2: Cross-market arbitrage (h2h vs doubleChance) ===== */
-function detectCrossMarketArbitrage(event) {
-  const results = [];
-  const h2hBest = findBestPrices(event, 'h2h');
-  const dcBest = findBestPrices(event, 'doubleChance');
+/* ===== Formula 2: Cross-market arbitrage (1X2 vs doubleChance, all periods) ===== */
+function pushCrossMarketPair(results, {
+  marketKey,
+  marketLabel,
+  legA,
+  legB,
+}) {
+  if (!legA || !legB) return;
+  const priceA = Number(legA.price);
+  const priceB = Number(legB.price);
+  if (!(priceA > 1) || !(priceB > 1)) return;
+  const total = impliedProb(priceA) + impliedProb(priceB);
+  if (!(total < 1)) return;
+  const edge = 1 - total;
+  if (edge > MAX_ARB_EDGE) return;
+  const stake = 100;
+  const s1 = (stake * impliedProb(priceA)) / total;
+  const s2 = (stake * impliedProb(priceB)) / total;
+  results.push({
+    marketKey,
+    marketLabel,
+    type: 'cross-market',
+    legs: [
+      {
+        outcome: legA.outcome,
+        label: legA.label,
+        bookmaker: legA.bookmaker,
+        price: priceA,
+        stake: s1,
+        url: legA.url || '',
+        marketKey: legA.marketKey,
+        verificationStatus: legA.verificationStatus || null,
+      },
+      {
+        outcome: legB.outcome,
+        label: legB.label,
+        bookmaker: legB.bookmaker,
+        price: priceB,
+        stake: s2,
+        url: legB.url || '',
+        marketKey: legB.marketKey,
+        verificationStatus: legB.verificationStatus || null,
+      },
+    ],
+    edge,
+    profit: stake / total - stake,
+    totalProb: total,
+    stake,
+    confidence: classifyConfidence(edge, 2, 2),
+  });
+}
 
+function detectPeriodCrossMarket(event, h2hKey, dcKey, keyPrefix, labelPrefix) {
+  const results = [];
+  const h2hBest = findBestPrices(event, h2hKey);
+  const dcBest = findBestPrices(event, dcKey);
   if (!h2hBest.away || !h2hBest.home) return results;
+
+  const prefix = keyPrefix || '';
+  const label = labelPrefix ? `${labelPrefix} ` : '';
 
   // DC 1X + h2h 2
   if (dcBest.homeDraw) {
-    const prob1X = impliedProb(dcBest.homeDraw.price);
-    const prob2 = impliedProb(h2hBest.away.price);
-    const total = prob1X + prob2;
-    if (total < 1) {
-      const edge = 1 - total;
-      const stake = 100;
-      const s1 = (stake * prob1X) / total;
-      const s2 = (stake * prob2) / total;
-      results.push({
-        marketKey: 'cross_1X_2',
-        marketLabel: '1X (DC) + 2 (1X2)',
-        type: 'cross-market',
-        legs: [
-          { outcome: '1X', label: '1X', bookmaker: dcBest.homeDraw.bookmaker, price: dcBest.homeDraw.price, stake: s1, url: dcBest.homeDraw.url || '', marketKey: dcBest.homeDraw.marketKey || 'doubleChance', verificationStatus: dcBest.homeDraw.verificationStatus || null },
-          { outcome: 'away', label: '2', bookmaker: h2hBest.away.bookmaker, price: h2hBest.away.price, stake: s2, url: h2hBest.away.url || '', marketKey: h2hBest.away.marketKey || 'h2h', verificationStatus: h2hBest.away.verificationStatus || null },
-        ],
-        edge,
-        profit: stake / total - stake,
-        totalProb: total,
-        stake,
-        confidence: classifyConfidence(edge, 2, 2),
-      });
-    }
+    pushCrossMarketPair(results, {
+      marketKey: `cross_${prefix}1X_2`,
+      marketLabel: `${label}1X (DC) + 2 (1X2)`.trim(),
+      legA: {
+        outcome: '1X',
+        label: '1X',
+        bookmaker: dcBest.homeDraw.bookmaker,
+        price: dcBest.homeDraw.price,
+        url: dcBest.homeDraw.url,
+        marketKey: dcBest.homeDraw.marketKey || dcKey,
+        verificationStatus: dcBest.homeDraw.verificationStatus,
+      },
+      legB: {
+        outcome: 'away',
+        label: '2',
+        bookmaker: h2hBest.away.bookmaker,
+        price: h2hBest.away.price,
+        url: h2hBest.away.url,
+        marketKey: h2hBest.away.marketKey || h2hKey,
+        verificationStatus: h2hBest.away.verificationStatus,
+      },
+    });
   }
 
   // DC X2 + h2h 1
   if (dcBest.drawAway) {
-    const probX2 = impliedProb(dcBest.drawAway.price);
-    const prob1 = impliedProb(h2hBest.home.price);
-    const total = probX2 + prob1;
-    if (total < 1) {
-      const edge = 1 - total;
-      const stake = 100;
-      const s1 = (stake * prob1) / total;
-      const s2 = (stake * probX2) / total;
-      results.push({
-        marketKey: 'cross_1_X2',
-        marketLabel: '1 (1X2) + X2 (DC)',
-        type: 'cross-market',
-        legs: [
-          { outcome: 'home', label: '1', bookmaker: h2hBest.home.bookmaker, price: h2hBest.home.price, stake: s1, url: h2hBest.home.url || '', marketKey: h2hBest.home.marketKey || 'h2h', verificationStatus: h2hBest.home.verificationStatus || null },
-          { outcome: 'X2', label: 'X2', bookmaker: dcBest.drawAway.bookmaker, price: dcBest.drawAway.price, stake: s2, url: dcBest.drawAway.url || '', marketKey: dcBest.drawAway.marketKey || 'doubleChance', verificationStatus: dcBest.drawAway.verificationStatus || null },
-        ],
-        edge,
-        profit: stake / total - stake,
-        totalProb: total,
-        stake,
-        confidence: classifyConfidence(edge, 2, 2),
-      });
-    }
+    pushCrossMarketPair(results, {
+      marketKey: `cross_${prefix}1_X2`,
+      marketLabel: `${label}1 (1X2) + X2 (DC)`.trim(),
+      legA: {
+        outcome: 'home',
+        label: '1',
+        bookmaker: h2hBest.home.bookmaker,
+        price: h2hBest.home.price,
+        url: h2hBest.home.url,
+        marketKey: h2hBest.home.marketKey || h2hKey,
+        verificationStatus: h2hBest.home.verificationStatus,
+      },
+      legB: {
+        outcome: 'X2',
+        label: 'X2',
+        bookmaker: dcBest.drawAway.bookmaker,
+        price: dcBest.drawAway.price,
+        url: dcBest.drawAway.url,
+        marketKey: dcBest.drawAway.marketKey || dcKey,
+        verificationStatus: dcBest.drawAway.verificationStatus,
+      },
+    });
   }
 
   // DC 12 + h2h X
   if (dcBest.homeAway && h2hBest.draw) {
-    const prob12 = impliedProb(dcBest.homeAway.price);
-    const probX = impliedProb(h2hBest.draw.price);
-    const total = prob12 + probX;
-    if (total < 1) {
-      const edge = 1 - total;
-      const stake = 100;
-      const s1 = (stake * prob12) / total;
-      const s2 = (stake * probX) / total;
-      results.push({
-        marketKey: 'cross_12_X',
-        marketLabel: '12 (DC) + X (1X2)',
-        type: 'cross-market',
-        legs: [
-          { outcome: '12', label: '12', bookmaker: dcBest.homeAway.bookmaker, price: dcBest.homeAway.price, stake: s1, url: dcBest.homeAway.url || '', marketKey: dcBest.homeAway.marketKey || 'doubleChance', verificationStatus: dcBest.homeAway.verificationStatus || null },
-          { outcome: 'draw', label: 'X', bookmaker: h2hBest.draw.bookmaker, price: h2hBest.draw.price, stake: s2, url: h2hBest.draw.url || '', marketKey: h2hBest.draw.marketKey || 'h2h', verificationStatus: h2hBest.draw.verificationStatus || null },
-        ],
-        edge,
-        profit: stake / total - stake,
-        totalProb: total,
-        stake,
-        confidence: classifyConfidence(edge, 2, 2),
-      });
-    }
+    pushCrossMarketPair(results, {
+      marketKey: `cross_${prefix}12_X`,
+      marketLabel: `${label}12 (DC) + X (1X2)`.trim(),
+      legA: {
+        outcome: '12',
+        label: '12',
+        bookmaker: dcBest.homeAway.bookmaker,
+        price: dcBest.homeAway.price,
+        url: dcBest.homeAway.url,
+        marketKey: dcBest.homeAway.marketKey || dcKey,
+        verificationStatus: dcBest.homeAway.verificationStatus,
+      },
+      legB: {
+        outcome: 'draw',
+        label: 'X',
+        bookmaker: h2hBest.draw.bookmaker,
+        price: h2hBest.draw.price,
+        url: h2hBest.draw.url,
+        marketKey: h2hBest.draw.marketKey || h2hKey,
+        verificationStatus: h2hBest.draw.verificationStatus,
+      },
+    });
   }
 
   return results;
+}
+
+function detectCrossMarketArbitrage(event) {
+  return [
+    ...detectPeriodCrossMarket(event, 'h2h', 'doubleChance', '', ''),
+    ...detectPeriodCrossMarket(event, 'firstHalfH2h', 'firstHalfDoubleChance', '1H_', '1H'),
+    ...detectPeriodCrossMarket(event, 'secondHalfH2h', 'secondHalfDoubleChance', '2H_', '2H'),
+  ];
 }
 
 /* ===== Formula 3: Middle bets (over/under line gap) ===== */
@@ -681,14 +762,17 @@ function detectMiddleBets(event) {
 
   const lineMarkets = [];
   for (const mk of marketKeys) {
-    if (/^(?:total|asianTotal)(Goals|Corners|Cards)_/.test(mk)
+    if (/^(?:total|asianTotal)(Goals|Corners|Cards|Points|Games|Sets)_/.test(mk)
       || /^firstHalf(?:Asian)?Total/.test(mk)
-      || /^secondHalf(?:Asian)?Total/.test(mk)) {
+      || /^secondHalf(?:Asian)?Total/.test(mk)
+      || /^market_total_goluri_(?:home|away)_/.test(mk)) {
       const best = findBestPrices(event, mk);
       if (best.over && best.under) {
         const line = parseLineNumberFromKey(mk);
         if (line !== null && isScannableMiddleLine(line)) {
-          const familyLabel = getLineMarketFamilyLabel(mk);
+          const familyLabel = getLineMarketFamilyLabel(mk)
+            || (/market_total_goluri_home_/.test(mk) ? 'Home Team Goals' : null)
+            || (/market_total_goluri_away_/.test(mk) ? 'Away Team Goals' : null);
           lineMarkets.push({
             marketKey: mk,
             groupKey: String(mk).replace(/_\d+(?:_\d+)?$/, ''),
@@ -756,7 +840,8 @@ function detectHandicapArbitrage(event) {
 
   for (const mk of marketKeys) {
     if (!/^handicap_|^asianHandicap_/.test(mk)) continue;
-    if (!isSupportedHandicapMarket(mk)) continue;
+    // Scan all AH lines; half-lines remain actionable via eligibility.
+    if (!isScannableHandicapMarket(mk) && !isSupportedHandicapMarket(mk)) continue;
 
     const allPrices = collectAllPrices(event, mk);
     const outcomes = Object.keys(allPrices);
@@ -928,57 +1013,194 @@ function detectValueBet(event, marketKey, sportKey) {
   };
 }
 
-/* ===== Formula 5: BTTS + Team-to-Score arbitrage ===== */
+/* ===== Formula 5: BTTS + Team-to-Score / Clean Sheet arbitrage ===== */
+function pickBestPriceEntry(...candidates) {
+  return candidates
+    .filter((entry) => entry && Number(entry.price) > 1)
+    .sort((a, b) => b.price - a.price)[0] || null;
+}
+
+function pushThreeWayCross(results, {
+  marketKey,
+  marketLabel,
+  legs,
+}) {
+  if (!legs || legs.length !== 3 || legs.some((leg) => !leg || !(Number(leg.price) > 1))) return;
+  const total = legs.reduce((sum, leg) => sum + impliedProb(leg.price), 0);
+  if (!(total < 1)) return;
+  const edge = 1 - total;
+  if (edge > MAX_ARB_EDGE) return;
+  const stake = 100;
+  results.push({
+    marketKey,
+    marketLabel,
+    type: 'cross-market',
+    legs: legs.map((leg) => ({
+      outcome: leg.outcome,
+      label: leg.label,
+      bookmaker: leg.bookmaker,
+      price: leg.price,
+      stake: (stake * impliedProb(leg.price)) / total,
+      url: leg.url || '',
+      marketKey: leg.marketKey,
+      verificationStatus: leg.verificationStatus || null,
+    })),
+    edge,
+    profit: stake / total - stake,
+    totalProb: total,
+    stake,
+    confidence: classifyConfidence(edge, 3, 3),
+  });
+}
+
 function detectBttsTeamScoreArbitrage(event) {
   const results = [];
 
   const bttsBest = findBestPrices(event, 'bothTeamsToScore');
-  if (!bttsBest.yes) return results;
-
   const homeScoreBest = findBestPrices(event, 'market_marcheaza_home');
-  const homeTotal05Best = findBestPrices(event, 'market_total_goluri_home_0_5');
-
-  let bestHomeNo = null;
-  if (homeScoreBest.no && homeTotal05Best.under) {
-    bestHomeNo = homeScoreBest.no.price > homeTotal05Best.under.price ? homeScoreBest.no : homeTotal05Best.under;
-  } else {
-    bestHomeNo = homeScoreBest.no || homeTotal05Best.under || null;
-  }
-
   const awayScoreBest = findBestPrices(event, 'market_marcheaza_away');
+  const homeTotal05Best = findBestPrices(event, 'market_total_goluri_home_0_5');
   const awayTotal05Best = findBestPrices(event, 'market_total_goluri_away_0_5');
+  const homeCsBest = findBestPrices(event, 'market_clean_sheet_home');
+  const awayCsBest = findBestPrices(event, 'market_clean_sheet_away');
 
-  let bestAwayNo = null;
-  if (awayScoreBest.no && awayTotal05Best.under) {
-    bestAwayNo = awayScoreBest.no.price > awayTotal05Best.under.price ? awayScoreBest.no : awayTotal05Best.under;
-  } else {
-    bestAwayNo = awayScoreBest.no || awayTotal05Best.under || null;
+  // Home fails to score ≈ home under 0.5 ≈ away clean sheet yes
+  const bestHomeNo = pickBestPriceEntry(
+    homeScoreBest.no,
+    homeTotal05Best.under,
+    awayCsBest.yes,
+  );
+  // Away fails to score ≈ away under 0.5 ≈ home clean sheet yes
+  const bestAwayNo = pickBestPriceEntry(
+    awayScoreBest.no,
+    awayTotal05Best.under,
+    homeCsBest.yes,
+  );
+
+  // BTTS Yes + Home no score + Away no score (exhaustive partition)
+  if (bttsBest.yes && bestHomeNo && bestAwayNo) {
+    pushThreeWayCross(results, {
+      marketKey: 'cross_btts_team_score',
+      marketLabel: 'BTTS Yes + Home NS + Away NS',
+      legs: [
+        {
+          outcome: 'yes',
+          label: 'BTTS Yes',
+          bookmaker: bttsBest.yes.bookmaker,
+          price: bttsBest.yes.price,
+          url: bttsBest.yes.url,
+          marketKey: bttsBest.yes.marketKey || 'bothTeamsToScore',
+          verificationStatus: bttsBest.yes.verificationStatus,
+        },
+        {
+          outcome: 'homeNo',
+          label: 'Home No Score',
+          bookmaker: bestHomeNo.bookmaker,
+          price: bestHomeNo.price,
+          url: bestHomeNo.url,
+          marketKey: bestHomeNo.marketKey || 'market_marcheaza_home',
+          verificationStatus: bestHomeNo.verificationStatus,
+        },
+        {
+          outcome: 'awayNo',
+          label: 'Away No Score',
+          bookmaker: bestAwayNo.bookmaker,
+          price: bestAwayNo.price,
+          url: bestAwayNo.url,
+          marketKey: bestAwayNo.marketKey || 'market_marcheaza_away',
+          verificationStatus: bestAwayNo.verificationStatus,
+        },
+      ],
+    });
   }
 
-  if (!bestHomeNo || !bestAwayNo) return results;
-
-  const total = impliedProb(bttsBest.yes.price) + impliedProb(bestHomeNo.price) + impliedProb(bestAwayNo.price);
-  if (total < 1) {
-    const edge = 1 - total;
-    const stake = 100;
-    const s1 = (stake * impliedProb(bttsBest.yes.price)) / total;
-    const s2 = (stake * impliedProb(bestHomeNo.price)) / total;
-    const s3 = (stake * impliedProb(bestAwayNo.price)) / total;
-
-    results.push({
-      marketKey: 'cross_btts_team_score',
-      marketLabel: 'BTTS Yes + Team Clean Sheets',
-      type: 'cross-market',
+  // BTTS No + Home scores + Away scores (both must score contradicts BTTS No)
+  const bestHomeYes = pickBestPriceEntry(homeScoreBest.yes, homeTotal05Best.over);
+  const bestAwayYes = pickBestPriceEntry(awayScoreBest.yes, awayTotal05Best.over);
+  if (bttsBest.no && bestHomeYes && bestAwayYes) {
+    pushThreeWayCross(results, {
+      marketKey: 'cross_btts_no_both_score',
+      marketLabel: 'BTTS No + Home Scores + Away Scores',
       legs: [
-        { outcome: 'yes', label: 'BTTS Yes', bookmaker: bttsBest.yes.bookmaker, price: bttsBest.yes.price, stake: s1, url: bttsBest.yes.url || '', marketKey: bttsBest.yes.marketKey || 'bothTeamsToScore', verificationStatus: bttsBest.yes.verificationStatus || null },
-        { outcome: 'homeNo', label: 'Home to Score: No', bookmaker: bestHomeNo.bookmaker, price: bestHomeNo.price, stake: s2, url: bestHomeNo.url || '', marketKey: bestHomeNo.marketKey || 'market_marcheaza_home', verificationStatus: bestHomeNo.verificationStatus || null },
-        { outcome: 'awayNo', label: 'Away to Score: No', bookmaker: bestAwayNo.bookmaker, price: bestAwayNo.price, stake: s3, url: bestAwayNo.url || '', marketKey: bestAwayNo.marketKey || 'market_marcheaza_away', verificationStatus: bestAwayNo.verificationStatus || null },
+        {
+          outcome: 'no',
+          label: 'BTTS No',
+          bookmaker: bttsBest.no.bookmaker,
+          price: bttsBest.no.price,
+          url: bttsBest.no.url,
+          marketKey: bttsBest.no.marketKey || 'bothTeamsToScore',
+          verificationStatus: bttsBest.no.verificationStatus,
+        },
+        {
+          outcome: 'homeYes',
+          label: 'Home Scores',
+          bookmaker: bestHomeYes.bookmaker,
+          price: bestHomeYes.price,
+          url: bestHomeYes.url,
+          marketKey: bestHomeYes.marketKey || 'market_marcheaza_home',
+          verificationStatus: bestHomeYes.verificationStatus,
+        },
+        {
+          outcome: 'awayYes',
+          label: 'Away Scores',
+          bookmaker: bestAwayYes.bookmaker,
+          price: bestAwayYes.price,
+          url: bestAwayYes.url,
+          marketKey: bestAwayYes.marketKey || 'market_marcheaza_away',
+          verificationStatus: bestAwayYes.verificationStatus,
+        },
       ],
-      edge,
-      profit: stake / total - stake,
-      totalProb: total,
-      stake,
-      confidence: classifyConfidence(edge, 3, 3),
+    });
+  }
+
+  // Pairwise: Home scores Yes vs Away clean sheet Yes (mutually exclusive & exhaustive for "did home score?")
+  if (bestHomeYes && bestHomeNo) {
+    pushCrossMarketPair(results, {
+      marketKey: 'cross_home_score_vs_no',
+      marketLabel: 'Home Scores Yes/No',
+      legA: {
+        outcome: 'yes',
+        label: 'Home Scores',
+        bookmaker: bestHomeYes.bookmaker,
+        price: bestHomeYes.price,
+        url: bestHomeYes.url,
+        marketKey: bestHomeYes.marketKey || 'market_marcheaza_home',
+        verificationStatus: bestHomeYes.verificationStatus,
+      },
+      legB: {
+        outcome: 'no',
+        label: 'Home No Score',
+        bookmaker: bestHomeNo.bookmaker,
+        price: bestHomeNo.price,
+        url: bestHomeNo.url,
+        marketKey: bestHomeNo.marketKey || 'market_marcheaza_home',
+        verificationStatus: bestHomeNo.verificationStatus,
+      },
+    });
+  }
+
+  if (bestAwayYes && bestAwayNo) {
+    pushCrossMarketPair(results, {
+      marketKey: 'cross_away_score_vs_no',
+      marketLabel: 'Away Scores Yes/No',
+      legA: {
+        outcome: 'yes',
+        label: 'Away Scores',
+        bookmaker: bestAwayYes.bookmaker,
+        price: bestAwayYes.price,
+        url: bestAwayYes.url,
+        marketKey: bestAwayYes.marketKey || 'market_marcheaza_away',
+        verificationStatus: bestAwayYes.verificationStatus,
+      },
+      legB: {
+        outcome: 'no',
+        label: 'Away No Score',
+        bookmaker: bestAwayNo.bookmaker,
+        price: bestAwayNo.price,
+        url: bestAwayNo.url,
+        marketKey: bestAwayNo.marketKey || 'market_marcheaza_away',
+        verificationStatus: bestAwayNo.verificationStatus,
+      },
     });
   }
 
@@ -1013,45 +1235,98 @@ function detectTeamMatchTotalArbitrage(event) {
 
   for (const m of matchLines) {
     for (const h of homeLines) {
+      // Match Over M + Home Under H + Away Under A when H + A = M + 0.5
+      // (if both teams stay under their lines, match cannot exceed M on half-lines)
       const neededA = m.line + 0.5 - h.line;
-      if (neededA <= 0) continue;
+      if (neededA > 0) {
+        const a = awayLines.find((item) => Math.abs(item.line - neededA) < 0.01);
+        if (a) {
+          const matchBest = findBestPrices(event, m.key);
+          const homeBest = findBestPrices(event, h.key);
+          const awayBest = findBestPrices(event, a.key);
+          if (matchBest.over && homeBest.under && awayBest.under) {
+            pushThreeWayCross(results, {
+              marketKey: `cross_totals_${m.key}_${h.key}_${a.key}`,
+              marketLabel: `Totals: Over ${m.line} (Match) + Under ${h.line} (Home) + Under ${a.line} (Away)`,
+              legs: [
+                {
+                  outcome: 'over',
+                  label: `Over ${m.line} Goals`,
+                  bookmaker: matchBest.over.bookmaker,
+                  price: matchBest.over.price,
+                  url: matchBest.over.url,
+                  marketKey: matchBest.over.marketKey || m.key,
+                  verificationStatus: matchBest.over.verificationStatus,
+                },
+                {
+                  outcome: 'under',
+                  label: `Home Under ${h.line}`,
+                  bookmaker: homeBest.under.bookmaker,
+                  price: homeBest.under.price,
+                  url: homeBest.under.url,
+                  marketKey: homeBest.under.marketKey || h.key,
+                  verificationStatus: homeBest.under.verificationStatus,
+                },
+                {
+                  outcome: 'under',
+                  label: `Away Under ${a.line}`,
+                  bookmaker: awayBest.under.bookmaker,
+                  price: awayBest.under.price,
+                  url: awayBest.under.url,
+                  marketKey: awayBest.under.marketKey || a.key,
+                  verificationStatus: awayBest.under.verificationStatus,
+                },
+              ],
+            });
+          }
+        }
+      }
 
-      const a = awayLines.find((item) => Math.abs(item.line - neededA) < 0.01);
-      if (!a) continue;
-
-      const matchBest = findBestPrices(event, m.key);
-      const homeBest = findBestPrices(event, h.key);
-      const awayBest = findBestPrices(event, a.key);
-
-      if (!matchBest.over || !homeBest.under || !awayBest.under) continue;
-
-      const priceOver = matchBest.over.price;
-      const priceHomeUnder = homeBest.under.price;
-      const priceAwayUnder = awayBest.under.price;
-
-      const total = impliedProb(priceOver) + impliedProb(priceHomeUnder) + impliedProb(priceAwayUnder);
-      if (total < 1) {
-        const edge = 1 - total;
-        const stake = 100;
-        const s1 = (stake * impliedProb(priceOver)) / total;
-        const s2 = (stake * impliedProb(priceHomeUnder)) / total;
-        const s3 = (stake * impliedProb(priceAwayUnder)) / total;
-
-        results.push({
-          marketKey: `cross_totals_${m.key}_${h.key}_${a.key}`,
-          marketLabel: `Totals: Over ${m.line} (Match) + Under ${h.line} (Home) + Under ${a.line} (Away)`,
-          type: 'cross-market',
-          legs: [
-            { outcome: 'over', label: `Over ${m.line} Goals`, bookmaker: matchBest.over.bookmaker, price: priceOver, stake: s1, url: matchBest.over.url || '', marketKey: matchBest.over.marketKey || m.key, verificationStatus: matchBest.over.verificationStatus || null },
-            { outcome: 'under', label: `Home Under ${h.line}`, bookmaker: homeBest.under.bookmaker, price: priceHomeUnder, stake: s2, url: homeBest.under.url || '', marketKey: homeBest.under.marketKey || h.key, verificationStatus: homeBest.under.verificationStatus || null },
-            { outcome: 'under', label: `Away Under ${a.line}`, bookmaker: awayBest.under.bookmaker, price: priceAwayUnder, stake: s3, url: awayBest.under.url || '', marketKey: awayBest.under.marketKey || a.key, verificationStatus: awayBest.under.verificationStatus || null },
-          ],
-          edge,
-          profit: stake / total - stake,
-          totalProb: total,
-          stake,
-          confidence: classifyConfidence(edge, 3, 3),
-        });
+      // Inverse: Match Under M + Home Over H + Away Over A when H + A = M - 0.5
+      // (if both teams go over, match cannot finish under M on half-lines)
+      const neededAInverse = m.line - 0.5 - h.line;
+      if (neededAInverse > 0) {
+        const aInv = awayLines.find((item) => Math.abs(item.line - neededAInverse) < 0.01);
+        if (aInv) {
+          const matchBest = findBestPrices(event, m.key);
+          const homeBest = findBestPrices(event, h.key);
+          const awayBest = findBestPrices(event, aInv.key);
+          if (matchBest.under && homeBest.over && awayBest.over) {
+            pushThreeWayCross(results, {
+              marketKey: `cross_totals_inv_${m.key}_${h.key}_${aInv.key}`,
+              marketLabel: `Totals: Under ${m.line} (Match) + Over ${h.line} (Home) + Over ${aInv.line} (Away)`,
+              legs: [
+                {
+                  outcome: 'under',
+                  label: `Under ${m.line} Goals`,
+                  bookmaker: matchBest.under.bookmaker,
+                  price: matchBest.under.price,
+                  url: matchBest.under.url,
+                  marketKey: matchBest.under.marketKey || m.key,
+                  verificationStatus: matchBest.under.verificationStatus,
+                },
+                {
+                  outcome: 'over',
+                  label: `Home Over ${h.line}`,
+                  bookmaker: homeBest.over.bookmaker,
+                  price: homeBest.over.price,
+                  url: homeBest.over.url,
+                  marketKey: homeBest.over.marketKey || h.key,
+                  verificationStatus: homeBest.over.verificationStatus,
+                },
+                {
+                  outcome: 'over',
+                  label: `Away Over ${aInv.line}`,
+                  bookmaker: awayBest.over.bookmaker,
+                  price: awayBest.over.price,
+                  url: awayBest.over.url,
+                  marketKey: awayBest.over.marketKey || aInv.key,
+                  verificationStatus: awayBest.over.verificationStatus,
+                },
+              ],
+            });
+          }
+        }
       }
     }
   }

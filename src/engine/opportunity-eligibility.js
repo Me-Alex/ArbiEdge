@@ -13,21 +13,43 @@ const TRANSIENT_REASON_CODES = new Set([
   'kickoff_missing',
 ]);
 
+/**
+ * Structural codes that keep a mathematical edge visible as a review candidate
+ * (not actionable without a complete settlement model / verification).
+ * Hard blocks (same-book, failed fidelity, edge outliers, etc.) still reject.
+ */
+const CANDIDATE_STRUCTURE_CODES = new Set([
+  'push_settlement',
+  'unknown_market_schema',
+  'unsupported_formula',
+]);
+
 const SAFE_CLASSIC_MARKETS = new Set([
   'h2h',
   'firstHalfH2h',
   'secondHalfH2h',
   'bothTeamsToScore',
+  'toQualify',
 ]);
+
+/** Yes/No exhaustive team markets commonly normalized by RO providers. */
+const YES_NO_TEAM_MARKET_RE = /^(?:market_marcheaza_(?:home|away)|market_clean_sheet_(?:home|away))$/;
 
 const SAFE_CROSS_MARKETS = new Set([
   'cross_1X_2',
   'cross_1_X2',
   'cross_12_X',
+  'cross_1H_1X_2',
+  'cross_1H_1_X2',
+  'cross_1H_12_X',
+  'cross_2H_1X_2',
+  'cross_2H_1_X2',
+  'cross_2H_12_X',
 ]);
 
 const TOTAL_LINE_MARKET_RE = /^(?:total|asianTotal|firstHalfTotal|secondHalfTotal|firstHalfAsianTotal|secondHalfAsianTotal)(?:Goals|Corners|Cards|Points|Games|Sets)_\d+(?:_\d+)?$/;
 const HANDICAP_LINE_MARKET_RE = /^(?:asianH|h)andicap_(?:plus|minus)_\d+(?:_\d+)?$/;
+const TEAM_TOTAL_MARKET_RE = /^market_total_goluri_(?:home|away)_\d+(?:_\d+)?$/;
 
 function lineFromMarketKey(marketKey) {
   const match = String(marketKey || '').match(/_(\d+)(?:_(\d+))?$/);
@@ -41,15 +63,42 @@ function isHalfLineMarket(marketKey) {
   return line !== null && line > 0 && Math.abs((line % 1) - 0.5) < 1e-9;
 }
 
+function isPositiveLineMarket(marketKey) {
+  const line = lineFromMarketKey(marketKey);
+  return line !== null && line > 0;
+}
+
 function isSupportedClassicMarket(marketKey) {
   const key = String(marketKey || '');
   if (SAFE_CLASSIC_MARKETS.has(key)) return true;
+  if (YES_NO_TEAM_MARKET_RE.test(key)) return true;
   return TOTAL_LINE_MARKET_RE.test(key) && isHalfLineMarket(key);
+}
+
+/**
+ * Broader gate for classic math scanning: includes push/integer lines and
+ * known 2-way team schemas so candidates appear even when not actionable.
+ */
+function isScannableClassicMarket(marketKey) {
+  const key = String(marketKey || '');
+  if (isSupportedClassicMarket(key)) return true;
+  // Integer / quarter totals — candidate only (push / half-win settlement).
+  if (TOTAL_LINE_MARKET_RE.test(key) && isPositiveLineMarket(key)) return true;
+  if (TEAM_TOTAL_MARKET_RE.test(key) && isPositiveLineMarket(key)) return true;
+  return false;
 }
 
 function isSupportedHandicapMarket(marketKey) {
   const key = String(marketKey || '');
   return HANDICAP_LINE_MARKET_RE.test(key) && isHalfLineMarket(key);
+}
+
+/** Scan every two-way Asian/European handicap line; half-lines stay actionable. */
+function isScannableHandicapMarket(marketKey) {
+  const key = String(marketKey || '');
+  if (!HANDICAP_LINE_MARKET_RE.test(key)) return false;
+  const line = lineFromMarketKey(key);
+  return line !== null && line >= 0;
 }
 
 function normalizeVerificationStatus(status) {
@@ -107,7 +156,7 @@ function marketStructure(opportunity) {
     return { safe: true, analysis: false };
   }
 
-  if (marketKey === 'doubleChance') {
+  if (marketKey === 'doubleChance' || /DoubleChance$/i.test(marketKey)) {
     return {
       safe: false,
       analysis: false,
@@ -125,7 +174,11 @@ function marketStructure(opportunity) {
     };
   }
 
-  if (TOTAL_LINE_MARKET_RE.test(marketKey) || HANDICAP_LINE_MARKET_RE.test(marketKey)) {
+  if (
+    TOTAL_LINE_MARKET_RE.test(marketKey)
+    || HANDICAP_LINE_MARKET_RE.test(marketKey)
+    || TEAM_TOTAL_MARKET_RE.test(marketKey)
+  ) {
     return {
       safe: false,
       analysis: false,
@@ -218,15 +271,17 @@ function evaluateOpportunityEligibility(opportunity) {
     addReason('kickoff_mismatch', 'The selected prices refer to fixtures with different kickoff times.');
   }
 
-  const hasStructuralBlock = reasonCodes.some((code) => !TRANSIENT_REASON_CODES.has(code));
+  const hardBlockCodes = reasonCodes.filter(
+    (code) => !TRANSIENT_REASON_CODES.has(code) && !CANDIDATE_STRUCTURE_CODES.has(code),
+  );
   const allLegsVerified = statuses.length > 0 && statuses.every((status) => status === VERIFIED_STATUS);
   const quotesActionable = !quoteTiming || quoteTiming.actionable === true;
   const kickoffsActionable = !kickoffTiming || kickoffTiming.actionable === true;
   let eligibility;
 
-  if (hasStructuralBlock || failedStatuses.length > 0) {
+  if (hardBlockCodes.length > 0 || failedStatuses.length > 0) {
     eligibility = 'rejected';
-  } else if (!allLegsVerified || !quotesActionable || !kickoffsActionable) {
+  } else if (!structure.safe || !allLegsVerified || !quotesActionable || !kickoffsActionable) {
     eligibility = 'review';
     if (!allLegsVerified) {
       addReason('verification_missing', `Every leg must be verified; current evidence: ${reviewStatuses.join(', ') || 'unverified'}.`);
@@ -264,6 +319,7 @@ function attachOpportunityEligibility(opportunity) {
 }
 
 module.exports = {
+  CANDIDATE_STRUCTURE_CODES,
   FAILED_STATUSES,
   MAX_ACTIONABLE_EDGE,
   REVIEW_STATUSES,
@@ -274,6 +330,8 @@ module.exports = {
   attachOpportunityEligibility,
   evaluateOpportunityEligibility,
   isHalfLineMarket,
+  isScannableClassicMarket,
+  isScannableHandicapMarket,
   isSupportedClassicMarket,
   isSupportedHandicapMarket,
   normalizeVerificationStatus,

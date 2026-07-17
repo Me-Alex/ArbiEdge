@@ -200,6 +200,42 @@ function createBookmaker(name, home, draw, away, baseTime, eventIndex, bookmaker
       over: round(2.54 + bookmakerIndex * 0.13),
       under: round(1.55 + eventIndex * 0.03),
     };
+    markets.asianTotalGoals_2_25 = {
+      over: round(1.94 + bookmakerIndex * 0.07),
+      under: round(1.88 + eventIndex * 0.02),
+    };
+    markets.asianTotalGoals_2_75 = {
+      over: round(2.18 + bookmakerIndex * 0.09),
+      under: round(1.7 + eventIndex * 0.02),
+    };
+    markets.totalGoals_1_5 = {
+      over: round(1.38 + bookmakerIndex * 0.05),
+      under: round(3.05 + eventIndex * 0.04),
+    };
+    markets.totalGoals_4_5 = {
+      over: round(4.2 + bookmakerIndex * 0.15),
+      under: round(1.22 + eventIndex * 0.02),
+    };
+    markets.toQualify = {
+      home: round(Math.max(1.08, home - 0.18)),
+      away: round(Math.max(1.08, away - 0.35)),
+    };
+    markets.market_total_goluri_home_0_5 = {
+      over: round(1.28 + bookmakerIndex * 0.04),
+      under: round(3.55 + eventIndex * 0.05),
+    };
+    markets.market_total_goluri_away_0_5 = {
+      over: round(1.48 + bookmakerIndex * 0.05),
+      under: round(2.65 + eventIndex * 0.05),
+    };
+    markets.market_total_goluri_home_1_5 = {
+      over: round(2.15 + bookmakerIndex * 0.08 + eventIndex * 0.02),
+      under: round(1.72 + eventIndex * 0.03),
+    };
+    markets.market_total_goluri_away_1_5 = {
+      over: round(2.45 + bookmakerIndex * 0.09 + eventIndex * 0.02),
+      under: round(1.55 + eventIndex * 0.03),
+    };
   }
 
   if (!isTwoWay && eventIndex === 0) {

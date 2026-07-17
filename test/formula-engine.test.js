@@ -117,7 +117,7 @@ test('detectArbitrage rejects generic market without a proven outcome schema', (
   assert.strictEqual(detectArbitrage(event, 'market_custom'), null);
 });
 
-test('detectArbitrage only accepts half-point totals without push settlement', () => {
+test('detectArbitrage scans integer totals as candidates and half-lines as classic arbs', () => {
   const event = makeEvent({
     bookmakers: [
       { name: 'BookA', markets: {
@@ -127,7 +127,8 @@ test('detectArbitrage only accepts half-point totals without push settlement', (
     ],
   });
 
-  assert.strictEqual(detectArbitrage(event, 'totalGoals_2'), null);
+  // Integer lines are scannable math candidates (push risk → review eligibility).
+  assert.ok(detectArbitrage(event, 'totalGoals_2'));
   assert.ok(detectArbitrage(event, 'totalGoals_2_5'));
 });
 
@@ -807,6 +808,30 @@ test('detectValueBet computes proper overround-based consensus fair odds', () =>
   // Kelly stake: (b * p - q) / b where b = 5.0 - 1 = 4, p = 0.235294, q = 1 - p = 0.764706
   // Kelly = (4 * 0.235294 - 0.764706) / 4 = (0.941176 - 0.764706) / 4 = 0.0441176
   assert.strictEqual(Number(vb.kelly.toFixed(4)), 0.0441);
+});
+
+test('detectCrossMarketArbitrage finds first-half 1X2 vs double-chance edges', () => {
+  const event = makeEvent({
+    bookmakers: [
+      {
+        name: 'BookA',
+        markets: {
+          firstHalfH2h: { home: 3.1, draw: 2.4, away: 3.4 },
+          firstHalfDoubleChance: { homeDraw: 1.35, homeAway: 1.45, drawAway: 1.4 },
+        },
+      },
+      {
+        name: 'BookB',
+        markets: {
+          firstHalfH2h: { home: 2.9, draw: 2.5, away: 3.6 },
+          firstHalfDoubleChance: { homeDraw: 1.42, homeAway: 1.38, drawAway: 1.5 },
+        },
+      },
+    ],
+  });
+
+  const opportunities = detectCrossMarketArbitrage(event);
+  assert.ok(opportunities.some((item) => item.marketKey.startsWith('cross_1H_')));
 });
 
 test('detectBttsTeamScoreArbitrage finds edge from BTTS and Team clean sheets', () => {
