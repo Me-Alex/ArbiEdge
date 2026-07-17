@@ -266,6 +266,41 @@ function normalizeUfoMarket(market, context = {}) {
     );
   }
 
+  if (
+    synthetic === '1st_half_double_chance'
+    || synthetic === 'half_time_double_chance'
+    || (synthetic.includes('double_chance') && (
+      synthetic.includes('1st_half') || synthetic.includes('half_time') || synthetic.includes('pauza')
+    ))
+    || (synthetic.includes('sansa_dubla') && (
+      synthetic.includes('1st_half') || synthetic.includes('pauza') || synthetic.includes('prima')
+    ))
+  ) {
+    return mapUfoOutcomes(
+      market,
+      'firstHalfDoubleChance',
+      { '1X': 'homeDraw', 12: 'homeAway', X2: 'drawAway' },
+      ['homeDraw', 'homeAway', 'drawAway'],
+    );
+  }
+  if (
+    synthetic === '2nd_half_double_chance'
+    || synthetic === 'second_half_double_chance'
+    || (synthetic.includes('double_chance') && (
+      synthetic.includes('2nd_half') || synthetic.includes('second_half') || synthetic.includes('a_doua')
+    ))
+    || (synthetic.includes('sansa_dubla') && (
+      synthetic.includes('2nd_half') || synthetic.includes('a_doua')
+    ))
+  ) {
+    return mapUfoOutcomes(
+      market,
+      'secondHalfDoubleChance',
+      { '1X': 'homeDraw', 12: 'homeAway', X2: 'drawAway' },
+      ['homeDraw', 'homeAway', 'drawAway'],
+    );
+  }
+
   if (market.marketTypeId === DRAW_NO_BET_MARKET_TYPE_ID || synthetic === 'draw_no_bet') {
     return mapUfoOutcomes(market, 'drawNoBet', { 1: 'home', 2: 'away' }, ['home', 'away']);
   }
@@ -295,11 +330,31 @@ function normalizeUfoMarket(market, context = {}) {
     return normalizeUfoLineMarket(market, 'totalGoals');
   }
 
+  // Period asian before period EU totals — labels often contain both "asian" and "total_goal".
+  if (
+    synthetic === '1st_half_asian_total_goals'
+    || synthetic === 'half_time_asian_total_goals'
+    || (synthetic.includes('asian') && synthetic.includes('total') && (
+      synthetic.includes('1st_half') || synthetic.includes('half_time') || synthetic.includes('pauza')
+    ))
+  ) {
+    return normalizeUfoLineMarket(market, 'firstHalfAsianTotalGoals');
+  }
+
+  if (
+    synthetic === '2nd_half_asian_total_goals'
+    || (synthetic.includes('asian') && synthetic.includes('total') && (
+      synthetic.includes('2nd_half') || synthetic.includes('second_half') || synthetic.includes('a_doua')
+    ))
+  ) {
+    return normalizeUfoLineMarket(market, 'secondHalfAsianTotalGoals');
+  }
+
   if (
     synthetic === '1st_half_total_goals'
     || synthetic === 'first_half_total_goals'
     || synthetic === 'half_time_total_goals'
-    || (synthetic.includes('1st_half') && synthetic.includes('total_goal'))
+    || (synthetic.includes('1st_half') && synthetic.includes('total_goal') && !synthetic.includes('asian'))
   ) {
     return normalizeUfoLineMarket(market, 'firstHalfTotalGoals');
   }
@@ -307,7 +362,7 @@ function normalizeUfoMarket(market, context = {}) {
   if (
     synthetic === '2nd_half_total_goals'
     || synthetic === 'second_half_total_goals'
-    || (synthetic.includes('2nd_half') && synthetic.includes('total_goal'))
+    || (synthetic.includes('2nd_half') && synthetic.includes('total_goal') && !synthetic.includes('asian'))
   ) {
     return normalizeUfoLineMarket(market, 'secondHalfTotalGoals');
   }
@@ -425,9 +480,23 @@ function normalizeUfoMarket(market, context = {}) {
   }
 
   if (
+    synthetic === 'asian_total_cards'
+    || (synthetic.includes('asian') && (
+      synthetic.includes('card') || synthetic.includes('cartonas') || synthetic.includes('booking')
+    ))
+  ) {
+    return normalizeUfoLineMarket(market, 'asianTotalCards');
+  }
+
+  if (
     synthetic.includes('home_to_score')
     || synthetic.includes('home_team_to_score')
     || synthetic === 'home_scores'
+    || synthetic.includes('gazdele_marcheaza')
+    || synthetic.includes('gazda_marcheaza')
+    || (synthetic.includes('marcheaza') && (
+      synthetic.includes('gazda') || synthetic.includes('gazde') || synthetic.includes('home')
+    ))
   ) {
     return mapUfoOutcomes(market, 'market_marcheaza_home', { Da: 'yes', Nu: 'no', Yes: 'yes', No: 'no' }, ['yes', 'no']);
   }
@@ -436,8 +505,55 @@ function normalizeUfoMarket(market, context = {}) {
     synthetic.includes('away_to_score')
     || synthetic.includes('away_team_to_score')
     || synthetic === 'away_scores'
+    || synthetic.includes('oaspetii_marcheaza')
+    || synthetic.includes('oaspete_marcheaza')
+    || (synthetic.includes('marcheaza') && (
+      synthetic.includes('oaspete') || synthetic.includes('oaspeti') || synthetic.includes('away')
+    ))
   ) {
     return mapUfoOutcomes(market, 'market_marcheaza_away', { Da: 'yes', Nu: 'no', Yes: 'yes', No: 'no' }, ['yes', 'no']);
+  }
+
+  if (
+    synthetic.includes('clean_sheet')
+    || synthetic.includes('fara_gol_primit')
+    || synthetic.includes('nu_primeste_gol')
+  ) {
+    const side = (synthetic.includes('home') || synthetic.includes('gazda') || synthetic.includes('gazde'))
+      ? 'home'
+      : (synthetic.includes('away') || synthetic.includes('oaspete') || synthetic.includes('oaspeti'))
+        ? 'away'
+        : null;
+    if (side) {
+      return mapUfoOutcomes(
+        market,
+        `market_clean_sheet_${side}`,
+        { Da: 'yes', Nu: 'no', Yes: 'yes', No: 'no' },
+        ['yes', 'no'],
+      );
+    }
+  }
+
+  if (
+    synthetic.includes('home_total')
+    || synthetic.includes('team1_total')
+    || synthetic.includes('total_goluri_gazde')
+    || (synthetic.includes('total_goluri') && (
+      synthetic.includes('gazda') || synthetic.includes('gazde') || synthetic.includes('home')
+    ))
+  ) {
+    return normalizeUfoLineMarket(market, 'market_total_goluri_home');
+  }
+
+  if (
+    synthetic.includes('away_total')
+    || synthetic.includes('team2_total')
+    || synthetic.includes('total_goluri_oaspeti')
+    || (synthetic.includes('total_goluri') && (
+      synthetic.includes('oaspete') || synthetic.includes('oaspeti') || synthetic.includes('away')
+    ))
+  ) {
+    return normalizeUfoLineMarket(market, 'market_total_goluri_away');
   }
 
   if (isMatchHandicapKey(synthetic)) {
@@ -540,14 +656,24 @@ function normalizeGenericUfoMarket(market) {
 }
 
 function parseLineOutcome(value) {
-  const match = String(value || '').trim().match(/^([+-])\s*([0-9]+(?:\.[0-9]+)?)$/);
-  if (!match) {
-    return null;
+  const raw = String(value || '').trim();
+  const signed = raw.match(/^([+-])\s*([0-9]+(?:[.,][0-9]+)?)$/);
+  if (signed) {
+    return {
+      side: signed[1] === '+' ? 'over' : 'under',
+      line: formatLine(signed[2].replace(',', '.')),
+    };
   }
-  return {
-    side: match[1] === '+' ? 'over' : 'under',
-    line: formatLine(match[2]),
-  };
+  // RO / EN labels used across UFO-family sportsbooks.
+  const labeled = raw.match(/^(peste|over|sub|under)\s*([0-9]+(?:[.,][0-9]+)?)$/i);
+  if (labeled) {
+    const side = /^(peste|over)$/i.test(labeled[1]) ? 'over' : 'under';
+    return {
+      side,
+      line: formatLine(labeled[2].replace(',', '.')),
+    };
+  }
+  return null;
 }
 
 function parseHandicapOutcome(value, { homeTeam, awayTeam } = {}) {

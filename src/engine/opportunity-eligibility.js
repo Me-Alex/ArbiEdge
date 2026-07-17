@@ -88,7 +88,8 @@ const SAFE_CROSS_MARKETS = new Set([
 ]);
 
 const TOTAL_LINE_MARKET_RE = /^(?:total|asianTotal|firstHalfTotal|secondHalfTotal|firstHalfAsianTotal|secondHalfAsianTotal)(?:Goals|Corners|Cards|Points|Games|Sets)_\d+(?:_\d+)?$/;
-const HANDICAP_LINE_MARKET_RE = /^(?:asianH|h)andicap_(?:plus|minus)_\d+(?:_\d+)?$/;
+// Includes zero-line keys (asianHandicap_0 / handicap_0) used by RO providers for DNB-equivalent AH.
+const HANDICAP_LINE_MARKET_RE = /^(?:asianH|h)andicap_(?:(?:plus|minus)_\d+(?:_\d+)?|0)$/;
 const TEAM_TOTAL_MARKET_RE = /^market_total_goluri_(?:home|away)_\d+(?:_\d+)?$/;
 
 function lineFromMarketKey(marketKey) {
@@ -151,6 +152,7 @@ function isScannableHandicapMarket(marketKey) {
   const key = String(marketKey || '');
   if (!HANDICAP_LINE_MARKET_RE.test(key)) return false;
   const line = lineFromMarketKey(key);
+  // Zero-line AH (push on draw) is a high-value candidate family; keep scannable.
   return line !== null && line >= 0;
 }
 

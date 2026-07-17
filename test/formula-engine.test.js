@@ -874,6 +874,19 @@ test('detectHandicapArbitrage checks Asian Handicap and ignores European Handica
   assert.strictEqual(europeanArbs.length, 0, 'European Handicap with draw outcome should be skipped');
 });
 
+test('detectHandicapArbitrage scans zero-line AH (DNB-equivalent) as candidates', () => {
+  const event = makeEvent({
+    bookmakers: [
+      { name: 'BookA', markets: { asianHandicap_0: { home: 2.1, away: 1.8 } } },
+      { name: 'BookB', markets: { asianHandicap_0: { home: 1.9, away: 2.15 } } },
+    ],
+  });
+  const arbs = detectHandicapArbitrage(event);
+  assert.strictEqual(arbs.length, 1);
+  assert.strictEqual(arbs[0].marketKey, 'asianHandicap_0');
+  assert.ok(arbs[0].edge > 0);
+});
+
 test('detectValueBet computes proper overround-based consensus fair odds', () => {
   const event = makeEvent({
     bookmakers: [

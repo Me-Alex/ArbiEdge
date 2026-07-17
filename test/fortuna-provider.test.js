@@ -8,6 +8,60 @@ const {
 } = require('../src/providers/fortuna-provider');
 const { ProviderError } = require('../src/providers/the-odds-api-provider');
 
+test('normalizes Fortuna period DC, asian half totals, clean sheets, and team scores', () => {
+  const extended = structuredClone(payload);
+  extended.markets.push(
+    {
+      fixtureId: 'ufo:mtch:1tn-00j',
+      marketTypeId: 'ufo:mtyp:test-dc1h',
+      syntheticGroupKey: '1st_half_double_chance',
+      outcomes: [
+        { name: '1X', odds: 1.35 },
+        { name: '12', odds: 1.4 },
+        { name: 'X2', odds: 1.55 },
+      ],
+    },
+    {
+      fixtureId: 'ufo:mtch:1tn-00j',
+      marketTypeId: 'ufo:mtyp:test-as1h',
+      syntheticGroupKey: '1st_half_asian_total_goals',
+      outcomes: [
+        { name: 'Peste 1.5', odds: 1.9 },
+        { name: 'Sub 1.5', odds: 1.85 },
+      ],
+    },
+    {
+      fixtureId: 'ufo:mtch:1tn-00j',
+      marketTypeId: 'ufo:mtyp:test-cs',
+      syntheticGroupKey: 'home_clean_sheet',
+      outcomes: [
+        { name: 'Da', odds: 2.4 },
+        { name: 'Nu', odds: 1.5 },
+      ],
+    },
+    {
+      fixtureId: 'ufo:mtch:1tn-00j',
+      marketTypeId: 'ufo:mtyp:test-hs',
+      syntheticGroupKey: 'gazdele_marcheaza',
+      outcomes: [
+        { name: 'Da', odds: 1.35 },
+        { name: 'Nu', odds: 3.1 },
+      ],
+    },
+  );
+
+  const [event] = normalizeFortunaPayload(extended, '2026-06-29T10:00:00.000Z', drawNoBetPayload);
+  const markets = event.bookmakers[0].markets;
+  assert.deepEqual(markets.firstHalfDoubleChance, {
+    homeDraw: 1.35,
+    homeAway: 1.4,
+    drawAway: 1.55,
+  });
+  assert.deepEqual(markets.firstHalfAsianTotalGoals_1_5, { over: 1.9, under: 1.85 });
+  assert.deepEqual(markets.market_clean_sheet_home, { yes: 2.4, no: 1.5 });
+  assert.deepEqual(markets.market_marcheaza_home, { yes: 1.35, no: 3.1 });
+});
+
 const payload = {
   tournaments: [
     {

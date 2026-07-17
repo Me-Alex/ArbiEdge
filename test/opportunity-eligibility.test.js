@@ -7,6 +7,7 @@ const {
   attachOpportunityEligibility,
   evaluateOpportunityEligibility,
   isHalfLineMarket,
+  isScannableHandicapMarket,
   isSupportedClassicMarket,
   isSupportedHandicapMarket,
   normalizeVerificationStatus,
@@ -109,6 +110,25 @@ test('team vs match totals cross formulas are structurally safe', () => {
 test('isSupportedHandicapMarket only approves two-way half lines', () => {
   assert.equal(isSupportedHandicapMarket('asianHandicap_plus_0_5'), true);
   assert.equal(isSupportedHandicapMarket('handicap_minus_1'), false);
+  // Zero-line AH is scannable for candidates but not actionable (push on draw).
+  assert.equal(isScannableHandicapMarket('asianHandicap_0'), true);
+  assert.equal(isScannableHandicapMarket('handicap_0'), true);
+  assert.equal(isSupportedHandicapMarket('asianHandicap_0'), false);
+  assert.equal(isSupportedHandicapMarket('asianHandicap_plus_0'), false);
+});
+
+test('zero-line AH candidates stay in review as push settlement', () => {
+  const zeroAh = evaluateOpportunityEligibility({
+    type: 'handicap',
+    marketKey: 'asianHandicap_0',
+    edge: 0.03,
+    legs: [
+      { bookmaker: 'Book A', verificationStatus: 'unverified' },
+      { bookmaker: 'Book B', verificationStatus: 'unverified' },
+    ],
+  });
+  assert.equal(zeroAh.eligibility, 'review');
+  assert.ok(zeroAh.eligibilityReasonCodes.includes('push_settlement'));
 });
 
 test('evaluateOpportunityEligibility separates actionable, review, and rejected candidates', () => {

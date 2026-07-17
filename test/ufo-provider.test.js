@@ -79,6 +79,70 @@ test('normalizeUfoPayload converts active football fixtures into normalized even
   });
 });
 
+test('normalizes UFO period DC, asian half totals, clean sheets, and RO score labels', () => {
+  const events = normalizeUfoPayload({
+    tournaments: [{ id: 'tournament-1', name: 'Liga 1' }],
+    fixtures: [fixture()],
+    markets: [
+      h2hMarket(),
+      {
+        id: 'm-dc',
+        fixtureId: 'fixture-1',
+        marketTypeId: 'ufo:mtyp:test-dc1h',
+        syntheticGroupKey: '1st_half_double_chance',
+        outcomes: [
+          { name: '1X', odds: 1.32 },
+          { name: '12', odds: 1.38 },
+          { name: 'X2', odds: 1.5 },
+        ],
+      },
+      {
+        id: 'm-as',
+        fixtureId: 'fixture-1',
+        marketTypeId: 'ufo:mtyp:test-as1h',
+        syntheticGroupKey: '1st_half_asian_total_goals',
+        outcomes: [
+          { name: 'Peste 0.5', odds: 1.7 },
+          { name: 'Sub 0.5', odds: 2.1 },
+        ],
+      },
+      {
+        id: 'm-cs',
+        fixtureId: 'fixture-1',
+        marketTypeId: 'ufo:mtyp:test-cs',
+        syntheticGroupKey: 'away_clean_sheet',
+        outcomes: [
+          { name: 'Da', odds: 3.2 },
+          { name: 'Nu', odds: 1.3 },
+        ],
+      },
+      {
+        id: 'm-hs',
+        fixtureId: 'fixture-1',
+        marketTypeId: 'ufo:mtyp:test-hs',
+        syntheticGroupKey: 'gazdele_marcheaza',
+        outcomes: [
+          { name: 'Da', odds: 1.4 },
+          { name: 'Nu', odds: 2.8 },
+        ],
+      },
+    ],
+  }, {
+    bookmaker: 'Casa Pariurilor',
+    fetchedAt: '2026-07-13T10:00:00.000Z',
+  });
+
+  const markets = events[0].bookmakers[0].markets;
+  assert.deepEqual(markets.firstHalfDoubleChance, {
+    homeDraw: 1.32,
+    homeAway: 1.38,
+    drawAway: 1.5,
+  });
+  assert.deepEqual(markets.firstHalfAsianTotalGoals_0_5, { over: 1.7, under: 2.1 });
+  assert.deepEqual(markets.market_clean_sheet_away, { yes: 3.2, no: 1.3 });
+  assert.deepEqual(markets.market_marcheaza_home, { yes: 1.4, no: 2.8 });
+});
+
 test('UfoProvider fetches fixture pages and overview markets before normalizing odds', async () => {
   const requests = [];
   const provider = new UfoProvider({
