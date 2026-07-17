@@ -209,6 +209,50 @@ test('normalizes EGT period draw-no-bet from labels', () => {
   assert.deepEqual(event.bookmakers[0].markets.secondHalfDrawNoBet, { home: 1.55, away: 2.4 });
 });
 
+test('normalizes EGT team scores, clean sheets, and asian totals from labels', () => {
+  const payload = structuredClone(eventsPayload);
+  payload.events[50006873979].markets.push(
+    {
+      marketTemplateId: 999010,
+      marketStatus: 'Active',
+      name: 'Gazdele marcheaza',
+      outcomes: [
+        { isActive: true, columnName: 'Da', odds: 1.35 },
+        { isActive: true, columnName: 'Nu', odds: 3.1 },
+      ],
+    },
+    {
+      marketTemplateId: 999011,
+      marketStatus: 'Active',
+      name: 'Fara gol primit oaspeti',
+      outcomes: [
+        { isActive: true, columnName: 'Da', odds: 2.8 },
+        { isActive: true, columnName: 'Nu', odds: 1.4 },
+      ],
+    },
+    {
+      marketTemplateId: 999012,
+      marketStatus: 'Active',
+      name: 'Total goluri asiatice',
+      marketSpecifier: '2.5',
+      outcomes: [
+        { isActive: true, columnName: 'Peste', odds: 1.95, specifier: '2.5' },
+        { isActive: true, columnName: 'Sub', odds: 1.85, specifier: '2.5' },
+      ],
+    },
+  );
+
+  const [event] = normalizeEgtPayload(payload, {
+    bookmaker: 'VivaBet',
+    fetchedAt: '2026-06-29T10:00:00.000Z',
+    origin: 'https://vivabet.ro',
+  });
+
+  assert.deepEqual(event.bookmakers[0].markets.market_marcheaza_home, { yes: 1.35, no: 3.1 });
+  assert.deepEqual(event.bookmakers[0].markets.market_clean_sheet_away, { yes: 2.8, no: 1.4 });
+  assert.deepEqual(event.bookmakers[0].markets.asianTotalGoals_2_5, { over: 1.95, under: 1.85 });
+});
+
 test('normalizes EGT events with fixture names when team fields are missing', () => {
   const payload = structuredClone(eventsPayload);
   delete payload.events[50006873979].homeTeam;

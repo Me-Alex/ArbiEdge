@@ -207,6 +207,8 @@ function formatMiddleLegLabel(outcome, line, familyLabel) {
 }
 
 function formatHandicapLine(key) {
+  const zero = String(key).match(/(?:asian)?[Hh]andicap_0$/);
+  if (zero) return '0';
   const m = String(key).match(/(?:asian)?[Hh]andicap_(plus|minus)_(\d+)(?:_(\d+))?$/);
   if (!m) return null;
   const sign = m[1] === 'plus' ? '+' : '-';
@@ -219,10 +221,10 @@ function getMarketLabel(key) {
 
   const k = String(key);
 
-  // Asian handicap: asianHandicap_plus_0_5 → AH +0.5
+  // Asian handicap: asianHandicap_plus_0_5 → AH +0.5 ; asianHandicap_0 → AH 0
   const ah = formatHandicapLine(k);
-  if (ah && k.startsWith('asianHandicap')) return `AH ${ah}`;
-  if (ah && k.startsWith('handicap')) return `Handicap ${ah}`;
+  if (ah && k.startsWith('asianHandicap')) return ah === '0' ? 'AH 0 (DNB)' : `AH ${ah}`;
+  if (ah && k.startsWith('handicap')) return ah === '0' ? 'Handicap 0' : `Handicap ${ah}`;
 
   // Total goals with line: totalGoals_2_5 → O/U 2.5 Goals
   if (/^totalGoals_/.test(k)) {
@@ -773,7 +775,71 @@ function detectCrossMarketArbitrage(event) {
     ...detectCsNoVsOpponentScoreCross(event),
     ...detectEuroAsianSameLineArbitrage(event),
     ...detectAhZeroVsDnbCross(event),
+    ...detectDcVsAhZeroCross(event),
   ];
+}
+
+/**
+ * Double-chance vs AH0 complementary soft covers (push on draw for AH0):
+ * - 1X + AH0 Away  (home/draw vs away)
+ * - X2 + AH0 Home  (away/draw vs home)
+ * Kept as review candidates (AH0 push settlement).
+ */
+function detectDcVsAhZeroCross(event) {
+  const results = [];
+  const dc = findBestPrices(event, 'doubleChance');
+  const ah = findBestPrices(event, 'asianHandicap_0');
+  if (!dc.homeDraw && !dc.drawAway) return results;
+
+  if (dc.homeDraw && ah.away) {
+    pushCrossMarketPair(results, {
+      marketKey: 'cross_dc_1x_ah0_away',
+      marketLabel: '1X (DC) + AH0 Away',
+      legA: {
+        outcome: 'homeDraw',
+        label: '1X',
+        bookmaker: dc.homeDraw.bookmaker,
+        price: dc.homeDraw.price,
+        url: dc.homeDraw.url,
+        marketKey: dc.homeDraw.marketKey || 'doubleChance',
+        verificationStatus: dc.homeDraw.verificationStatus,
+      },
+      legB: {
+        outcome: 'away',
+        label: 'AH0 Away',
+        bookmaker: ah.away.bookmaker,
+        price: ah.away.price,
+        url: ah.away.url,
+        marketKey: ah.away.marketKey || 'asianHandicap_0',
+        verificationStatus: ah.away.verificationStatus,
+      },
+    });
+  }
+  if (dc.drawAway && ah.home) {
+    pushCrossMarketPair(results, {
+      marketKey: 'cross_dc_x2_ah0_home',
+      marketLabel: 'X2 (DC) + AH0 Home',
+      legA: {
+        outcome: 'drawAway',
+        label: 'X2',
+        bookmaker: dc.drawAway.bookmaker,
+        price: dc.drawAway.price,
+        url: dc.drawAway.url,
+        marketKey: dc.drawAway.marketKey || 'doubleChance',
+        verificationStatus: dc.drawAway.verificationStatus,
+      },
+      legB: {
+        outcome: 'home',
+        label: 'AH0 Home',
+        bookmaker: ah.home.bookmaker,
+        price: ah.home.price,
+        url: ah.home.url,
+        marketKey: ah.home.marketKey || 'asianHandicap_0',
+        verificationStatus: ah.home.verificationStatus,
+      },
+    });
+  }
+  return results;
 }
 
 /**

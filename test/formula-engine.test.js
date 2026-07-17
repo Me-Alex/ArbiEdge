@@ -885,6 +885,31 @@ test('detectHandicapArbitrage scans zero-line AH (DNB-equivalent) as candidates'
   assert.strictEqual(arbs.length, 1);
   assert.strictEqual(arbs[0].marketKey, 'asianHandicap_0');
   assert.ok(arbs[0].edge > 0);
+  assert.strictEqual(getMarketLabel('asianHandicap_0'), 'AH 0 (DNB)');
+});
+
+test('detectCrossMarketArbitrage finds DC 1X + AH0 Away soft covers', () => {
+  const event = makeEvent({
+    bookmakers: [
+      {
+        name: 'BookA',
+        markets: {
+          doubleChance: { homeDraw: 1.55, homeAway: 1.3, drawAway: 1.5 },
+          asianHandicap_0: { home: 1.7, away: 2.0 },
+        },
+      },
+      {
+        name: 'BookB',
+        markets: {
+          doubleChance: { homeDraw: 1.5, homeAway: 1.28, drawAway: 1.55 },
+          asianHandicap_0: { home: 1.65, away: 2.9 },
+        },
+      },
+    ],
+  });
+  // best 1X 1.55 + best AH0 away 2.9 → 1/1.55 + 1/2.9 ≈ 0.99
+  const results = detectCrossMarketArbitrage(event);
+  assert.ok(results.some((item) => item.marketKey === 'cross_dc_1x_ah0_away'));
 });
 
 test('detectValueBet computes proper overround-based consensus fair odds', () => {

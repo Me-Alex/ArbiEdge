@@ -7,8 +7,33 @@ const {
   BetOneProvider,
   extractBetOneFixtures,
   mergeBetOneDetail,
+  normalizeBetOneMarkets,
   normalizeBetOnePayload,
 } = require('../src/providers/betone-provider');
+
+test('normalizes BetOne period DNB and clean sheets from labels', () => {
+  const markets = normalizeBetOneMarkets([
+    {
+      marketId: 9001,
+      marketName: 'Fara egal pauza',
+      outcomes: [
+        { name: '1', value: 1.42 },
+        { name: '2', value: 2.75 },
+      ],
+    },
+    {
+      marketId: 9002,
+      marketName: 'Fara gol primit gazde',
+      outcomes: [
+        { name: 'Da', value: 2.2 },
+        { name: 'Nu', value: 1.65 },
+      ],
+    },
+  ], { homeTeam: 'Brazilia', awayTeam: 'Japonia' });
+
+  assert.deepEqual(markets.firstHalfDrawNoBet, { home: 1.42, away: 2.75 });
+  assert.deepEqual(markets.market_clean_sheet_home, { yes: 2.2, no: 1.65 });
+});
 
 const fixture = {
   eventCode: '3202',

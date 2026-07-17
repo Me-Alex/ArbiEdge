@@ -489,6 +489,26 @@ function normalizeDigitainMarkets(matchBets, { homeTeam, awayTeam } = {}) {
     }
 
     if (
+      marketName.includes('fara gol primit')
+      || marketName.includes('clean sheet')
+      || marketName.includes('nu primeste gol')
+    ) {
+      const prices = digitainPrices(market, {
+        Da: 'yes', Nu: 'no', Yes: 'yes', No: 'no',
+      });
+      const side = (marketName.includes('gazda') || marketName.includes('gazde') || marketName.includes('home'))
+        ? 'home'
+        : (marketName.includes('oaspete') || marketName.includes('oaspeti') || marketName.includes('away'))
+          ? 'away'
+          : null;
+      if (side && hasOutcomes(prices, ['yes', 'no'])) {
+        const key = `market_clean_sheet_${side}`;
+        if (!markets[key]) markets[key] = prices;
+      }
+      continue;
+    }
+
+    if (
       marketName.includes('sansa dubla')
       || marketName.includes('double chance')
     ) {

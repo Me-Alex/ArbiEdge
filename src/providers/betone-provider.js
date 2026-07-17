@@ -407,6 +407,42 @@ function routeBetOneLabelMarket(normalized, market, label, { homeTeam, awayTeam 
   }
 
   if (
+    label.includes('fara egal')
+    || label.includes('draw no bet')
+    || label.includes('egal pariu')
+  ) {
+    const dnbKey = (label.includes('pauza') || label.includes('prima') || label.includes('1st'))
+      ? 'firstHalfDrawNoBet'
+      : (label.includes('a doua') || label.includes('2nd') || label.includes('second'))
+        ? 'secondHalfDrawNoBet'
+        : 'drawNoBet';
+    addOutcomeMarket(normalized, dnbKey, market, {
+      '1': 'home',
+      '2': 'away',
+    }, ['home', 'away']);
+    return Boolean(normalized[dnbKey]);
+  }
+
+  if (
+    label.includes('fara gol primit')
+    || label.includes('clean sheet')
+    || label.includes('nu primeste gol')
+  ) {
+    const side = (label.includes('gazda') || label.includes('gazde') || label.includes('home'))
+      ? 'home'
+      : (label.includes('oaspete') || label.includes('oaspeti') || label.includes('away'))
+        ? 'away'
+        : null;
+    if (side) {
+      const key = `market_clean_sheet_${side}`;
+      addOutcomeMarket(normalized, key, market, {
+        Da: 'yes', Yes: 'yes', Nu: 'no', No: 'no',
+      }, ['yes', 'no']);
+      return Boolean(normalized[key]);
+    }
+  }
+
+  if (
     label.includes('total goluri')
     && (label.includes('gazde') || label.includes('home') || label.includes('echipa 1'))
   ) {

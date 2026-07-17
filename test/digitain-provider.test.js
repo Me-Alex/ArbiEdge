@@ -357,6 +357,29 @@ test('normalizes extra Digitain markets for arbitrage scanning', () => {
   });
 });
 
+test('normalizes Digitain clean-sheet markets from labels', () => {
+  const cleanPayload = structuredClone(payload);
+  cleanPayload.data.events[0].matchBets.push({
+    idBet: '900',
+    mbActive: true,
+    mbDisplayName: { 2: 'Home clean sheet', 42: 'Fara gol primit gazde' },
+    mbOutcomes: [
+      { mboActive: true, mboType: { 2: 'Yes', 42: 'Da' }, mboOddValue: 2.45 },
+      { mboActive: true, mboType: { 2: 'No', 42: 'Nu' }, mboOddValue: 1.5 },
+    ],
+  });
+
+  const [event] = normalizeDigitainPayload(cleanPayload, {
+    bookmaker: 'Winner',
+    fetchedAt: '2026-06-21T20:00:00.000Z',
+  });
+
+  assert.deepEqual(event.bookmakers[0].markets.market_clean_sheet_home, {
+    yes: 2.45,
+    no: 1.5,
+  });
+});
+
 test('configures 888 with its public Romanian Digitain endpoint', async () => {
   const requests = [];
   const provider = new EightEightEightProvider({

@@ -375,9 +375,28 @@ function routeEgtLabelMarket(normalized, market, label) {
     }
   }
 
+  // Period asian before EU half totals (labels often contain both tokens).
+  if (
+    (label.includes('total') && (label.includes('asiatic') || label.includes('asian')))
+    && (label.includes('pauza') || label.includes('prima') || label.includes('1st'))
+  ) {
+    addEgtLineMarket(normalized, market, 'firstHalfAsianTotalGoals');
+    return Boolean(Object.keys(normalized).some((k) => k.startsWith('firstHalfAsianTotalGoals_')));
+  }
+
+  if (
+    (label.includes('total') && (label.includes('asiatic') || label.includes('asian')))
+    && (label.includes('a doua') || label.includes('2nd') || label.includes('second'))
+  ) {
+    addEgtLineMarket(normalized, market, 'secondHalfAsianTotalGoals');
+    return Boolean(Object.keys(normalized).some((k) => k.startsWith('secondHalfAsianTotalGoals_')));
+  }
+
   if (
     label.includes('total goluri')
     && (label.includes('pauza') || label.includes('prima'))
+    && !label.includes('asiatic')
+    && !label.includes('asian')
   ) {
     addEgtLineMarket(normalized, market, 'firstHalfTotalGoals');
     return Boolean(Object.keys(normalized).some((k) => k.startsWith('firstHalfTotalGoals_')));
@@ -386,19 +405,112 @@ function routeEgtLabelMarket(normalized, market, label) {
   if (
     label.includes('total goluri')
     && (label.includes('a doua') || label.includes('2nd'))
+    && !label.includes('asiatic')
+    && !label.includes('asian')
   ) {
     addEgtLineMarket(normalized, market, 'secondHalfTotalGoals');
     return Boolean(Object.keys(normalized).some((k) => k.startsWith('secondHalfTotalGoals_')));
   }
 
+  if (
+    (label.includes('total goluri') || label.includes('total goals'))
+    && (label.includes('asiatic') || label.includes('asian'))
+  ) {
+    addEgtLineMarket(normalized, market, 'asianTotalGoals');
+    return Boolean(Object.keys(normalized).some((k) => k.startsWith('asianTotalGoals_')));
+  }
+
   if (label.includes('total cornere') || label.includes('total corners')) {
-    addEgtLineMarket(normalized, market, 'totalCorners');
-    return Boolean(Object.keys(normalized).some((k) => k.startsWith('totalCorners_')));
+    const base = (label.includes('asiatic') || label.includes('asian'))
+      ? 'asianTotalCorners'
+      : 'totalCorners';
+    addEgtLineMarket(normalized, market, base);
+    return Boolean(Object.keys(normalized).some((k) => k.startsWith(`${base}_`)));
   }
 
   if (label.includes('total cartonase') || label.includes('total cards') || label.includes('yellow card')) {
-    addEgtLineMarket(normalized, market, 'totalCards');
-    return Boolean(Object.keys(normalized).some((k) => k.startsWith('totalCards_')));
+    const base = (label.includes('asiatic') || label.includes('asian'))
+      ? 'asianTotalCards'
+      : 'totalCards';
+    addEgtLineMarket(normalized, market, base);
+    return Boolean(Object.keys(normalized).some((k) => k.startsWith(`${base}_`)));
+  }
+
+  if (
+    (label.includes('total goluri') || label.includes('total goals'))
+    && (label.includes('gazde') || label.includes('gazda') || label.includes('home') || label.includes('echipa 1'))
+  ) {
+    addEgtLineMarket(normalized, market, 'market_total_goluri_home');
+    return Boolean(Object.keys(normalized).some((k) => k.startsWith('market_total_goluri_home_')));
+  }
+
+  if (
+    (label.includes('total goluri') || label.includes('total goals'))
+    && (label.includes('oaspeti') || label.includes('oaspete') || label.includes('away') || label.includes('echipa 2'))
+  ) {
+    addEgtLineMarket(normalized, market, 'market_total_goluri_away');
+    return Boolean(Object.keys(normalized).some((k) => k.startsWith('market_total_goluri_away_')));
+  }
+
+  if (
+    (label.includes('marcheaza') || label.includes('to score') || label.includes('sa inscrie'))
+    && (label.includes('gazde') || label.includes('gazda') || label.includes('home'))
+  ) {
+    const prices = egtPrices(market, {
+      Da: 'yes', Nu: 'no', Yes: 'yes', No: 'no',
+    });
+    if (hasOutcomes(prices, ['yes', 'no']) && !normalized.market_marcheaza_home) {
+      normalized.market_marcheaza_home = prices;
+      return true;
+    }
+  }
+
+  if (
+    (label.includes('marcheaza') || label.includes('to score') || label.includes('sa inscrie'))
+    && (label.includes('oaspeti') || label.includes('oaspete') || label.includes('away'))
+  ) {
+    const prices = egtPrices(market, {
+      Da: 'yes', Nu: 'no', Yes: 'yes', No: 'no',
+    });
+    if (hasOutcomes(prices, ['yes', 'no']) && !normalized.market_marcheaza_away) {
+      normalized.market_marcheaza_away = prices;
+      return true;
+    }
+  }
+
+  if (
+    label.includes('fara gol primit')
+    || label.includes('clean sheet')
+    || label.includes('nu primeste gol')
+  ) {
+    const side = (label.includes('gazda') || label.includes('gazde') || label.includes('home'))
+      ? 'home'
+      : (label.includes('oaspete') || label.includes('oaspeti') || label.includes('away'))
+        ? 'away'
+        : null;
+    if (side) {
+      const prices = egtPrices(market, {
+        Da: 'yes', Nu: 'no', Yes: 'yes', No: 'no',
+      });
+      const key = `market_clean_sheet_${side}`;
+      if (hasOutcomes(prices, ['yes', 'no']) && !normalized[key]) {
+        normalized[key] = prices;
+        return true;
+      }
+    }
+  }
+
+  if (
+    label.includes('se califica')
+    || label.includes('to qualify')
+    || label.includes('merge mai departe')
+    || label.includes('calificare')
+  ) {
+    const prices = egtPrices(market, { '1': 'home', '2': 'away' });
+    if (hasOutcomes(prices, ['home', 'away']) && !normalized.toQualify) {
+      normalized.toQualify = prices;
+      return true;
+    }
   }
 
   return false;

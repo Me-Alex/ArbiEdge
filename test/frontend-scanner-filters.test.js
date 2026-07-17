@@ -76,6 +76,33 @@ test('scanner base filters preserve min edge, search, verification, and pinned s
   );
 });
 
+test('scanner prefers multi-feed candidates when edges are within 0.3pp', async () => {
+  const { getFilteredScannerOpportunities } = await loadScannerFilters();
+  const scannerState = makeState({
+    opportunities: [
+      {
+        eventName: 'Thin Feed',
+        marketKey: 'h2h',
+        edge: 0.031,
+        eligibility: 'review',
+        independentFeedCount: 1,
+      },
+      {
+        eventName: 'Multi Feed',
+        marketKey: 'h2h',
+        edge: 0.03,
+        eligibility: 'review',
+        independentFeedCount: 3,
+      },
+    ],
+  });
+
+  assert.deepEqual(
+    getFilteredScannerOpportunities(scannerState).map((opp) => opp.eventName),
+    ['Multi Feed', 'Thin Feed'],
+  );
+});
+
 test('scanner market counts are calculated after base filters and active tab', async () => {
   const { getScannerMarketTypeCounts } = await loadScannerFilters();
   const scannerState = makeState({
