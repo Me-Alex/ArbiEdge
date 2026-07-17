@@ -176,6 +176,39 @@ test('normalizes EGT football markets and event links', () => {
   ]);
 });
 
+test('normalizes EGT period draw-no-bet from labels', () => {
+  const payload = structuredClone(eventsPayload);
+  payload.events[50006873979].markets.push(
+    {
+      marketTemplateId: 999001,
+      marketStatus: 'Active',
+      name: 'Fara egal pauza',
+      outcomes: [
+        { isActive: true, columnName: '1', odds: 1.4 },
+        { isActive: true, columnName: '2', odds: 2.8 },
+      ],
+    },
+    {
+      marketTemplateId: 999002,
+      marketStatus: 'Active',
+      name: 'Fara egal a doua repriza',
+      outcomes: [
+        { isActive: true, columnName: '1', odds: 1.55 },
+        { isActive: true, columnName: '2', odds: 2.4 },
+      ],
+    },
+  );
+
+  const [event] = normalizeEgtPayload(payload, {
+    bookmaker: 'VivaBet',
+    fetchedAt: '2026-06-29T10:00:00.000Z',
+    origin: 'https://vivabet.ro',
+  });
+
+  assert.deepEqual(event.bookmakers[0].markets.firstHalfDrawNoBet, { home: 1.4, away: 2.8 });
+  assert.deepEqual(event.bookmakers[0].markets.secondHalfDrawNoBet, { home: 1.55, away: 2.4 });
+});
+
 test('normalizes EGT events with fixture names when team fields are missing', () => {
   const payload = structuredClone(eventsPayload);
   delete payload.events[50006873979].homeTeam;

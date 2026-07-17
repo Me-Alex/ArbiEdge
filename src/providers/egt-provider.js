@@ -344,8 +344,13 @@ function routeEgtLabelMarket(normalized, market, label) {
 
   if (label.includes('fara egal') || label.includes('draw no bet') || label.includes('egal pariu')) {
     const prices = egtPrices(market, { '1': 'home', '2': 'away' });
-    if (hasOutcomes(prices, ['home', 'away']) && !normalized.drawNoBet) {
-      normalized.drawNoBet = prices;
+    const dnbKey = (label.includes('pauza') || label.includes('prima') || label.includes('1st'))
+      ? 'firstHalfDrawNoBet'
+      : (label.includes('a doua') || label.includes('2nd') || label.includes('second'))
+        ? 'secondHalfDrawNoBet'
+        : 'drawNoBet';
+    if (hasOutcomes(prices, ['home', 'away']) && !normalized[dnbKey]) {
+      normalized[dnbKey] = prices;
       return true;
     }
   }

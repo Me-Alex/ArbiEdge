@@ -302,14 +302,24 @@ function normalizeMaxBetMarkets(markets) {
       continue;
     }
 
-    if (labelKey === 'sansa dubla' || labelKey === 'double chance') {
+    if (
+      labelKey === 'sansa dubla'
+      || labelKey === 'double chance'
+      || labelKey.includes('sansa dubla')
+      || labelKey.includes('double chance')
+    ) {
       const doubleChance = nsoftPrices(market, {
         '1X': 'homeDraw',
         '12': 'homeAway',
         X2: 'drawAway',
       });
-      if (hasOutcomes(doubleChance, ['homeDraw', 'homeAway', 'drawAway'])) {
-        normalized.doubleChance = doubleChance;
+      const dcKey = (labelKey.includes('pauza') || labelKey.includes('prima') || labelKey.includes('1st'))
+        ? 'firstHalfDoubleChance'
+        : (labelKey.includes('a doua') || labelKey.includes('2nd') || labelKey.includes('second'))
+          ? 'secondHalfDoubleChance'
+          : 'doubleChance';
+      if (hasOutcomes(doubleChance, ['homeDraw', 'homeAway', 'drawAway']) && !normalized[dcKey]) {
+        normalized[dcKey] = doubleChance;
       }
       continue;
     }
@@ -318,13 +328,20 @@ function normalizeMaxBetMarkets(markets) {
       labelKey === 'fara egal'
       || labelKey === 'draw no bet'
       || labelKey.includes('egal pariu')
+      || labelKey.includes('fara egal')
+      || labelKey.includes('draw no bet')
     ) {
       const prices = nsoftPrices(market, {
         '1': 'home',
         '2': 'away',
       });
-      if (hasOutcomes(prices, ['home', 'away']) && !normalized.drawNoBet) {
-        normalized.drawNoBet = prices;
+      const dnbKey = (labelKey.includes('pauza') || labelKey.includes('prima') || labelKey.includes('1st'))
+        ? 'firstHalfDrawNoBet'
+        : (labelKey.includes('a doua') || labelKey.includes('2nd') || labelKey.includes('second'))
+          ? 'secondHalfDrawNoBet'
+          : 'drawNoBet';
+      if (hasOutcomes(prices, ['home', 'away']) && !normalized[dnbKey]) {
+        normalized[dnbKey] = prices;
       }
       continue;
     }
@@ -339,6 +356,14 @@ function normalizeMaxBetMarkets(markets) {
       && (labelKey.includes('pauza') || labelKey.includes('prima'))
     ) {
       addMaxBetLineMarket(normalized, market, 'firstHalfTotalGoals');
+      continue;
+    }
+
+    if (
+      labelKey.includes('total goluri')
+      && (labelKey.includes('a doua') || labelKey.includes('2nd') || labelKey.includes('second'))
+    ) {
+      addMaxBetLineMarket(normalized, market, 'secondHalfTotalGoals');
       continue;
     }
 

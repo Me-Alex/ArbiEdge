@@ -107,6 +107,70 @@ test('extracts MaxBet events from Angular state', () => {
   assert.deepEqual(extractMaxBetEventsPayload(htmlWithState()), payload);
 });
 
+test('normalizes MaxBet period DNB, DC, and second-half totals', () => {
+  const periodPayload = {
+    events: [
+      {
+        a: 1,
+        q: '1',
+        b: 2,
+        c: 1,
+        d: 'RO',
+        f: 1,
+        g: 'Liga 1',
+        j: 'Team A - Team B',
+        l: 1,
+        n: '2026-07-18T18:00:00.000Z',
+        o: [
+          {
+            b: 9001,
+            d: 1,
+            c: 'Fara egal pauza',
+            h: [
+              { c: 1, e: '1', g: 1.45 },
+              { c: 1, e: '2', g: 2.7 },
+            ],
+          },
+          {
+            b: 9002,
+            d: 1,
+            c: 'Sansa dubla a doua repriza',
+            h: [
+              { c: 1, e: '1X', g: 1.35 },
+              { c: 1, e: '12', g: 1.4 },
+              { c: 1, e: 'X2', g: 1.5 },
+            ],
+          },
+          {
+            b: 9003,
+            d: 1,
+            c: 'Total goluri a doua repriza',
+            g: ['1.5'],
+            h: [
+              { c: 1, e: 'Peste 1.5', g: 1.9 },
+              { c: 1, e: 'Sub 1.5', g: 1.85 },
+            ],
+          },
+        ],
+        p: [
+          { c: 1, d: 'Team A' },
+          { c: 2, d: 'Team B' },
+        ],
+      },
+    ],
+  };
+
+  const [event] = normalizeMaxBetPayload(periodPayload, '2026-07-18T10:00:00.000Z');
+  assert.ok(event, 'expected normalized MaxBet event with period markets');
+  assert.deepEqual(event.bookmakers[0].markets.firstHalfDrawNoBet, { home: 1.45, away: 2.7 });
+  assert.deepEqual(event.bookmakers[0].markets.secondHalfDoubleChance, {
+    homeDraw: 1.35,
+    homeAway: 1.4,
+    drawAway: 1.5,
+  });
+  assert.deepEqual(event.bookmakers[0].markets.secondHalfTotalGoals_1_5, { over: 1.9, under: 1.85 });
+});
+
 test('extracts MaxBet events when Angular state caches a query-string URL', () => {
   assert.deepEqual(
     extractMaxBetEventsPayload(htmlWithState(payload, `${MAXBET_EVENTS_URL}?lang=ro`)),

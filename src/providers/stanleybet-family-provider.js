@@ -218,7 +218,11 @@ function normalizeStanleybetFamilyMarkets(markets) {
       continue;
     }
 
-    if (marketKey === 'drawNoBet' || marketKey === 'firstHalfDrawNoBet') {
+    if (
+      marketKey === 'drawNoBet'
+      || marketKey === 'firstHalfDrawNoBet'
+      || marketKey === 'secondHalfDrawNoBet'
+    ) {
       const prices = outcomePrices(market, { home: 'home', away: 'away' });
       if (hasOutcomes(prices, ['home', 'away']) && !normalized[marketKey]) {
         normalized[marketKey] = prices;

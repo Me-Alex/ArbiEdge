@@ -436,6 +436,27 @@ function normalizeBetconstructMarkets(rawMarkets, { homeTeam, awayTeam } = {}) {
       }, ['home', 'away']);
       continue;
     }
+    if (
+      typeKey === 'halftimedrawnobet'
+      || typeKey === 'drawnobethalftime'
+      || typeKey === '1sthalfdrawnobet'
+      || typeKey === 'firsthalfdrawnobet'
+    ) {
+      addOutcomeMarket(normalized, 'firstHalfDrawNoBet', events, {
+        P1: 'home', P2: 'away', '1': 'home', '2': 'away',
+      }, ['home', 'away']);
+      continue;
+    }
+    if (
+      typeKey === 'secondhalfdrawnobet'
+      || typeKey === 'drawnobetsecondhalf'
+      || typeKey === '2ndhalfdrawnobet'
+    ) {
+      addOutcomeMarket(normalized, 'secondHalfDrawNoBet', events, {
+        P1: 'home', P2: 'away', '1': 'home', '2': 'away',
+      }, ['home', 'away']);
+      continue;
+    }
     if (typeKey === 'oddeven' || typeKey === 'totalgoaloddeven' || typeKey === 'goalsoddeven') {
       addOutcomeMarket(normalized, 'market_total_goluri_impar_par', events, {
         Odd: 'odd', Even: 'even', odd: 'odd', even: 'even',

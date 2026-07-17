@@ -76,6 +76,15 @@ const SAFE_CROSS_MARKETS = new Set([
   'cross_away_score_vs_home_cs',
   'cross_home_cs_no_vs_away_ns',
   'cross_away_cs_no_vs_home_ns',
+  // Team score / clean-sheet ↔ team O/U 0.5 identities (half-line, no push).
+  'cross_home_score_yes_vs_home_under_0_5',
+  'cross_home_score_no_vs_home_over_0_5',
+  'cross_away_score_yes_vs_away_under_0_5',
+  'cross_away_score_no_vs_away_over_0_5',
+  'cross_home_cs_yes_vs_away_over_0_5',
+  'cross_home_cs_no_vs_away_under_0_5',
+  'cross_away_cs_yes_vs_home_over_0_5',
+  'cross_away_cs_no_vs_home_under_0_5',
 ]);
 
 const TOTAL_LINE_MARKET_RE = /^(?:total|asianTotal|firstHalfTotal|secondHalfTotal|firstHalfAsianTotal|secondHalfAsianTotal)(?:Goals|Corners|Cards|Points|Games|Sets)_\d+(?:_\d+)?$/;
