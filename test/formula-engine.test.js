@@ -938,6 +938,33 @@ test('detectCrossMarketArbitrage finds 1 vs AH2(+2.5) half-line covers', () => {
   assert.ok(results.some((item) => item.marketKey === 'cross_h2h_home_ah2_plus_2_5'));
 });
 
+test('detectCrossMarketArbitrage discovers non-default AH half-lines from the event', () => {
+  const event = makeEvent({
+    bookmakers: [
+      {
+        name: 'BookA',
+        markets: {
+          h2h: { home: 1.55, draw: 4.2, away: 6.0 },
+          asianHandicap_minus_3_5: { home: 1.9, away: 1.95 },
+        },
+      },
+      {
+        name: 'BookB',
+        markets: {
+          h2h: { home: 1.5, draw: 4.3, away: 6.2 },
+          asianHandicap_minus_3_5: { home: 1.85, away: 2.8 },
+        },
+      },
+    ],
+  });
+  // home 1.55 + AH2(+3.5) away 2.8 → 1/1.55 + 1/2.8 ≈ 1.002 — adjust
+  event.bookmakers[0].markets.h2h.home = 1.75;
+  event.bookmakers[1].markets.asianHandicap_minus_3_5.away = 2.7;
+  // 1.75 + 2.7 → 1/1.75 + 1/2.7 ≈ 0.942
+  const results = detectCrossMarketArbitrage(event);
+  assert.ok(results.some((item) => item.marketKey === 'cross_h2h_home_ah2_plus_3_5'));
+});
+
 test('detectCrossMarketArbitrage finds DC 1X + AH0 Away soft covers', () => {
   const event = makeEvent({
     bookmakers: [

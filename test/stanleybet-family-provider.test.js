@@ -76,6 +76,30 @@ const payload = {
   },
 };
 
+test('normalizes Stanleybet-family Asian handicap markets', () => {
+  const ahPayload = structuredClone(payload);
+  ahPayload.data.events[0].markets.push({
+    marketId: 2200,
+    active: 1,
+    name: 'Handicap asiatic',
+    outcomes: [
+      { active: 1, name: '1 (-0.5)', shortcut: '1', odd: 1.92 },
+      { active: 1, name: '2 (+0.5)', shortcut: '2', odd: 1.88 },
+    ],
+  });
+
+  const [event] = normalizeStanleybetFamilyPayload(ahPayload, {
+    bookmaker: 'Stanleybet',
+    fetchedAt: '2026-07-05T19:00:00.000Z',
+    origin: 'https://www.stanleybet.ro',
+  });
+
+  assert.deepEqual(event.bookmakers[0].markets.asianHandicap_minus_0_5, {
+    home: 1.92,
+    away: 1.88,
+  });
+});
+
 test('normalizes Stanleybet-family football markets', () => {
   const events = normalizeStanleybetFamilyPayload(payload, {
     bookmaker: 'Stanleybet',

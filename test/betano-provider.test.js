@@ -165,6 +165,52 @@ test('normalizes Betano second-half draw no bet', () => {
   });
 });
 
+test('normalizes Betano period asian totals before full-time asian', () => {
+  const event = normalizeBetanoEvent({
+    id: '80',
+    url: '/sport/fotbal/test/80/',
+    name: 'Alpha - Beta',
+    startTime: 1782079200000,
+    competition: 'Test',
+    markets: [
+      {
+        type: 'MRES',
+        selections: [
+          { name: '1', price: 2.1 },
+          { name: 'X', price: 3.2 },
+          { name: '2', price: 3.4 },
+        ],
+      },
+      {
+        type: 'AOTG',
+        name: 'Total goluri asiatice pauza',
+        selections: [
+          { name: 'Peste 1.5', price: 1.9 },
+          { name: 'Sub 1.5', price: 1.85 },
+        ],
+      },
+      {
+        type: 'AOTG',
+        name: 'Total goluri asiatice a doua repriza',
+        selections: [
+          { name: 'Peste 0.5', price: 1.7 },
+          { name: 'Sub 0.5', price: 2.1 },
+        ],
+      },
+    ],
+  }, '2026-07-18T10:00:00.000Z');
+
+  assert.ok(event);
+  assert.deepEqual(event.bookmakers[0].markets.firstHalfAsianTotalGoals_1_5, {
+    over: 1.9,
+    under: 1.85,
+  });
+  assert.deepEqual(event.bookmakers[0].markets.secondHalfAsianTotalGoals_0_5, {
+    over: 1.7,
+    under: 2.1,
+  });
+});
+
 test('normalizes browser-collected Betano events with vs-separated names', async () => {
   const provider = new BetanoProvider({
     transport: {

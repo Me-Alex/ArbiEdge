@@ -3,6 +3,7 @@ const { absoluteEventUrl, bookmakerLinkFields } = require('./event-links');
 const {
   formatLine,
   genericMarketKey,
+  handicapMarketKey,
   hasAnyCompleteMarket,
   isDecimalOdds,
   normalizeOutcomeKey,
@@ -232,6 +233,11 @@ function normalizeStanleybetFamilyMarkets(markets) {
 
     if (isTotalGoalsMarket(marketKey, market)) {
       addTotalGoalsMarket(normalized, market, totalGoalsBaseKey(marketKey, market));
+      continue;
+    }
+
+    if (isAsianHandicapMarket(marketKey, market)) {
+      addAsianHandicapMarket(normalized, market);
       continue;
     }
 
@@ -506,6 +512,61 @@ function isTotalGoalsMarket(marketKey, market) {
     activeOutcomes(market).some((outcome) =>
       ['over', 'under'].includes(normalizeOutcomeKey(outcome.name || outcome.shortcut)),
     );
+}
+
+function isAsianHandicapMarket(marketKey, market) {
+  if (marketKey === 'asianHandicap' || marketKey === 'handicap') return true;
+  const key = labelKey(market?.name);
+  return (
+    key.includes('handicap_asiatic')
+    || key.includes('asian_handicap')
+    || key.includes('handicap_asiat')
+    || (key.includes('handicap') && key.includes('asiatic'))
+    || key === 'handicap_asiatic'
+  );
+}
+
+function addAsianHandicapMarket(markets, market) {
+  const grouped = new Map();
+  for (const outcome of activeOutcomes(market)) {
+    const parsed = parseStanleybetHandicapOutcome(outcome.name || outcome.shortcut);
+    if (!parsed || !isDecimalOdds(outcome.odd)) continue;
+    if (!grouped.has(parsed.homeLine)) grouped.set(parsed.homeLine, {});
+    grouped.get(parsed.homeLine)[parsed.side] = outcome.odd;
+  }
+  for (const [homeLine, prices] of grouped.entries()) {
+    if (hasOutcomes(prices, ['home', 'away'])) {
+      const key = handicapMarketKey('asianHandicap', homeLine);
+      if (key && !markets[key]) markets[key] = prices;
+    }
+  }
+}
+
+function parseStanleybetHandicapOutcome(value) {
+  const raw = String(value || '').trim();
+  // H1 -0.5 / H2 +0.5
+  let match = raw.match(/^H([12])\s*([+-]?\d+(?:[.,]\d+)?)$/i);
+  if (match) {
+    const side = match[1] === '1' ? 'home' : 'away';
+    const line = Number(match[2].replace(',', '.'));
+    return { side, homeLine: side === 'home' ? line : -line };
+  }
+  // 1 (-0.5) / 2 (+0.5)
+  match = raw.match(/^([12])\s*[(\[]?\s*([+-]?\d+(?:[.,]\d+)?)\s*[)\]]?$/);
+  if (match) {
+    const side = match[1] === '1' ? 'home' : 'away';
+    const line = Number(match[2].replace(',', '.'));
+    return { side, homeLine: side === 'home' ? line : -line };
+  }
+  // Home (-0.5) / Away (+0.5) after normalizeOutcomeKey paths
+  match = raw.match(/^(home|away|1|2|gazda|oaspete)\s*[(\[]?\s*([+-]?\d+(?:[.,]\d+)?)\s*[)\]]?$/i);
+  if (match) {
+    const token = match[1].toLowerCase();
+    const side = (token === '1' || token === 'home' || token === 'gazda') ? 'home' : 'away';
+    const line = Number(match[2].replace(',', '.'));
+    return { side, homeLine: side === 'home' ? line : -line };
+  }
+  return null;
 }
 
 function isBothTeamsToScoreMarket(marketKey, market) {

@@ -789,10 +789,21 @@ function detectCrossMarketArbitrage(event) {
  * Best-of-book pairing surfaces edges settlement scanning can miss when
  * stake sizing is not required for a simple two-way dutch.
  */
+function collectAsianHalfLines(event) {
+  const lines = new Set([0.5, 1.5, 2.5]);
+  for (const mk of getEventMarkets(event)) {
+    if (!/^asianHandicap_(?:plus|minus)_/.test(mk)) continue;
+    const line = parseLineNumberFromKey(mk);
+    if (line === null || line <= 0) continue;
+    if (Math.abs((line % 1) - 0.5) < 1e-9) lines.add(line);
+  }
+  return [...lines].sort((a, b) => a - b);
+}
+
 function detectH2hDcVsAhHalfCross(event) {
   const results = [];
-  // Common half-lines on RO books; 2.5 appears on short-priced favourites.
-  const halfLines = [0.5, 1.5, 2.5];
+  // Discover half-lines present on the event (plus common defaults).
+  const halfLines = collectAsianHalfLines(event);
   const h2h = findBestPrices(event, 'h2h');
   const dc = findBestPrices(event, 'doubleChance');
 
@@ -1894,6 +1905,20 @@ function detectBttsTotalsSoftCross(event) {
       marketKey: 'cross_btts_no_asian_over_2_5',
       marketLabel: 'BTTS No + Asian Over 2.5',
       overLabel: 'Asian Over 2.5',
+    },
+    {
+      bttsKey: 'bothTeamsToScore',
+      totalKey: 'totalGoals_3_5',
+      marketKey: 'cross_btts_no_over_3_5',
+      marketLabel: 'BTTS No + Over 3.5 Goals',
+      overLabel: 'Over 3.5',
+    },
+    {
+      bttsKey: 'bothTeamsToScore',
+      totalKey: 'asianTotalGoals_3_5',
+      marketKey: 'cross_btts_no_asian_over_3_5',
+      marketLabel: 'BTTS No + Asian Over 3.5',
+      overLabel: 'Asian Over 3.5',
     },
     {
       bttsKey: 'firstHalfBothTeamsToScore',

@@ -142,18 +142,39 @@ function normalizeTypedBetanoMarket(market, teams = []) {
     if (prices) return { key: 'secondHalfH2h', prices };
   }
 
-  // Totals by type
+  // Totals by type — period asian before EU half totals (labels share "total goluri" + "pauza").
   if (['TOTG', 'OU', 'OUGS'].includes(type)) {
     return lineMarketFromBetano(market, 'totalGoals');
   }
-  if (['OUHG', '1HOU', 'FHOU'].includes(type) || /total goluri.*(pauza|prima)/i.test(market.name || '')) {
-    return lineMarketFromBetano(market, 'firstHalfTotalGoals');
+  if (
+    /total goluri asiatice|asian total/i.test(market.name || '')
+    && /(pauza|prima|1st)/i.test(market.name || '')
+    && !/(a doua|2nd|second)/i.test(market.name || '')
+  ) {
+    return lineMarketFromBetano(market, 'firstHalfAsianTotalGoals');
   }
-  if (['2HOU', 'SHOU'].includes(type) || /total goluri.*(a doua|2nd)/i.test(market.name || '')) {
-    return lineMarketFromBetano(market, 'secondHalfTotalGoals');
+  if (
+    /total goluri asiatice|asian total/i.test(market.name || '')
+    && /(a doua|2nd|second)/i.test(market.name || '')
+  ) {
+    return lineMarketFromBetano(market, 'secondHalfAsianTotalGoals');
   }
   if (['AOTG', 'ASOU', 'ATOU'].includes(type) || /total goluri asiatice|asian total/i.test(market.name || '')) {
     return lineMarketFromBetano(market, 'asianTotalGoals');
+  }
+  if (
+    ['OUHG', '1HOU', 'FHOU'].includes(type)
+    || (/total goluri.*(pauza|prima)/i.test(market.name || '')
+      && !/asiatic|asian/i.test(market.name || ''))
+  ) {
+    return lineMarketFromBetano(market, 'firstHalfTotalGoals');
+  }
+  if (
+    ['2HOU', 'SHOU'].includes(type)
+    || (/total goluri.*(a doua|2nd)/i.test(market.name || '')
+      && !/asiatic|asian/i.test(market.name || ''))
+  ) {
+    return lineMarketFromBetano(market, 'secondHalfTotalGoals');
   }
   if (['TCOR', 'OUCR', 'CRNR'].includes(type) || /total cornere|total corners/i.test(market.name || '')) {
     return lineMarketFromBetano(market, 'totalCorners');

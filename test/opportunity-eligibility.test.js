@@ -95,6 +95,17 @@ test('h2h vs AH half-line cross formulas are structurally safe', () => {
     ],
   });
   assert.equal(opp.structuralStatus, 'approved');
+
+  const discovered = evaluateOpportunityEligibility({
+    type: 'cross-market',
+    marketKey: 'cross_h2h_home_ah2_plus_3_5',
+    edge: 0.03,
+    legs: [
+      { bookmaker: 'Book A', verificationStatus: 'verified' },
+      { bookmaker: 'Book B', verificationStatus: 'verified' },
+    ],
+  });
+  assert.equal(discovered.structuralStatus, 'approved');
 });
 
 test('team vs match totals cross formulas are structurally safe', () => {
