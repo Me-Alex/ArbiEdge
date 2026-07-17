@@ -20,7 +20,7 @@ function event(overrides = {}) {
     startsAt: overrides.startsAt || '2026-07-10T17:00:00Z',
     bookmakers: overrides.bookmakers || [{
       name: 'BookA',
-      eventUrl: 'https://example.test/event',
+      eventUrl: 'https://example.test/event/12345',
       markets: {
         h2h: { home: 2.2, draw: 3.4, away: 3.1 },
         totalGoals_2_5: { over: 1.8, under: 2.05 },

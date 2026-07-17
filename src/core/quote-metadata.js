@@ -16,12 +16,17 @@ function stampQuoteMetadata(events, {
 } = {}) {
   const fallback = validIsoDate(observedAt) || new Date().toISOString();
   return (Array.isArray(events) ? events : []).map((event) => {
+    // Preserve events that have no bookmakers array (unit fixtures / partial rows).
+    if (!Array.isArray(event?.bookmakers)) {
+      return clone === true ? structuredClone(event) : clone === 'shallow' ? { ...event } : event;
+    }
+
     const copy = clone === true
       ? structuredClone(event)
       : clone === 'shallow'
-        ? { ...event, bookmakers: [...(event.bookmakers || [])] }
+        ? { ...event, bookmakers: [...event.bookmakers] }
         : event;
-    copy.bookmakers = (copy.bookmakers || []).map((bookmaker) => {
+    copy.bookmakers = copy.bookmakers.map((bookmaker) => {
       const sourceUpdatedAt = firstValidIsoDate([
         bookmaker.sourceUpdatedAt,
         bookmaker.lastUpdate,

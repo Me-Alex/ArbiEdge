@@ -518,7 +518,7 @@ test('serves the dashboard HTML', async () => {
     const html = await response.text();
     assert.equal(response.status, 200);
     assert.match(response.headers.get('content-type'), /text\/html/);
-    assert.match(html, /Arb Desk/i);
+    assert.match(html, /ArbiEdge/i);
   });
 });
 
@@ -534,7 +534,7 @@ test('serves the dashboard HTML for frontend page routes', async () => {
       const html = await response.text();
       assert.equal(response.status, 200);
       assert.match(response.headers.get('content-type'), /text\/html/);
-      assert.match(html, /Arb desk/i);
+      assert.match(html, /ArbiEdge/i);
     }
   });
 });
