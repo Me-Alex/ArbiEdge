@@ -50,7 +50,7 @@ export const BOOKMAKER_COLORS = {
 export const state = {
   page: 'scanner', mode: 'loading', fetchedAt: null, warnings: [], search: '', sport: '',
   // Default to review: actionable requires browser fidelity evidence on every leg.
-  minEdge: 0, alertThreshold: 1, scannerVerificationFilter: '', scannerTab: 'review', denseView: false,
+  minEdge: 0, minFeeds: 0, alertThreshold: 1, scannerVerificationFilter: '', scannerTab: 'review', denseView: false,
   scannerVisibleLimit: 50,
   selectedMarketTypes: new Set(MARKET_TYPE_KEYS),
   events: [], opportunities: [], prevOppIds: new Set(), valueBets: [], bookmakerCoverage: null,

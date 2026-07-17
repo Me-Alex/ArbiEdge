@@ -159,6 +159,8 @@ function isSafeCrossMarket(marketKey) {
   if (/^cross_h2h_away_ah1_plus_\d+(?:_\d+)?$/.test(key)) return true;
   if (/^cross_dc_1x_ah2_minus_\d+(?:_\d+)?$/.test(key)) return true;
   if (/^cross_dc_x2_ah1_minus_\d+(?:_\d+)?$/.test(key)) return true;
+  // BTTS No + Over 0.5/1.5 (EU/Asian, FT/period) — exhaustive soft covers.
+  if (/^cross_(?:1H_|2H_)?btts_no_(?:asian_)?over_[01]_5$/.test(key)) return true;
   return false;
 }
 

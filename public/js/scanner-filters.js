@@ -70,8 +70,10 @@ export function opportunityId(opp) {
 }
 
 export function getFilteredScannerOpportunities(scannerState) {
+  const minFeeds = Number(scannerState.minFeeds || 0);
   let opps = (scannerState.opportunities || []).filter((opp) =>
     Number(opp.edge || 0) * 100 >= Number(scannerState.minEdge || 0)
+    && (minFeeds <= 0 || Number(opp.independentFeedCount || 0) >= minFeeds)
     && activeOpportunitySearchMatch(
       scannerState.search,
       opp.eventName,

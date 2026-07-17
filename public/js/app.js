@@ -319,6 +319,7 @@ function bindEvents() {
   on('#empty-refresh', 'click', () => loadData(true));
   on('#refresh-interval', 'change', setupAutoRefresh);
   on('#filter-min-edge', 'input', (e) => { state.minEdge = Number(e.target.value || 0); state.scannerVisibleLimit = 50; renderScanner(); });
+  on('#filter-min-feeds', 'input', (e) => { state.minFeeds = Number(e.target.value || 0); state.scannerVisibleLimit = 50; renderScanner(); });
   on('#alert-threshold', 'input', (e) => { state.alertThreshold = Number(e.target.value || 1); });
   on('#verification-filter', 'change', (e) => { state.scannerVerificationFilter = e.target.value; state.scannerVisibleLimit = 50; renderScanner(); });
   $$('[data-scanner-tab]').forEach((b) => b.addEventListener('click', () => {
@@ -362,7 +363,9 @@ function bindEvents() {
   on('#dense-view-toggle', 'change', toggleDense);
   on('#filter-reset', 'click', () => {
     state.minEdge = 0;
+    state.minFeeds = 0;
     if ($('#filter-min-edge')) $('#filter-min-edge').value = '0';
+    if ($('#filter-min-feeds')) $('#filter-min-feeds').value = '0';
     if ($('#search')) $('#search').value = '';
     state.search = '';
     state.scannerVerificationFilter = '';

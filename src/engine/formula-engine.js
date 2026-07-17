@@ -1862,121 +1862,66 @@ function detectQualifyVsH2hCross(event) {
  */
 function detectBttsTotalsSoftCross(event) {
   const results = [];
-  const pairs = [
+  // Discover O/U half-lines on the event (defaults 0.5/1.5; soft up to 3.5).
+  const scopes = [
     {
       bttsKey: 'bothTeamsToScore',
-      totalKey: 'totalGoals_0_5',
-      marketKey: 'cross_btts_no_over_0_5',
-      marketLabel: 'BTTS No + Over 0.5 Goals',
-      overLabel: 'Over 0.5',
-    },
-    {
-      bttsKey: 'bothTeamsToScore',
-      totalKey: 'totalGoals_1_5',
-      marketKey: 'cross_btts_no_over_1_5',
-      marketLabel: 'BTTS No + Over 1.5 Goals',
-      overLabel: 'Over 1.5',
-    },
-    {
-      bttsKey: 'bothTeamsToScore',
-      totalKey: 'asianTotalGoals_0_5',
-      marketKey: 'cross_btts_no_asian_over_0_5',
-      marketLabel: 'BTTS No + Asian Over 0.5',
-      overLabel: 'Asian Over 0.5',
-    },
-    {
-      bttsKey: 'bothTeamsToScore',
-      totalKey: 'asianTotalGoals_1_5',
-      marketKey: 'cross_btts_no_asian_over_1_5',
-      marketLabel: 'BTTS No + Asian Over 1.5',
-      overLabel: 'Asian Over 1.5',
-    },
-    // Soft review covers (1-1 loses both on 2.5 lines) — still surface math edges.
-    {
-      bttsKey: 'bothTeamsToScore',
-      totalKey: 'totalGoals_2_5',
-      marketKey: 'cross_btts_no_over_2_5',
-      marketLabel: 'BTTS No + Over 2.5 Goals',
-      overLabel: 'Over 2.5',
-    },
-    {
-      bttsKey: 'bothTeamsToScore',
-      totalKey: 'asianTotalGoals_2_5',
-      marketKey: 'cross_btts_no_asian_over_2_5',
-      marketLabel: 'BTTS No + Asian Over 2.5',
-      overLabel: 'Asian Over 2.5',
-    },
-    {
-      bttsKey: 'bothTeamsToScore',
-      totalKey: 'totalGoals_3_5',
-      marketKey: 'cross_btts_no_over_3_5',
-      marketLabel: 'BTTS No + Over 3.5 Goals',
-      overLabel: 'Over 3.5',
-    },
-    {
-      bttsKey: 'bothTeamsToScore',
-      totalKey: 'asianTotalGoals_3_5',
-      marketKey: 'cross_btts_no_asian_over_3_5',
-      marketLabel: 'BTTS No + Asian Over 3.5',
-      overLabel: 'Asian Over 3.5',
+      prefixes: [
+        { prefix: 'totalGoals_', period: '', asian: false, label: '' },
+        { prefix: 'asianTotalGoals_', period: '', asian: true, label: 'Asian ' },
+      ],
     },
     {
       bttsKey: 'firstHalfBothTeamsToScore',
-      totalKey: 'firstHalfTotalGoals_0_5',
-      marketKey: 'cross_1H_btts_no_over_0_5',
-      marketLabel: '1H BTTS No + Over 0.5',
-      overLabel: '1H Over 0.5',
-    },
-    {
-      bttsKey: 'firstHalfBothTeamsToScore',
-      totalKey: 'firstHalfTotalGoals_1_5',
-      marketKey: 'cross_1H_btts_no_over_1_5',
-      marketLabel: '1H BTTS No + Over 1.5',
-      overLabel: '1H Over 1.5',
-    },
-    {
-      bttsKey: 'firstHalfBothTeamsToScore',
-      totalKey: 'firstHalfAsianTotalGoals_0_5',
-      marketKey: 'cross_1H_btts_no_asian_over_0_5',
-      marketLabel: '1H BTTS No + Asian Over 0.5',
-      overLabel: '1H Asian Over 0.5',
-    },
-    {
-      bttsKey: 'firstHalfBothTeamsToScore',
-      totalKey: 'firstHalfAsianTotalGoals_1_5',
-      marketKey: 'cross_1H_btts_no_asian_over_1_5',
-      marketLabel: '1H BTTS No + Asian Over 1.5',
-      overLabel: '1H Asian Over 1.5',
+      prefixes: [
+        { prefix: 'firstHalfTotalGoals_', period: '1H', asian: false, label: '1H ' },
+        { prefix: 'firstHalfAsianTotalGoals_', period: '1H', asian: true, label: '1H Asian ' },
+      ],
     },
     {
       bttsKey: 'secondHalfBothTeamsToScore',
-      totalKey: 'secondHalfTotalGoals_0_5',
-      marketKey: 'cross_2H_btts_no_over_0_5',
-      marketLabel: '2H BTTS No + Over 0.5',
-      overLabel: '2H Over 0.5',
-    },
-    {
-      bttsKey: 'secondHalfBothTeamsToScore',
-      totalKey: 'secondHalfTotalGoals_1_5',
-      marketKey: 'cross_2H_btts_no_over_1_5',
-      marketLabel: '2H BTTS No + Over 1.5',
-      overLabel: '2H Over 1.5',
-    },
-    {
-      bttsKey: 'secondHalfBothTeamsToScore',
-      totalKey: 'secondHalfAsianTotalGoals_0_5',
-      marketKey: 'cross_2H_btts_no_asian_over_0_5',
-      marketLabel: '2H BTTS No + Asian Over 0.5',
-      overLabel: '2H Asian Over 0.5',
-    },
-    {
-      bttsKey: 'secondHalfBothTeamsToScore',
-      totalKey: 'secondHalfAsianTotalGoals_1_5',
-      marketKey: 'cross_2H_btts_no_asian_over_1_5',
-      marketLabel: '2H BTTS No + Asian Over 1.5',
-      overLabel: '2H Asian Over 1.5',
+      prefixes: [
+        { prefix: 'secondHalfTotalGoals_', period: '2H', asian: false, label: '2H ' },
+        { prefix: 'secondHalfAsianTotalGoals_', period: '2H', asian: true, label: '2H Asian ' },
+      ],
     },
   ];
+
+  const marketKeys = getEventMarkets(event);
+  const pairs = [];
+  for (const scope of scopes) {
+    for (const family of scope.prefixes) {
+      const lines = new Set([0.5, 1.5]);
+      for (const mk of marketKeys) {
+        if (!mk.startsWith(family.prefix)) continue;
+        const line = parseLineNumberFromKey(mk);
+        if (line !== null && Math.abs((line % 1) - 0.5) < 1e-9 && line > 0 && line <= 3.5) {
+          lines.add(line);
+        }
+      }
+      for (const line of [...lines].sort((a, b) => a - b)) {
+        const token = String(line).replace('.', '_');
+        const totalKey = `${family.prefix}${token}`;
+        let marketKey;
+        if (!family.period) {
+          marketKey = family.asian
+            ? `cross_btts_no_asian_over_${token}`
+            : `cross_btts_no_over_${token}`;
+        } else {
+          marketKey = family.asian
+            ? `cross_${family.period}_btts_no_asian_over_${token}`
+            : `cross_${family.period}_btts_no_over_${token}`;
+        }
+        pairs.push({
+          bttsKey: scope.bttsKey,
+          totalKey,
+          marketKey,
+          marketLabel: `${family.label}BTTS No + Over ${line}`.replace(/\s+/g, ' ').trim(),
+          overLabel: `${family.label}Over ${line}`.replace(/\s+/g, ' ').trim(),
+        });
+      }
+    }
+  }
 
   for (const pair of pairs) {
     const btts = findBestPrices(event, pair.bttsKey);
@@ -2550,8 +2495,8 @@ function detectTeamMatchTotalArbitrage(event) {
     for (const h of homeLines) {
       // Match Over M + Home Under H + Away Under A when H + A = M + slack
       // (if both teams stay under their lines, match cannot exceed M on half-lines).
-      // slack 0.5 is the classic lattice; 1.0 covers e.g. 1.5+1.5 vs 2.5.
-      for (const slack of [0.5, 1.0]) {
+      // slack 0.5 is the classic lattice; 1.0/1.5 cover wider team-line spreads.
+      for (const slack of [0.5, 1.0, 1.5]) {
         const neededA = m.line + slack - h.line;
         if (neededA > 0) {
           const a = awayLines.find((item) => Math.abs(item.line - neededA) < 0.01);

@@ -2,6 +2,7 @@ const { ProviderError } = require('./the-odds-api-provider');
 const {
   formatLine,
   genericMarketKey,
+  handicapMarketKey,
   hasAnyCompleteMarket,
   isDecimalOdds,
   normalizeOutcomeKey,
@@ -267,12 +268,38 @@ function normalizeMaxBetMarkets(markets) {
       continue;
     }
 
+    // Period asian before FT asian (labels share "total goluri asiatice").
+    if (
+      (labelKey.includes('total goluri asiatice') || labelKey.includes('asian total'))
+      && (labelKey.includes('pauza') || labelKey.includes('prima') || labelKey.includes('1st'))
+    ) {
+      addMaxBetLineMarket(normalized, market, 'firstHalfAsianTotalGoals');
+      continue;
+    }
+
+    if (
+      (labelKey.includes('total goluri asiatice') || labelKey.includes('asian total'))
+      && (labelKey.includes('a doua') || labelKey.includes('2nd') || labelKey.includes('second'))
+    ) {
+      addMaxBetLineMarket(normalized, market, 'secondHalfAsianTotalGoals');
+      continue;
+    }
+
     if (
       labelKey.includes('total goluri asiatice')
       || labelKey.includes('asian total goals')
       || labelKey === 'total goluri asian'
     ) {
       addMaxBetLineMarket(normalized, market, 'asianTotalGoals');
+      continue;
+    }
+
+    if (
+      labelKey.includes('handicap asiatic')
+      || labelKey.includes('asian handicap')
+      || labelKey === 'handicap asiatic'
+    ) {
+      addMaxBetHandicapMarket(normalized, market, 'asianHandicap');
       continue;
     }
 
@@ -335,22 +362,6 @@ function normalizeMaxBetMarkets(markets) {
       && (labelKey.includes('oaspeti') || labelKey.includes('oaspete') || labelKey.includes('away') || labelKey.includes('echipa 2'))
     ) {
       addMaxBetLineMarket(normalized, market, 'market_total_goluri_away');
-      continue;
-    }
-
-    if (
-      (labelKey.includes('total goluri asiatice') || labelKey.includes('asian total'))
-      && (labelKey.includes('pauza') || labelKey.includes('prima') || labelKey.includes('1st'))
-    ) {
-      addMaxBetLineMarket(normalized, market, 'firstHalfAsianTotalGoals');
-      continue;
-    }
-
-    if (
-      (labelKey.includes('total goluri asiatice') || labelKey.includes('asian total'))
-      && (labelKey.includes('a doua') || labelKey.includes('2nd') || labelKey.includes('second'))
-    ) {
-      addMaxBetLineMarket(normalized, market, 'secondHalfAsianTotalGoals');
       continue;
     }
 
@@ -485,6 +496,51 @@ function addMaxBetLineMarket(markets, market, baseKey) {
   if (hasOutcomes(prices, ['over', 'under'])) {
     markets[`${baseKey}_${formatLine(parsedLine).replace('.', '_')}`] = prices;
   }
+}
+
+function addMaxBetHandicapMarket(markets, market, baseKey) {
+  const marketLine = parseLine(market.g?.[0] || market.h?.[0]?.f);
+  const grouped = new Map();
+
+  for (const outcome of activeOutcomes(market)) {
+    if (!isDecimalOdds(outcome.g)) continue;
+    let parsed = parseMaxBetHandicapOutcome(outcome.e);
+    if (!parsed && marketLine !== null) {
+      const sideKey = normalizeOutcomeKey(outcome.e);
+      if (sideKey === 'home' || String(outcome.e).trim() === '1') {
+        parsed = { side: 'home', homeLine: marketLine };
+      } else if (sideKey === 'away' || String(outcome.e).trim() === '2') {
+        parsed = { side: 'away', homeLine: marketLine };
+      }
+    }
+    if (!parsed) continue;
+    if (!grouped.has(parsed.homeLine)) grouped.set(parsed.homeLine, {});
+    grouped.get(parsed.homeLine)[parsed.side] = outcome.g;
+  }
+
+  for (const [homeLine, prices] of grouped.entries()) {
+    if (hasOutcomes(prices, ['home', 'away'])) {
+      const key = handicapMarketKey(baseKey, homeLine);
+      if (key && !markets[key]) markets[key] = prices;
+    }
+  }
+}
+
+function parseMaxBetHandicapOutcome(value) {
+  const raw = String(value || '').trim();
+  let match = raw.match(/^H([12])\s*([+-]?\d+(?:[.,]\d+)?)$/i);
+  if (match) {
+    const side = match[1] === '1' ? 'home' : 'away';
+    const line = Number(match[2].replace(',', '.'));
+    return { side, homeLine: side === 'home' ? line : -line };
+  }
+  match = raw.match(/^([12])\s*[(\[]?\s*([+-]?\d+(?:[.,]\d+)?)\s*[)\]]?$/);
+  if (match) {
+    const side = match[1] === '1' ? 'home' : 'away';
+    const line = Number(match[2].replace(',', '.'));
+    return { side, homeLine: side === 'home' ? line : -line };
+  }
+  return null;
 }
 
 function addMaxBetGenericMarket(markets, market, label) {
