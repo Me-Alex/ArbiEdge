@@ -354,7 +354,7 @@ export function setPage(page, push = true) {
   }
   if (visiblePage === 'analytics' && !state.analytics) renderRegistry.loadAnalytics?.();
   if (visiblePage === 'movement' && !state.movement) renderRegistry.loadMovement?.();
-  document.title = `${document.querySelector(`.page[data-page="${visiblePage}"] h1`)?.textContent || 'Arb Desk'} · Arb Desk`;
+  document.title = `${document.querySelector(`.page[data-page="${visiblePage}"] h1`)?.textContent || 'ArbiEdge'} · ArbiEdge`;
   renderRegistry.betSlip();
 }
 

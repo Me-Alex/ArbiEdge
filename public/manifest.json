@@ -1,11 +1,11 @@
 {
-  "name": "Arb Desk",
-  "short_name": "Arb Desk",
-  "description": "Arbitrage scanner, value bets, calculator, journal, and odds feed for Romanian bookmakers.",
+  "name": "ArbiEdge",
+  "short_name": "ArbiEdge",
+  "description": "Verified arbitrage scanner, value bets, calculator, journal, and odds feed for Romanian bookmakers.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0d1117",
-  "theme_color": "#e8b339",
+  "background_color": "#080c11",
+  "theme_color": "#0d9488",
   "orientation": "any",
   "icons": [
     {

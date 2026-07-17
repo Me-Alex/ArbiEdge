@@ -1,47 +1,48 @@
 /*
- * Arb Desk / Signal Ledger
- * A warm, editorial operating surface for verified market data.
- * Version: V1 · 2026-07-14
+ * ArbiEdge — Edge Terminal
+ * Cool graphite surfaces, electric teal for verified edge, mono for prices.
+ * Version: V2 · 2026-07-17
  */
 
 :root {
   color-scheme: light;
 
-  --bg: #ece9e0;
-  --bg-grid: rgba(23, 26, 22, 0.045);
-  --surface: #f7f4eb;
-  --surface-2: #efebe1;
-  --surface-strong: #fffdf7;
-  --surface-inverse: #191b17;
+  --bg: #e8edf2;
+  --bg-grid: rgba(15, 23, 42, 0.04);
+  --surface: #f4f7fa;
+  --surface-2: #e9eef4;
+  --surface-strong: #ffffff;
+  --surface-inverse: #0d1520;
 
-  --text-primary: #181b17;
-  --text-secondary: #50534c;
-  --text-tertiary: #74776f;
-  --text-inverse: #f5f1e7;
+  --text-primary: #0d1520;
+  --text-secondary: #455468;
+  --text-tertiary: #6b7a8c;
+  --text-inverse: #eef5f8;
 
-  --border: #c9c5b9;
+  --border: #c5d0dc;
   --line: var(--border);
-  --border-soft: #ddd8cb;
-  --border-strong: #7f8279;
+  --border-soft: #d7e0e9;
+  --border-strong: #8a9aab;
 
-  --accent: #cf4a32;
-  --accent-hover: #b63b26;
-  --accent-active: #99311f;
-  --accent-on: #fffaf1;
-  --accent-soft: #f2d5cc;
+  /* Verified edge — teal, not generic vermilion */
+  --accent: #0d9488;
+  --accent-hover: #0f766e;
+  --accent-active: #115e59;
+  --accent-on: #f0fdfa;
+  --accent-soft: #ccfbf1;
 
-  --profit: #2e7148;
-  --profit-soft: #d9e7dc;
-  --warning: #866019;
-  --warning-soft: #eee2be;
-  --danger: #a7352a;
-  --danger-soft: #eed2cc;
-  --info: #275d9a;
-  --info-soft: #d9e3ef;
+  --profit: #047857;
+  --profit-soft: #d1fae5;
+  --warning: #b45309;
+  --warning-soft: #fef3c7;
+  --danger: #b91c1c;
+  --danger-soft: #fee2e2;
+  --info: #1d4ed8;
+  --info-soft: #dbeafe;
 
-  --font-display: "Archivo", "Bahnschrift", "Arial Narrow", sans-serif;
-  --font-body: "IBM Plex Sans", "Aptos", "Segoe UI", sans-serif;
-  --font-mono: "IBM Plex Mono", "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  --font-display: "Space Grotesk", "Bahnschrift", "Segoe UI", sans-serif;
+  --font-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
 
   --text-2xs: 0.6875rem;
   --text-xs: 0.75rem;
@@ -49,8 +50,8 @@
   --text-base: 0.9375rem;
   --text-lg: 1.125rem;
   --text-xl: 1.375rem;
-  --text-2xl: clamp(1.75rem, 3vw, 2.5rem);
-  --text-display: clamp(2.45rem, 5vw, 4.75rem);
+  --text-2xl: clamp(1.75rem, 3vw, 2.4rem);
+  --text-display: clamp(2.2rem, 4.5vw, 4.2rem);
 
   --space-1: 0.25rem;
   --space-2: 0.5rem;
@@ -62,62 +63,65 @@
   --space-10: 2.5rem;
   --space-12: 3rem;
 
-  --radius-xs: 2px;
-  --radius-sm: 4px;
-  --radius-md: 7px;
+  --radius-xs: 3px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
   --radius-pill: 999px;
 
-  --shadow-float: 0 18px 48px rgba(31, 29, 24, 0.16);
-  --shadow-dialog: 0 32px 88px rgba(20, 20, 16, 0.28);
-  --focus-ring: 0 0 0 3px rgba(207, 74, 50, 0.28);
+  --shadow-float: 0 16px 40px rgba(13, 21, 32, 0.12);
+  --shadow-dialog: 0 28px 80px rgba(13, 21, 32, 0.22);
+  --focus-ring: 0 0 0 3px rgba(13, 148, 136, 0.32);
 
   --motion-fast: 100ms;
   --motion-base: 150ms;
   --motion-enter: 220ms;
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
 
-  --sidebar-width: 132px;
-  --topbar-height: 68px;
+  --sidebar-width: 148px;
+  --topbar-height: 64px;
   --content-max: 1760px;
+
+  --edge-glow: 0 0 0 1px rgba(13, 148, 136, 0.35), 0 0 24px rgba(13, 148, 136, 0.12);
 }
 
 html[data-theme="dark"] {
   color-scheme: dark;
-  --bg: #151713;
-  --bg-grid: rgba(239, 235, 222, 0.035);
-  --surface: #1d1f1a;
-  --surface-2: #24261f;
-  --surface-strong: #2a2c24;
-  --surface-inverse: #efebe0;
+  --bg: #080c11;
+  --bg-grid: rgba(148, 163, 184, 0.05);
+  --surface: #0f1620;
+  --surface-2: #15202d;
+  --surface-strong: #1a2736;
+  --surface-inverse: #e8f5f3;
 
-  --text-primary: #f0ece1;
-  --text-secondary: #bbb8ad;
-  --text-tertiary: #89877f;
-  --text-inverse: #171914;
+  --text-primary: #e8eef4;
+  --text-secondary: #94a3b8;
+  --text-tertiary: #64748b;
+  --text-inverse: #0b1220;
 
-  --border: rgba(240, 236, 225, 0.16);
+  --border: rgba(148, 163, 184, 0.18);
   --line: var(--border);
-  --border-soft: rgba(240, 236, 225, 0.09);
-  --border-strong: rgba(240, 236, 225, 0.42);
+  --border-soft: rgba(148, 163, 184, 0.1);
+  --border-strong: rgba(148, 163, 184, 0.38);
 
-  --accent: #e66a50;
-  --accent-hover: #f17a60;
-  --accent-active: #c7543d;
-  --accent-on: #171914;
-  --accent-soft: #472a22;
+  --accent: #2dd4bf;
+  --accent-hover: #5eead4;
+  --accent-active: #14b8a6;
+  --accent-on: #042f2e;
+  --accent-soft: #134e4a;
 
-  --profit: #72b486;
-  --profit-soft: #20392a;
-  --warning: #d6ad54;
-  --warning-soft: #3e341d;
-  --danger: #e27a6e;
-  --danger-soft: #432623;
-  --info: #79a9db;
-  --info-soft: #24364a;
+  --profit: #34d399;
+  --profit-soft: #064e3b;
+  --warning: #fbbf24;
+  --warning-soft: #78350f;
+  --danger: #f87171;
+  --danger-soft: #7f1d1d;
+  --info: #60a5fa;
+  --info-soft: #1e3a5f;
 
-  --shadow-float: 0 18px 50px rgba(0, 0, 0, 0.28);
-  --shadow-dialog: 0 34px 96px rgba(0, 0, 0, 0.52);
-  --focus-ring: 0 0 0 3px rgba(230, 106, 80, 0.36);
+  --shadow-float: 0 18px 48px rgba(0, 0, 0, 0.45);
+  --shadow-dialog: 0 32px 90px rgba(0, 0, 0, 0.6);
+  --focus-ring: 0 0 0 3px rgba(45, 212, 191, 0.35);
+  --edge-glow: 0 0 0 1px rgba(45, 212, 191, 0.4), 0 0 28px rgba(45, 212, 191, 0.15);
 }
 
 html[data-theme="light"] {

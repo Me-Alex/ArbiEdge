@@ -1,4 +1,4 @@
-/* Signal Ledger · reusable controls and data components */
+/* ArbiEdge · reusable controls and data components */
 
 *,
 *::before,
@@ -111,7 +111,7 @@ svg {
 .bet-slip-tab {
   min-height: 36px;
   border: 1px solid transparent;
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-sm);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -468,14 +468,29 @@ kbd {
 }
 
 .live-dot {
-  width: 7px;
-  height: 7px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   background: var(--warning);
+  box-shadow: 0 0 0 0 color-mix(in oklab, var(--warning), transparent 50%);
 }
 
 .live-dot[data-mode="live"] {
-  background: var(--profit);
+  background: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent), transparent 75%);
+  animation: edge-pulse 1.8s ease-out infinite;
+}
+
+@keyframes edge-pulse {
+  0% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--accent), transparent 55%); }
+  70% { box-shadow: 0 0 0 8px color-mix(in oklab, var(--accent), transparent 100%); }
+  100% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--accent), transparent 100%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-dot[data-mode="live"] {
+    animation: none;
+  }
 }
 
 .live-dot[data-mode="demo"] {

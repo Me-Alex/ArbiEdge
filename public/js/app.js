@@ -111,7 +111,7 @@ async function loadData(refresh = false) {
     if (loading) loading.hidden = true;
     triggerAlerts(state.opportunities);
   } catch (e) {
-    console.error('Arb Desk load failed', e);
+    console.error('ArbiEdge load failed', e);
     state.lastLoadOk = false;
     if (loading) loading.hidden = true;
     if (error) error.hidden = false;

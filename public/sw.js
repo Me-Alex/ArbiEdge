@@ -1,12 +1,12 @@
-// Arb Desk offline shell. Bump this key whenever the frontend bundle changes.
-const CACHE_VERSION = 'arb-desk-v18';
+// ArbiEdge offline shell. Bump this key whenever the frontend bundle changes.
+const CACHE_VERSION = 'arbiedge-v19';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
-  '/css/design-tokens.css?v=18',
-  '/css/components.css?v=18',
-  '/css/style.css?v=18',
-  '/js/app.js?v=18',
+  '/css/design-tokens.css?v=19',
+  '/css/components.css?v=19',
+  '/css/style.css?v=19',
+  '/js/app.js?v=19',
   '/manifest.json',
 ];
 
