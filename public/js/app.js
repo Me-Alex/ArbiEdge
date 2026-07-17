@@ -79,6 +79,22 @@ async function loadData(refresh = false) {
       ? 'Reîmprospătăm cache-ul de cote. Sursele live pot răspunde treptat (30–90s).'
       : 'Colectăm cotele live de la case. Cache-ul de pe server pornește la boot — prima scanare poate dura 30–90s.';
   }
+  let readinessTimer = null;
+  readinessTimer = setInterval(async () => {
+    try {
+      const ready = await fetchJson('/api/readiness');
+      if (!detail) return;
+      if (ready?.status === 'warming') {
+        detail.textContent = `Server se încălzește${ready.reason ? ` (${ready.reason})` : ''}. Nu reîncărca — colectarea rulează pe server.`;
+        if (dataMode) dataMode.textContent = 'Warming';
+      } else if (ready?.status === 'ready') {
+        detail.textContent = 'Sursele răspund — finalizăm încărcarea cotelor și a candidaților…';
+        if (dataMode) dataMode.textContent = 'Gata · încărcare';
+      }
+    } catch {
+      /* readiness is best-effort during load */
+    }
+  }, 2_500);
   slowLoadTimer = setTimeout(() => {
     if (detail) {
       detail.textContent = 'Scan lung în curs. Nu reîncărca pagina — serverul încălzește cache-ul (ODDS_WARM_CACHE_ON_START) și reutilizează colectarea în curs.';
@@ -170,6 +186,7 @@ async function loadData(refresh = false) {
     error?.focus();
   } finally {
     clearTimeout(slowLoadTimer);
+    if (readinessTimer) clearInterval(readinessTimer);
     if (mainContent) mainContent.setAttribute('aria-busy', 'false');
     if (refreshBtn) refreshBtn.disabled = false;
   }

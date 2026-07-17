@@ -1079,7 +1079,10 @@ function detectMiddleBets(event) {
   const crossFamilyPairs = [
     ['totalGoals', 'asianTotalGoals'],
     ['totalCorners', 'asianTotalCorners'],
+    ['totalCards', 'asianTotalCards'],
     ['firstHalfTotalGoals', 'firstHalfAsianTotalGoals'],
+    ['secondHalfTotalGoals', 'secondHalfAsianTotalGoals'],
+    ['firstHalfTotalCorners', 'firstHalfAsianTotalCorners'],
   ];
   for (const [groupA, groupB] of crossFamilyPairs) {
     const sideA = lineMarkets.filter((item) => item.groupKey === groupA);

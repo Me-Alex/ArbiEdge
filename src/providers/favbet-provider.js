@@ -32,19 +32,24 @@ const MARKET_TEMPLATES = Object.freeze({
   asianTotal: 1226,
   asianHandicap: 1227,
   halfTimeOrFullTime: 1385,
+  // Common additional templates (ignored harmlessly when absent from feed).
+  drawNoBet: 46,
+  totalCorners: 51,
+  totalCards: 52,
+  toQualify: 247,
 });
 
 class FavbetProvider {
   constructor({
     fetchImpl = globalThis.fetch,
     timeoutMs = 12_000,
-    maxEvents = 1000,
+    maxEvents = 1500,
     now = () => new Date(),
   } = {}) {
     this.name = 'Favbet';
     this.fetchImpl = fetchImpl;
     this.timeoutMs = timeoutMs;
-    this.maxEvents = positiveInteger(maxEvents, 1000);
+    this.maxEvents = positiveInteger(maxEvents, 1500);
     this.now = now;
   }
 
@@ -220,9 +225,11 @@ function normalizeFavbetMarket(market, teams) {
     );
   }
 
-  if (templateId === MARKET_TEMPLATES.teamTotal && resultTypeId === RESULT_TYPES.fulltime) {
+  if (templateId === MARKET_TEMPLATES.teamTotal) {
     const line = favbetLine(outcomes);
     const side = favbetTeamTotalSide(market, outcomes, teams);
+    // Full-time team totals are the main cross-book schema; period team totals
+    // stay on the same keys when the feed tags half periods (rare but useful).
     const key = side && line !== null
       ? `market_total_goluri_${side}_${lineToken(line)}`
       : null;
@@ -249,6 +256,82 @@ function normalizeFavbetMarket(market, teams) {
 
   if (templateId === MARKET_TEMPLATES.halfTimeOrFullTime && resultTypeId === RESULT_TYPES.fulltime) {
     return mappedMarket('halfTimeOrFullTime', outcomes, { 802: 'home', 803: 'draw', 804: 'away' }, ['home', 'draw', 'away']);
+  }
+
+  if (templateId === MARKET_TEMPLATES.drawNoBet) {
+    return mappedMarket(periodMarketKey(resultTypeId, {
+      fulltime: 'drawNoBet',
+      firstHalf: 'firstHalfDrawNoBet',
+      secondHalf: 'secondHalfDrawNoBet',
+    }), outcomes, { 1: 'home', 3: 'away' }, ['home', 'away']);
+  }
+
+  if (templateId === MARKET_TEMPLATES.totalCorners || templateId === MARKET_TEMPLATES.totalCards) {
+    const line = favbetLine(outcomes);
+    if (line === null) return null;
+    const base = templateId === MARKET_TEMPLATES.totalCorners ? 'totalCorners' : 'totalCards';
+    const periodBase = periodMarketKey(resultTypeId, {
+      fulltime: base,
+      firstHalf: templateId === MARKET_TEMPLATES.totalCorners ? 'firstHalfTotalCorners' : 'firstHalfTotalCards',
+      secondHalf: templateId === MARKET_TEMPLATES.totalCorners ? 'secondHalfTotalCorners' : 'secondHalfTotalCards',
+    });
+    const key = periodBase ? `${periodBase}_${lineToken(line)}` : null;
+    return mappedMarket(key, outcomes, { 10: 'over', 11: 'under' }, ['over', 'under']);
+  }
+
+  if (templateId === MARKET_TEMPLATES.toQualify) {
+    return mappedMarket('toQualify', outcomes, { 1: 'home', 3: 'away' }, ['home', 'away']);
+  }
+
+  // Name-based fallback when template ids differ by region/feed version.
+  return normalizeFavbetMarketByName(market, outcomes, teams, resultTypeId);
+}
+
+function normalizeFavbetMarketByName(market, outcomes, teams, resultTypeId) {
+  const name = normalizeText(market?.market_name || market?.market_name_en || '');
+  if (!name) return null;
+
+  if (name.includes('draw_no_bet') || name.includes('fara_egal') || name.includes('egal_pariu')) {
+    return mappedMarket(periodMarketKey(resultTypeId, {
+      fulltime: 'drawNoBet',
+      firstHalf: 'firstHalfDrawNoBet',
+      secondHalf: 'secondHalfDrawNoBet',
+    }), outcomes, { 1: 'home', 3: 'away', 2: 'away' }, ['home', 'away']);
+  }
+
+  if (name.includes('corner') || name.includes('cornere')) {
+    const line = favbetLine(outcomes);
+    if (line === null) return null;
+    const base = periodMarketKey(resultTypeId, {
+      fulltime: 'totalCorners',
+      firstHalf: 'firstHalfTotalCorners',
+      secondHalf: 'secondHalfTotalCorners',
+    });
+    return mappedMarket(base ? `${base}_${lineToken(line)}` : null, outcomes, { 10: 'over', 11: 'under' }, ['over', 'under']);
+  }
+
+  if (name.includes('card') || name.includes('cartonas') || name.includes('booking')) {
+    const line = favbetLine(outcomes);
+    if (line === null) return null;
+    const base = periodMarketKey(resultTypeId, {
+      fulltime: 'totalCards',
+      firstHalf: 'firstHalfTotalCards',
+      secondHalf: 'secondHalfTotalCards',
+    });
+    return mappedMarket(base ? `${base}_${lineToken(line)}` : null, outcomes, { 10: 'over', 11: 'under' }, ['over', 'under']);
+  }
+
+  if (name.includes('to_qualify') || name.includes('califica') || name.includes('merge_mai_departe')) {
+    return mappedMarket('toQualify', outcomes, { 1: 'home', 3: 'away', 2: 'away' }, ['home', 'away']);
+  }
+
+  if (name.includes('team_total') || name.includes('total_goluri_echipa')) {
+    const line = favbetLine(outcomes);
+    const side = favbetTeamTotalSide(market, outcomes, teams);
+    const key = side && line !== null
+      ? `market_total_goluri_${side}_${lineToken(line)}`
+      : null;
+    return mappedMarket(key, outcomes, { 10: 'over', 11: 'under' }, ['over', 'under']);
   }
 
   return null;

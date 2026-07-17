@@ -530,7 +530,11 @@ function parseHandicapMarketKey(marketKey) {
 }
 
 function parseTotalMarketKey(marketKey) {
-  const match = String(marketKey).match(/^(?:asianTotalGoals|totalGoals)_(\d+(?:_\d+)?)$/);
+  // Goals, corners, and cards share the same over/under count settlement model.
+  // Catalog keys stay totalGoals:* so existing corridor/band formulas apply.
+  const match = String(marketKey).match(
+    /^(?:asianTotalGoals|totalGoals|asianTotalCorners|totalCorners|asianTotalCards|totalCards)_(\d+(?:_\d+)?)$/,
+  );
   if (!match) return null;
   const value = parseNumericKey(match[1]);
   return Number.isFinite(value) ? value : null;

@@ -189,6 +189,17 @@ test('detectSettlementFormulaArbitrage finds result and half-handicap substituti
   assert.ok(opportunity.scenarioReturns.every((scenario) => scenario.profit > 0));
 });
 
+test('detectSettlementFormulaArbitrage finds corner total corridors via shared count model', () => {
+  const event = eventWithMarkets([
+    bookmaker('Book A', { totalCorners_9: { over: 2.2 } }),
+    bookmaker('Book B', { totalCorners_9_5: { under: 2 } }),
+  ]);
+  const opportunity = detectSettlementFormulaArbitrage(event)
+    .find((item) => item.marketLabel === 'Over 9 - Under 9.5');
+  assert.ok(opportunity, 'corner lines should enter the totals catalog for corridor formulas');
+  assert.ok(opportunity.edge > 0);
+});
+
 test('detectSettlementFormulaArbitrage finds guaranteed totals corridors', () => {
   const event = eventWithMarkets([
     bookmaker('Book A', { totalGoals_2: { over: 2.2 } }),

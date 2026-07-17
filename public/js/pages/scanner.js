@@ -219,7 +219,7 @@ function renderOpportunityCard(opportunity) {
     <div class="arb-card__signal">
       <div class="value-card__metric"><span>Model edge</span><strong>${formatPct(opportunity.edge)}</strong></div>
       <div class="value-card__metric"><span>${escapeHtml(profitLabel)}</span><strong class="${eligibility === 'actionable' ? 'arb-card__profit' : ''}">${Number(opportunity.profit) >= 0 ? '+' : ''}${Number(opportunity.profit).toFixed(2)} RON</strong></div>
-      <div class="value-card__metric"><span>Bookmakers</span><strong>${opportunity.sameBook ? '1 · blocked' : new Set((opportunity.legs || []).map((leg) => leg.bookmaker)).size}</strong></div>
+      <div class="value-card__metric"><span>Bookmakers</span><strong>${opportunity.sameBook ? '1 · blocked' : new Set((opportunity.legs || []).map((leg) => leg.bookmaker)).size}${Number(opportunity.independentFeedCount) > 0 ? ` · ${opportunity.independentFeedCount} feed` : ''}</strong></div>
     </div>
     ${renderReasons(opportunity, eligibility)}
     <div class="arb-card__footer">
