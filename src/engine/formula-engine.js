@@ -2232,24 +2232,31 @@ function finalizeOpportunity(opportunity, event, eventName, {
   let hasQuoteTimestamp = false;
   for (const leg of opportunity.legs || []) {
     const bookmaker = bookmakers.get(leg.bookmaker);
-    if (!bookmaker) continue;
-    leg.feedGroup = bookmaker.feedGroup || null;
-    leg.platformGroup = bookmaker.platformGroup || null;
-    const observedAt = bookmakerQuoteObservedAt(bookmaker, leg.marketKey || opportunity.marketKey);
-    if (observedAt) {
-      leg.observedAt = observedAt;
-      hasQuoteTimestamp = true;
+    if (bookmaker) {
+      leg.feedGroup = bookmaker.feedGroup || null;
+      leg.platformGroup = bookmaker.platformGroup || null;
+      const observedAt = bookmakerQuoteObservedAt(bookmaker, leg.marketKey || opportunity.marketKey);
+      if (observedAt) {
+        leg.observedAt = observedAt;
+        hasQuoteTimestamp = true;
+      }
+      const bookmakerKickoff = firstValidIsoDate([
+        bookmaker.sourceStartsAt,
+        bookmaker.startsAt,
+        event.startsAt,
+      ]);
+      if (bookmakerKickoff) {
+        leg.kickoff = bookmakerKickoff;
+        leg.kickoffSource = bookmaker.sourceStartsAt || bookmaker.startsAt
+          ? 'bookmaker'
+          : 'event';
+      }
     }
-    const bookmakerKickoff = firstValidIsoDate([
-      bookmaker.sourceStartsAt,
-      bookmaker.startsAt,
-      event.startsAt,
-    ]);
-    if (bookmakerKickoff) {
-      leg.kickoff = bookmakerKickoff;
-      leg.kickoffSource = bookmaker.sourceStartsAt || bookmaker.startsAt
-        ? 'bookmaker'
-        : 'event';
+    // Always fall back to event kickoff so review candidates are not over-rejected
+    // when a bookmaker row is missing or lacks its own startsAt.
+    if (!leg.kickoff && event.startsAt) {
+      leg.kickoff = event.startsAt;
+      leg.kickoffSource = leg.kickoffSource || 'event';
     }
   }
   if (hasQuoteTimestamp) {

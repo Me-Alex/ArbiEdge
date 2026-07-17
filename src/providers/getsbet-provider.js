@@ -407,7 +407,12 @@ function normalizeGetsBetMarket(market, selections, match) {
   }
 
   if (label.includes('pariul se ramburseaza') || label.includes('draw no bet') || label.includes('fara egal')) {
-    return outcomeMarket('drawNoBet', selections, { home: 'home', away: 'away' }, ['home', 'away']);
+    const dnbKey = (label.includes('pauza') || label.includes('prima'))
+      ? 'firstHalfDrawNoBet'
+      : (label.includes('a doua') || label.includes('2nd'))
+        ? 'secondHalfDrawNoBet'
+        : 'drawNoBet';
+    return outcomeMarket(dnbKey, selections, { home: 'home', away: 'away' }, ['home', 'away']);
   }
 
   if (label.includes('sansa dubla') || label.includes('double chance')) {
@@ -443,7 +448,12 @@ function normalizeGetsBetMarket(market, selections, match) {
     }), selections, market);
   }
 
-  if (bettingTypeId === '47' && label.includes('total peste sub')) {
+  if (
+    (bettingTypeId === '47' && label.includes('total peste sub'))
+    || label.includes('total goluri peste')
+    || label.includes('total goals over')
+    || (label.includes('total goluri') && (label.includes('peste') || label.includes('sub')))
+  ) {
     return lineMarket(periodLineBaseKey(market, label, {
       fulltime: ['totalGoals', 'asianTotalGoals'],
       firstHalf: ['firstHalfTotalGoals', 'firstHalfAsianTotalGoals'],

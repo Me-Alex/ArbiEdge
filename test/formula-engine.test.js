@@ -659,6 +659,29 @@ test('getAllOpportunities caps missing fidelity verification at review', () => {
   assert.deepEqual(opportunity.verificationStatuses, ['unverified']);
 });
 
+test('getAllOpportunities fills leg kickoff from event startsAt when bookmaker lacks it', () => {
+  const event = makeEvent({
+    startsAt: '2026-07-20T18:00:00Z',
+    bookmakers: [
+      {
+        name: 'BookA',
+        // no sourceStartsAt
+        markets: { h2h: { home: 2.5, draw: 3.2, away: 3.0 } },
+      },
+      {
+        name: 'BookB',
+        markets: { h2h: { home: 2.4, draw: 3.5, away: 3.8 } },
+      },
+    ],
+  });
+
+  const opportunity = getAllOpportunities([event]).find((item) => item.marketKey === 'h2h');
+  assert.ok(opportunity);
+  assert.ok(opportunity.legs.every((leg) => Date.parse(leg.kickoff) === Date.parse('2026-07-20T18:00:00Z')));
+  assert.equal(opportunity.kickoffTiming?.status, 'matched');
+  assert.ok(!opportunity.eligibilityReasonCodes?.includes('kickoff_missing'));
+});
+
 test('getAllOpportunities keeps edge outliers in review (not actionable, not hard-rejected)', () => {
   const event = makeEvent({
     bookmakers: [

@@ -415,6 +415,16 @@ function createApp({
             return (order[b.confidence] || 0) - (order[a.confidence] || 0);
           });
           break;
+        case 'feeds':
+          opps.sort((a, b) => (
+            Number(b.independentFeedCount || 0) - Number(a.independentFeedCount || 0)
+            || Number(b.edge || 0) - Number(a.edge || 0)
+          ));
+          break;
+        case 'kickoff':
+          opps.sort((a, b) => String(a.kickoff || '').localeCompare(String(b.kickoff || ''))
+            || Number(b.edge || 0) - Number(a.edge || 0));
+          break;
         default:
           opps.sort((a, b) => b.edge - a.edge);
       }

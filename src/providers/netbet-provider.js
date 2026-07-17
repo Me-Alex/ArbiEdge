@@ -374,6 +374,51 @@ function normalizeNetBetMarkets(markets, { homeTeam, awayTeam }) {
     }
 
     if (
+      code === '2nd_half_asian_total'
+      || code === 'second_half_asian_total_goals'
+      || ((name.includes('asian') || name.includes('asiatic'))
+        && name.includes('total')
+        && (name.includes('2nd') || name.includes('a doua')))
+    ) {
+      addLineMarkets(normalized, market, 'secondHalfAsianTotalGoals');
+      continue;
+    }
+
+    if (
+      code === 'asian_handicap'
+      || name.includes('asian handicap')
+      || name.includes('handicap asiatic')
+    ) {
+      // Generic path builds signed AH keys when outcomes carry lines.
+      addGenericNetBetMarket(normalized, market, { homeTeam, awayTeam });
+      continue;
+    }
+
+    if (
+      code === '1st_half_dnb'
+      || ((name.includes('draw no bet') || name.includes('fara egal') || name.includes('dnb'))
+        && (name.includes('1st') || name.includes('pauza') || name.includes('prima')))
+    ) {
+      addOutcomeMarket(normalized, 'firstHalfDrawNoBet', market, {
+        W1: 'home', Home: 'home', '1': 'home',
+        W2: 'away', Away: 'away', '2': 'away',
+      }, ['home', 'away']);
+      continue;
+    }
+
+    if (
+      code === '2nd_half_dnb'
+      || ((name.includes('draw no bet') || name.includes('fara egal') || name.includes('dnb'))
+        && (name.includes('2nd') || name.includes('a doua')))
+    ) {
+      addOutcomeMarket(normalized, 'secondHalfDrawNoBet', market, {
+        W1: 'home', Home: 'home', '1': 'home',
+        W2: 'away', Away: 'away', '2': 'away',
+      }, ['home', 'away']);
+      continue;
+    }
+
+    if (
       code === 'team_total_home'
       || ((name.includes('total goluri') || name.includes('team total'))
         && (name.includes('home') || name.includes('gazde') || name.includes('1')))

@@ -107,6 +107,10 @@ function createBookmaker(name, home, draw, away, baseTime, eventIndex, bookmaker
       home: round(Math.max(1.08, home - 0.18 + bookmakerIndex * 0.04)),
       away: round(Math.max(1.08, away - 0.4 + bookmakerIndex * 0.05)),
     };
+    markets.secondHalfDrawNoBet = {
+      home: round(Math.max(1.1, home - 0.12 + bookmakerIndex * 0.03)),
+      away: round(Math.max(1.1, away - 0.35 + bookmakerIndex * 0.04)),
+    };
     markets.asianHandicap_plus_0_75 = {
       home: round(1.76 + bookmakerIndex * 0.08 + eventIndex * 0.02),
       away: round(2.02 + bookmakerIndex * 0.05),
