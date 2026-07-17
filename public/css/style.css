@@ -578,8 +578,9 @@ html[data-theme-choice="system"] .theme-toggle .theme-icon--system {
 .scanner-policy {
   justify-content: space-between;
   margin-bottom: var(--space-3);
+  border-left: 3px solid var(--accent);
   color: var(--text-primary);
-  background: var(--surface-strong);
+  background: color-mix(in oklab, var(--accent-soft), var(--surface-strong) 55%);
 }
 
 .scanner-policy strong {
