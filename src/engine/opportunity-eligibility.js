@@ -22,6 +22,8 @@ const CANDIDATE_STRUCTURE_CODES = new Set([
   'push_settlement',
   'unknown_market_schema',
   'unsupported_formula',
+  // High math edges stay visible for operator review; never auto-actionable.
+  'edge_outlier',
 ]);
 
 const SAFE_CLASSIC_MARKETS = new Set([
@@ -29,7 +31,11 @@ const SAFE_CLASSIC_MARKETS = new Set([
   'firstHalfH2h',
   'secondHalfH2h',
   'bothTeamsToScore',
+  'firstHalfBothTeamsToScore',
+  'secondHalfBothTeamsToScore',
   'toQualify',
+  // True 2-way exhaustive markets (no push).
+  'market_total_goluri_impar_par',
 ]);
 
 /** Yes/No exhaustive team markets commonly normalized by RO providers. */
@@ -45,6 +51,7 @@ const SAFE_CROSS_MARKETS = new Set([
   'cross_2H_1X_2',
   'cross_2H_1_X2',
   'cross_2H_12_X',
+  'cross_btts_no_over_0_5',
 ]);
 
 const TOTAL_LINE_MARKET_RE = /^(?:total|asianTotal|firstHalfTotal|secondHalfTotal|firstHalfAsianTotal|secondHalfAsianTotal)(?:Goals|Corners|Cards|Points|Games|Sets)_\d+(?:_\d+)?$/;
@@ -274,6 +281,7 @@ function evaluateOpportunityEligibility(opportunity) {
   const hardBlockCodes = reasonCodes.filter(
     (code) => !TRANSIENT_REASON_CODES.has(code) && !CANDIDATE_STRUCTURE_CODES.has(code),
   );
+  const candidateOnlyCodes = reasonCodes.filter((code) => CANDIDATE_STRUCTURE_CODES.has(code));
   const allLegsVerified = statuses.length > 0 && statuses.every((status) => status === VERIFIED_STATUS);
   const quotesActionable = !quoteTiming || quoteTiming.actionable === true;
   const kickoffsActionable = !kickoffTiming || kickoffTiming.actionable === true;
@@ -281,7 +289,15 @@ function evaluateOpportunityEligibility(opportunity) {
 
   if (hardBlockCodes.length > 0 || failedStatuses.length > 0) {
     eligibility = 'rejected';
-  } else if (!structure.safe || !allLegsVerified || !quotesActionable || !kickoffsActionable) {
+  } else if (
+    !structure.safe
+    || candidateOnlyCodes.length > 0
+    || !allLegsVerified
+    || !quotesActionable
+    || !kickoffsActionable
+  ) {
+    // Candidate structure codes (push settlement, edge outlier, etc.) never promote
+    // to actionable even when every leg is fidelity-verified.
     eligibility = 'review';
     if (!allLegsVerified) {
       addReason('verification_missing', `Every leg must be verified; current evidence: ${reviewStatuses.join(', ') || 'unverified'}.`);

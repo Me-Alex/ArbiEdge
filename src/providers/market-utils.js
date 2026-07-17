@@ -94,6 +94,8 @@ function canonicalMarketBase(value) {
   const aliases = [
     [/^(rezultat_)?(final|meci|match|full_time|fulltime|regular_time)(_(rezultat|result|1x2))?$/, 'h2h'],
     [/^(both_teams_to_score|both_teams_score|btts|gg_ng|gg|ambele_echipe_marcheaza|ambele_marcheaza|ambele_marcheaza_gg|ambele_echipe_marcheaza_gg)$/, 'bothTeamsToScore'],
+    [new RegExp(`^(?:${firstHalf}${separator}(?:both_teams_to_score|both_teams_score|btts|gg_ng|gg|ambele_echipe_marcheaza|ambele_marcheaza)|(?:both_teams_to_score|both_teams_score|btts|gg_ng|gg|ambele_echipe_marcheaza|ambele_marcheaza)${separator}${firstHalf})$`), 'firstHalfBothTeamsToScore'],
+    [new RegExp(`^(?:${secondHalf}${separator}(?:both_teams_to_score|both_teams_score|btts|gg_ng|gg|ambele_echipe_marcheaza|ambele_marcheaza)|(?:both_teams_to_score|both_teams_score|btts|gg_ng|gg|ambele_echipe_marcheaza|ambele_marcheaza)${separator}${secondHalf})$`), 'secondHalfBothTeamsToScore'],
     [/^(half_time_or_full_time|half_time_full_time|pauza_sau_final|pauza_final|castiga_la_pauza_sau_final|castiga_pauza_sau_final)$/, 'halfTimeOrFullTime'],
     [new RegExp(`^(?:${firstHalf}${separator}${asianGoalTotal}|${asianGoalTotal}${separator}${firstHalf})${overUnder}$`), 'firstHalfAsianTotalGoals'],
     [new RegExp(`^(?:${secondHalf}${separator}${asianGoalTotal}|${asianGoalTotal}${separator}${secondHalf})${overUnder}$`), 'secondHalfAsianTotalGoals'],
@@ -166,6 +168,8 @@ function isDirectMarketBase(value) {
     'asianTotalGoals',
     'h2h',
     'bothTeamsToScore',
+    'firstHalfBothTeamsToScore',
+    'secondHalfBothTeamsToScore',
     'halfTimeOrFullTime',
     'drawNoBet',
     'firstHalfDrawNoBet',

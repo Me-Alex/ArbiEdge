@@ -40,11 +40,24 @@ function renderScannerOverview() {
   if (!overview) return;
   const counts = getScannerTabCounts();
   const candidateCount = counts.actionable + counts.review + counts.rejected;
+  const typeHint = (() => {
+    const opps = state.opportunities || [];
+    const types = {};
+    for (const opp of opps) {
+      const t = opp.type || 'classic';
+      types[t] = (types[t] || 0) + 1;
+    }
+    const parts = Object.entries(types)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 4)
+      .map(([k, v]) => `${v} ${k}`);
+    return parts.length ? parts.join(' · ') : 'După validare formulă';
+  })();
   const items = [
-    { key: 'candidates', label: 'Total semnale', value: candidateCount, hint: 'După validare formulă' },
+    { key: 'candidates', label: 'Total semnale', value: candidateCount, hint: typeHint },
     { key: 'actionable', label: 'Acționabile', value: counts.actionable, hint: 'Fidelity verified pe website' },
     { key: 'review', label: 'Candidați', value: counts.review, hint: 'Arbitraj matematic, neverificat pe site' },
-    { key: 'rejected', label: 'Respinse', value: counts.rejected, hint: 'Same-book / edge outlier / invalid' },
+    { key: 'rejected', label: 'Respinse', value: counts.rejected, hint: 'Same-book / failed evidence / invalid' },
   ];
   overview.innerHTML = items.map((item) => `
     <article class="scanner-metric scanner-metric--${item.key}">

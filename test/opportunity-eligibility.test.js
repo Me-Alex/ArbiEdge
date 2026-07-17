@@ -65,6 +65,21 @@ test('push-settlement math candidates stay in review instead of rejected', () =>
   assert.ok(integerTotal.eligibilityReasonCodes.includes('verification_missing'));
 });
 
+test('edge outliers stay in review even when every leg is verified', () => {
+  const outlier = evaluateOpportunityEligibility({
+    type: 'classic',
+    marketKey: 'h2h',
+    edge: 0.12,
+    legs: [
+      { bookmaker: 'Book A', verificationStatus: 'verified' },
+      { bookmaker: 'Book B', verificationStatus: 'verified' },
+      { bookmaker: 'Book C', verificationStatus: 'verified' },
+    ],
+  });
+  assert.equal(outlier.eligibility, 'review');
+  assert.ok(outlier.eligibilityReasonCodes.includes('edge_outlier'));
+});
+
 test('isSupportedHandicapMarket only approves two-way half lines', () => {
   assert.equal(isSupportedHandicapMarket('asianHandicap_plus_0_5'), true);
   assert.equal(isSupportedHandicapMarket('handicap_minus_1'), false);

@@ -609,7 +609,7 @@ test('getAllOpportunities caps missing fidelity verification at review', () => {
   assert.deepEqual(opportunity.verificationStatuses, ['unverified']);
 });
 
-test('getAllOpportunities rejects edge outliers above the actionability ceiling', () => {
+test('getAllOpportunities keeps edge outliers in review (not actionable, not hard-rejected)', () => {
   const event = makeEvent({
     bookmakers: [
       {
@@ -628,8 +628,21 @@ test('getAllOpportunities rejects edge outliers above the actionability ceiling'
   const opportunity = getAllOpportunities([event]).find((item) => item.marketKey === 'h2h');
   assert.ok(opportunity);
   assert.ok(opportunity.edge > 0.08);
-  assert.equal(opportunity.eligibility, 'rejected');
+  assert.equal(opportunity.eligibility, 'review');
   assert.ok(opportunity.eligibilityReasonCodes.includes('edge_outlier'));
+});
+
+test('detectArbitrage scans goals odd/even as classic two-way', () => {
+  const event = makeEvent({
+    bookmakers: [
+      { name: 'BookA', markets: { market_total_goluri_impar_par: { odd: 2.1, even: 1.85 } } },
+      { name: 'BookB', markets: { market_total_goluri_impar_par: { odd: 1.9, even: 2.15 } } },
+    ],
+  });
+  const arb = detectArbitrage(event, 'market_total_goluri_impar_par');
+  assert.ok(arb);
+  assert.equal(arb.type, 'classic');
+  assert.ok(arb.edge > 0);
 });
 
 test('sport-aware h2h scanning accepts two-way basketball outcomes', () => {

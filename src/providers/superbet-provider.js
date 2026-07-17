@@ -191,6 +191,35 @@ function normalizeSuperbetMarketGroup(group, { homeTeam, awayTeam }) {
     );
   }
 
+  // Period 1X2 — common Superbet RO labels
+  if (
+    normalizedLabel === 'pauza'
+    || normalizedLabel === 'prima repriza'
+    || normalizedLabel === '1st half'
+    || normalizedLabel === 'half time'
+  ) {
+    return mapSuperbetOutcomes(
+      group,
+      'firstHalfH2h',
+      { 1: 'home', x: 'draw', 2: 'away' },
+      ['home', 'draw', 'away'],
+    );
+  }
+
+  if (
+    normalizedLabel === 'a doua repriza'
+    || normalizedLabel === 'repriza 2'
+    || normalizedLabel === '2nd half'
+    || normalizedLabel === 'second half'
+  ) {
+    return mapSuperbetOutcomes(
+      group,
+      'secondHalfH2h',
+      { 1: 'home', x: 'draw', 2: 'away' },
+      ['home', 'draw', 'away'],
+    );
+  }
+
   if (isMatchDoubleChanceLabel(label)) {
     return mapSuperbetOutcomes(
       group,
@@ -200,10 +229,52 @@ function normalizeSuperbetMarketGroup(group, { homeTeam, awayTeam }) {
     );
   }
 
+  if (
+    normalizedLabel === 'sansa dubla pauza'
+    || normalizedLabel === 'sansa dubla prima repriza'
+    || normalizedLabel === 'double chance 1st half'
+    || normalizedLabel === '1st half double chance'
+  ) {
+    return mapSuperbetOutcomes(
+      group,
+      'firstHalfDoubleChance',
+      { '1x': 'homeDraw', 12: 'homeAway', x2: 'drawAway' },
+      ['homeDraw', 'homeAway', 'drawAway'],
+    );
+  }
+
+  if (
+    normalizedLabel === 'sansa dubla a doua repriza'
+    || normalizedLabel === 'sansa dubla repriza 2'
+    || normalizedLabel === '2nd half double chance'
+    || normalizedLabel === 'double chance 2nd half'
+  ) {
+    return mapSuperbetOutcomes(
+      group,
+      'secondHalfDoubleChance',
+      { '1x': 'homeDraw', 12: 'homeAway', x2: 'drawAway' },
+      ['homeDraw', 'homeAway', 'drawAway'],
+    );
+  }
+
   if (isMatchBothTeamsToScoreLabel(label)) {
     return mapSuperbetOutcomes(
       group,
       'bothTeamsToScore',
+      { da: 'yes', yes: 'yes', nu: 'no', no: 'no' },
+      ['yes', 'no'],
+    );
+  }
+
+  if (
+    normalizedLabel === 'ambele marcheaza pauza'
+    || normalizedLabel === 'ambele echipe marcheaza pauza'
+    || normalizedLabel === 'ambele marcheaza prima repriza'
+    || normalizedLabel === 'gg ng pauza'
+  ) {
+    return mapSuperbetOutcomes(
+      group,
+      'firstHalfBothTeamsToScore',
       { da: 'yes', yes: 'yes', nu: 'no', no: 'no' },
       ['yes', 'no'],
     );
@@ -221,16 +292,60 @@ function normalizeSuperbetMarketGroup(group, { homeTeam, awayTeam }) {
     });
   }
 
+  if (
+    normalizedLabel === 'total goluri par impar'
+    || normalizedLabel === 'total goluri impar par'
+    || normalizedLabel === 'goluri par impar'
+    || normalizedLabel === 'odd even'
+    || normalizedLabel === 'par impar'
+  ) {
+    return mapSuperbetOutcomes(
+      group,
+      'market_total_goluri_impar_par',
+      {
+        par: 'even',
+        even: 'even',
+        impar: 'odd',
+        odd: 'odd',
+      },
+      ['odd', 'even'],
+    );
+  }
+
   if (normalizedLabel === 'total goluri') {
     return mapSuperbetLineMarket(group, 'totalGoals');
   }
 
-  if (normalizedLabel === 'prima repriza total goluri') {
+  if (
+    normalizedLabel === 'prima repriza total goluri'
+    || normalizedLabel === 'total goluri pauza'
+    || normalizedLabel === 'total goluri prima repriza'
+  ) {
     return mapSuperbetLineMarket(group, 'firstHalfTotalGoals');
+  }
+
+  if (
+    normalizedLabel === 'a doua repriza total goluri'
+    || normalizedLabel === 'total goluri a doua repriza'
+    || normalizedLabel === 'total goluri repriza 2'
+  ) {
+    return mapSuperbetLineMarket(group, 'secondHalfTotalGoals');
   }
 
   if (normalizedLabel === 'total goluri asiatice') {
     return mapSuperbetLineMarket(group, 'asianTotalGoals');
+  }
+
+  if (normalizedLabel === 'total cornere' || normalizedLabel === 'total corners') {
+    return mapSuperbetLineMarket(group, 'totalCorners');
+  }
+
+  if (
+    normalizedLabel === 'total cartonase'
+    || normalizedLabel === 'total cartonase galbene'
+    || normalizedLabel === 'total cards'
+  ) {
+    return mapSuperbetLineMarket(group, 'totalCards');
   }
 
   if (normalizedLabel === 'handicap' || normalizedLabel === 'handicap asiatic') {

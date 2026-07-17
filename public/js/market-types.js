@@ -57,8 +57,11 @@ export function classifyMarketSignal(value) {
   if (hasAny(text, ['totalcorners', 'asiantotalcorners', 'cornertotal', 'cornere', 'corners'])) return 'cornersTotals';
   if (hasAny(text, ['totalcards', 'asiantotalcards', 'cardstotal', 'cartonase', 'yellowcards', 'bookings'])) return 'cardsTotals';
   if (hasAny(text, ['handicap', 'asianhandicap'])) return 'handicap';
-  if (hasAny(text, ['totalgoals', 'asiantotalgoals', 'goalstotal', 'totalgoluri', 'goalsmiddle', 'goluri'])) return 'goalsTotals';
-  if (hasAny(text, ['h2h', '1x2', 'matchwinner', 'winner1x2', 'rezultatfinal', 'fulltimeresult', 'finalresult'])) return 'result';
+  if (hasAny(text, [
+    'totalgoals', 'asiantotalgoals', 'goalstotal', 'totalgoluri', 'goalsmiddle', 'goluri',
+    'imparpar', 'oddeven', 'pareven',
+  ])) return 'goalsTotals';
+  if (hasAny(text, ['h2h', '1x2', 'matchwinner', 'winner1x2', 'rezultatfinal', 'fulltimeresult', 'finalresult', 'toqualify'])) return 'result';
   if (hasAny(text, ['crossmarket', 'cross'])) return 'crossMarket';
 
   return null;

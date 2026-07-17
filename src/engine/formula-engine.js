@@ -56,6 +56,8 @@ const MARKET_OUTCOMES = {
   halfTimeOrFullTime: ['home', 'draw', 'away'],
   // 2-way markets
   bothTeamsToScore: ['yes', 'no'],
+  firstHalfBothTeamsToScore: ['yes', 'no'],
+  secondHalfBothTeamsToScore: ['yes', 'no'],
   drawNoBet: ['home', 'away'],
   firstHalfDrawNoBet: ['home', 'away'],
   secondHalfDrawNoBet: ['home', 'away'],
@@ -64,6 +66,7 @@ const MARKET_OUTCOMES = {
   market_marcheaza_away: ['yes', 'no'],
   market_clean_sheet_home: ['yes', 'no'],
   market_clean_sheet_away: ['yes', 'no'],
+  market_total_goluri_impar_par: ['odd', 'even'],
   // Double chance — overlapping outcomes (not classic-scanned)
   doubleChance: ['homeDraw', 'homeAway', 'drawAway'],
   firstHalfDoubleChance: ['homeDraw', 'homeAway', 'drawAway'],
@@ -78,6 +81,8 @@ const MARKET_LABELS = {
   firstHalfDoubleChance: '1st Half Double Chance',
   secondHalfDoubleChance: '2nd Half Double Chance',
   bothTeamsToScore: 'BTTS',
+  firstHalfBothTeamsToScore: '1st Half BTTS',
+  secondHalfBothTeamsToScore: '2nd Half BTTS',
   drawNoBet: 'Draw No Bet',
   firstHalfDrawNoBet: '1st Half DNB',
   secondHalfDrawNoBet: '2nd Half DNB',
@@ -87,6 +92,7 @@ const MARKET_LABELS = {
   market_marcheaza_away: 'Away to Score',
   market_clean_sheet_home: 'Home Clean Sheet',
   market_clean_sheet_away: 'Away Clean Sheet',
+  market_total_goluri_impar_par: 'Goals Odd/Even',
 };
 
 const MARKET_DESCRIPTIONS = {
@@ -97,6 +103,8 @@ const MARKET_DESCRIPTIONS = {
   firstHalfDoubleChance: 'First-half double chance — 1X / 12 / X2',
   secondHalfDoubleChance: 'Second-half double chance — 1X / 12 / X2',
   bothTeamsToScore: 'Will both teams score at least one goal?',
+  firstHalfBothTeamsToScore: 'Will both teams score in the first half?',
+  secondHalfBothTeamsToScore: 'Will both teams score in the second half?',
   drawNoBet: 'Home or Away wins; stake refunded on a draw',
   firstHalfDrawNoBet: 'Half-time DNB — stake refunded if level at HT',
   secondHalfDrawNoBet: 'Second-half DNB — stake refunded if level at 2nd half',
@@ -106,6 +114,7 @@ const MARKET_DESCRIPTIONS = {
   market_marcheaza_away: 'Will the away team score at least one goal?',
   market_clean_sheet_home: 'Will the home team concede zero goals?',
   market_clean_sheet_away: 'Will the away team concede zero goals?',
+  market_total_goluri_impar_par: 'Will total goals be odd or even?',
 };
 
 const LINE_MARKET_FAMILIES = [
@@ -143,6 +152,8 @@ const OUTCOME_LABELS = {
   no: 'No',
   over: 'Over',
   under: 'Under',
+  odd: 'Odd',
+  even: 'Even',
 };
 
 const RESULT_MARKET_KEY_RE = /(?:^|_)(?:result|rezultat|1x2)(?:_|$)/;
@@ -752,7 +763,43 @@ function detectCrossMarketArbitrage(event) {
     ...detectPeriodCrossMarket(event, 'h2h', 'doubleChance', '', ''),
     ...detectPeriodCrossMarket(event, 'firstHalfH2h', 'firstHalfDoubleChance', '1H_', '1H'),
     ...detectPeriodCrossMarket(event, 'secondHalfH2h', 'secondHalfDoubleChance', '2H_', '2H'),
+    ...detectBttsTotalsSoftCross(event),
   ];
+}
+
+/**
+ * Exhaustive soft cover: BTTS No wins on 0-0 / 1-0 / 0-1; Over 0.5 wins on any
+ * goal. Every scoreline pays at least one leg (overlap on one-team blanks is fine).
+ */
+function detectBttsTotalsSoftCross(event) {
+  const results = [];
+  const btts = findBestPrices(event, 'bothTeamsToScore');
+  const match05 = findBestPrices(event, 'totalGoals_0_5');
+  if (btts.no && match05.over) {
+    pushCrossMarketPair(results, {
+      marketKey: 'cross_btts_no_over_0_5',
+      marketLabel: 'BTTS No + Over 0.5 Goals',
+      legA: {
+        outcome: 'no',
+        label: 'BTTS No',
+        bookmaker: btts.no.bookmaker,
+        price: btts.no.price,
+        url: btts.no.url,
+        marketKey: btts.no.marketKey || 'bothTeamsToScore',
+        verificationStatus: btts.no.verificationStatus,
+      },
+      legB: {
+        outcome: 'over',
+        label: 'Over 0.5',
+        bookmaker: match05.over.bookmaker,
+        price: match05.over.price,
+        url: match05.over.url,
+        marketKey: match05.over.marketKey || 'totalGoals_0_5',
+        verificationStatus: match05.over.verificationStatus,
+      },
+    });
+  }
+  return results;
 }
 
 /* ===== Formula 3: Middle bets (over/under line gap) ===== */
@@ -1343,14 +1390,19 @@ const SETTLEMENT_SCOPES = {
   doubleChance: 'fulltime',
   drawNoBet: 'fulltime',
   bothTeamsToScore: 'fulltime',
+  firstHalfBothTeamsToScore: 'firstHalf',
+  secondHalfBothTeamsToScore: 'secondHalf',
   toQualify: 'overtime',
   halfTimeOrFullTime: 'htft',
+  market_total_goluri_impar_par: 'fulltime',
   // First half
   firstHalfH2h: 'firstHalf',
   firstHalfDrawNoBet: 'firstHalf',
+  firstHalfDoubleChance: 'firstHalf',
   // Second half
   secondHalfH2h: 'secondHalf',
   secondHalfDrawNoBet: 'secondHalf',
+  secondHalfDoubleChance: 'secondHalf',
 };
 
 /** Prefix-based scope detection. totalGoals_, totalCorners_, totalCards_ → fulltime,
