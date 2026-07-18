@@ -920,6 +920,38 @@ test('detectHandicapArbitrage merges asianHandicap and 2-way handicap prefixes',
   assert.strictEqual(awayLeg.bookmaker, 'BookB');
 });
 
+test('detectHandicapArbitrage folds drawNoBet into AH0 zero-line dutch', () => {
+  const event = makeEvent({
+    bookmakers: [
+      { name: 'BookA', markets: { drawNoBet: { home: 2.2, away: 1.7 } } },
+      { name: 'BookB', markets: { asianHandicap_0: { home: 1.75, away: 2.25 } } },
+    ],
+  });
+  const arbs = detectHandicapArbitrage(event);
+  assert.strictEqual(arbs.length, 1);
+  assert.strictEqual(arbs[0].marketKey, 'asianHandicap_0');
+  assert.ok(arbs[0].edge > 0);
+  const homeLeg = arbs[0].legs.find((l) => l.outcome === 'home');
+  const awayLeg = arbs[0].legs.find((l) => l.outcome === 'away');
+  assert.strictEqual(homeLeg.bookmaker, 'BookA');
+  assert.strictEqual(awayLeg.bookmaker, 'BookB');
+});
+
+test('detectCrossMarketArbitrage merges DNB into DC×AH0 soft pairs', () => {
+  // No asianHandicap_0 — only DNB should supply AH0 legs for DC soft covers.
+  const event = makeEvent({
+    bookmakers: [
+      { name: 'BookA', markets: { doubleChance: { homeDraw: 2.05, drawAway: 2.05, homeAway: 1.3 } } },
+      { name: 'BookB', markets: { drawNoBet: { home: 2.1, away: 2.1 } } },
+    ],
+  });
+  const results = detectCrossMarketArbitrage(event);
+  assert.ok(results.some((item) => item.marketKey === 'cross_dc_1x_ah0_away'));
+  assert.ok(results.some((item) => item.marketKey === 'cross_dc_x2_ah0_home'));
+  const oneX = results.find((item) => item.marketKey === 'cross_dc_1x_ah0_away');
+  assert.strictEqual(oneX.legs.find((l) => l.label === 'AH0 Away').bookmaker, 'BookB');
+});
+
 test('detectCrossMarketArbitrage finds exhaustive 1 vs AH2(+0.5) half-line covers', () => {
   const event = makeEvent({
     bookmakers: [

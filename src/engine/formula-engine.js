@@ -1010,8 +1010,10 @@ function detectDcVsAhZeroCross(event) {
   const dc = findBestPrices(event, 'doubleChance');
   const ah = findBestPrices(event, 'asianHandicap_0');
   const h0 = findBestPrices(event, 'handicap_0');
-  const ahAway = pickBestPriceEntry(ah.away, h0.draw ? null : h0.away);
-  const ahHome = pickBestPriceEntry(ah.home, h0.draw ? null : h0.home);
+  const dnb = findBestPrices(event, 'drawNoBet');
+  // AH0 ≡ DNB (push on draw) — merge all three sources for more candidates.
+  const ahAway = pickBestPriceEntry(ah.away, h0.draw ? null : h0.away, dnb.away);
+  const ahHome = pickBestPriceEntry(ah.home, h0.draw ? null : h0.home, dnb.home);
   if (!dc.homeDraw && !dc.drawAway) return results;
 
   if (dc.homeDraw && ahAway) {
@@ -1960,11 +1962,12 @@ function detectBttsTotalsSoftCross(event) {
   const pairs = [];
   for (const scope of scopes) {
     for (const family of scope.prefixes) {
-      const lines = new Set([0.5, 1.5]);
+      // Defaults include 2.5 (soft review only — SAFE regex still only 0.5/1.5).
+      const lines = new Set([0.5, 1.5, 2.5]);
       for (const mk of marketKeys) {
         if (!mk.startsWith(family.prefix)) continue;
         const line = parseLineNumberFromKey(mk);
-        if (line !== null && Math.abs((line % 1) - 0.5) < 1e-9 && line > 0 && line <= 3.5) {
+        if (line !== null && Math.abs((line % 1) - 0.5) < 1e-9 && line > 0 && line <= 4.5) {
           lines.add(line);
         }
       }
@@ -2175,6 +2178,18 @@ function detectHandicapArbitrage(event) {
     if (mk.startsWith('asianHandicap_')) bucket.preferredKey = mk;
     if (allPrices.home) bucket.homes.push(...allPrices.home);
     if (allPrices.away) bucket.aways.push(...allPrices.away);
+  }
+
+  // AH0 ≡ DNB settlement — fold drawNoBet prices into the zero-line dutch so
+  // books that only post DNB still join AH0 candidates (push → review).
+  const dnbPrices = collectAllPrices(event, 'drawNoBet');
+  if ((dnbPrices.home?.length || dnbPrices.away?.length) && !dnbPrices.draw?.length) {
+    if (!byLineToken.has('0')) {
+      byLineToken.set('0', { homes: [], aways: [], preferredKey: 'asianHandicap_0' });
+    }
+    const zeroBucket = byLineToken.get('0');
+    if (dnbPrices.home) zeroBucket.homes.push(...dnbPrices.home);
+    if (dnbPrices.away) zeroBucket.aways.push(...dnbPrices.away);
   }
 
   for (const [, bucket] of byLineToken) {
