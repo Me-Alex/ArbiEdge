@@ -626,6 +626,8 @@ function formulaFamilyFromMarketKey(marketKey) {
   if (/^cross_(?:1H_|2H_)?1X_2$|^cross_(?:1H_|2H_)?1_X2$|^cross_(?:1H_|2H_)?12_X$/.test(key)) {
     return 'h2h-dc';
   }
+  // Result/DC × BTTS before generic h2h/dc tags (keys share those tokens).
+  if (/btts/i.test(key) && /(?:h2h|dc_)/i.test(key)) return 'result-btts';
   if (/^cross_.*(?:h2h|ah|dnb|dc).*(?:ah|dnb|h2h|dc)/i.test(key)
     || /^cross_h2h_|^cross_dc_|^cross_dnb_|^cross_ah0_/.test(key)) {
     return 'result-handicap';
@@ -791,6 +793,7 @@ function detectCrossMarketArbitrage(event) {
     ...detectPeriodCrossMarket(event, 'firstHalfH2h', 'firstHalfDoubleChance', '1H_', '1H'),
     ...detectPeriodCrossMarket(event, 'secondHalfH2h', 'secondHalfDoubleChance', '2H_', '2H'),
     ...detectBttsTotalsSoftCross(event),
+    ...detectResultVsBttsSoftCross(event),
     ...detectQualifyVsH2hCross(event),
     ...detectTeamScoreVsCleanSheetCross(event),
     ...detectScoreVsTeamTotalIdentityCross(event),
@@ -808,7 +811,7 @@ function detectCrossMarketArbitrage(event) {
 }
 
 /**
- * Soft review: To Qualify vs Asian Handicap half-lines.
+ * Soft review: To Qualify vs Asian Handicap lines (half + integer/quarter).
  * Qualify settles on advance (ET/pens possible); AH is 90' — never SAFE_CROSS.
  * Mirrors H2H×AH legs so cup books with only qualify (no 1X2) still pair.
  */
@@ -817,8 +820,8 @@ function detectQualifyVsAhCross(event) {
   const qualify = findBestPrices(event, 'toQualify');
   if (!qualify.home && !qualify.away) return results;
 
-  // Half-lines only for cleaner pairing; integer/quarter still review via AH scan.
-  for (const line of collectAsianHalfLines(event)) {
+  // Wider line grid (half SAFE-like structure still review due to qualify settlement).
+  for (const line of collectAsianScanLines(event)) {
     const token = String(line).replace('.', '_');
     const plusKey = `asianHandicap_plus_${token}`;
     const minusKey = `asianHandicap_minus_${token}`;
@@ -1680,10 +1683,11 @@ function detectEuroAsianSameLineArbitrage(event) {
     for (const mk of marketKeys) {
       if (mk.startsWith(family.euroPrefix)) {
         const line = parseLineNumberFromKey(mk);
-        if (line !== null && Math.abs((line % 1) - 0.5) < 1e-9) euroByLine.set(line, mk);
+        // Half-lines are SAFE (push-free); integer/quarter still surface as review.
+        if (line !== null && line > 0 && line <= 20) euroByLine.set(line, mk);
       } else if (mk.startsWith(family.asianPrefix)) {
         const line = parseLineNumberFromKey(mk);
-        if (line !== null && Math.abs((line % 1) - 0.5) < 1e-9) asianByLine.set(line, mk);
+        if (line !== null && line > 0 && line <= 20) asianByLine.set(line, mk);
       }
     }
 
@@ -2287,6 +2291,179 @@ function detectQualifyVsH2hCross(event) {
         verificationStatus: h2h.draw.verificationStatus,
       },
     });
+  }
+  return results;
+}
+
+/**
+ * Soft review: 1X2 result sides vs BTTS (FT + period).
+ * Not exhaustive (e.g. 1-0: Home wins + BTTS No both win; 1-1: both lose on Home+BTTS No).
+ * Surfaces RO mispricings while eligibility keeps them unsupported_formula → review.
+ */
+function detectResultVsBttsSoftCross(event) {
+  const results = [];
+  const scopes = [
+    { h2hKey: 'h2h', bttsKey: 'bothTeamsToScore', prefix: '', labelPrefix: '' },
+    { h2hKey: 'firstHalfH2h', bttsKey: 'firstHalfBothTeamsToScore', prefix: '1H_', labelPrefix: '1H ' },
+    { h2hKey: 'secondHalfH2h', bttsKey: 'secondHalfBothTeamsToScore', prefix: '2H_', labelPrefix: '2H ' },
+  ];
+
+  for (const scope of scopes) {
+    const h2h = findBestPrices(event, scope.h2hKey);
+    const btts = findBestPrices(event, scope.bttsKey);
+    const label = scope.labelPrefix;
+
+    if (h2h.home && btts.no) {
+      pushCrossMarketPair(results, {
+        marketKey: `cross_${scope.prefix}h2h_home_btts_no`,
+        marketLabel: `${label}1 (1X2) + BTTS No`.trim(),
+        legA: {
+          outcome: 'home',
+          label: '1',
+          bookmaker: h2h.home.bookmaker,
+          price: h2h.home.price,
+          url: h2h.home.url,
+          marketKey: h2h.home.marketKey || scope.h2hKey,
+          verificationStatus: h2h.home.verificationStatus,
+        },
+        legB: {
+          outcome: 'no',
+          label: 'BTTS No',
+          bookmaker: btts.no.bookmaker,
+          price: btts.no.price,
+          url: btts.no.url,
+          marketKey: btts.no.marketKey || scope.bttsKey,
+          verificationStatus: btts.no.verificationStatus,
+        },
+      });
+    }
+    if (h2h.away && btts.no) {
+      pushCrossMarketPair(results, {
+        marketKey: `cross_${scope.prefix}h2h_away_btts_no`,
+        marketLabel: `${label}2 (1X2) + BTTS No`.trim(),
+        legA: {
+          outcome: 'away',
+          label: '2',
+          bookmaker: h2h.away.bookmaker,
+          price: h2h.away.price,
+          url: h2h.away.url,
+          marketKey: h2h.away.marketKey || scope.h2hKey,
+          verificationStatus: h2h.away.verificationStatus,
+        },
+        legB: {
+          outcome: 'no',
+          label: 'BTTS No',
+          bookmaker: btts.no.bookmaker,
+          price: btts.no.price,
+          url: btts.no.url,
+          marketKey: btts.no.marketKey || scope.bttsKey,
+          verificationStatus: btts.no.verificationStatus,
+        },
+      });
+    }
+    if (h2h.draw && btts.yes) {
+      pushCrossMarketPair(results, {
+        marketKey: `cross_${scope.prefix}h2h_draw_btts_yes`,
+        marketLabel: `${label}X (1X2) + BTTS Yes`.trim(),
+        legA: {
+          outcome: 'draw',
+          label: 'X',
+          bookmaker: h2h.draw.bookmaker,
+          price: h2h.draw.price,
+          url: h2h.draw.url,
+          marketKey: h2h.draw.marketKey || scope.h2hKey,
+          verificationStatus: h2h.draw.verificationStatus,
+        },
+        legB: {
+          outcome: 'yes',
+          label: 'BTTS Yes',
+          bookmaker: btts.yes.bookmaker,
+          price: btts.yes.price,
+          url: btts.yes.url,
+          marketKey: btts.yes.marketKey || scope.bttsKey,
+          verificationStatus: btts.yes.verificationStatus,
+        },
+      });
+    }
+    if (h2h.draw && btts.no) {
+      pushCrossMarketPair(results, {
+        marketKey: `cross_${scope.prefix}h2h_draw_btts_no`,
+        marketLabel: `${label}X (1X2) + BTTS No`.trim(),
+        legA: {
+          outcome: 'draw',
+          label: 'X',
+          bookmaker: h2h.draw.bookmaker,
+          price: h2h.draw.price,
+          url: h2h.draw.url,
+          marketKey: h2h.draw.marketKey || scope.h2hKey,
+          verificationStatus: h2h.draw.verificationStatus,
+        },
+        legB: {
+          outcome: 'no',
+          label: 'BTTS No',
+          bookmaker: btts.no.bookmaker,
+          price: btts.no.price,
+          url: btts.no.url,
+          marketKey: btts.no.marketKey || scope.bttsKey,
+          verificationStatus: btts.no.verificationStatus,
+        },
+      });
+    }
+    // Soft: DC 1X + BTTS No / X2 + BTTS No (period DC when available).
+    const dcKey = scope.prefix === '1H_'
+      ? 'firstHalfDoubleChance'
+      : scope.prefix === '2H_'
+        ? 'secondHalfDoubleChance'
+        : 'doubleChance';
+    const dc = findBestPrices(event, dcKey);
+    if (dc.homeDraw && btts.no) {
+      pushCrossMarketPair(results, {
+        marketKey: `cross_${scope.prefix}dc_1x_btts_no`,
+        marketLabel: `${label}1X (DC) + BTTS No`.trim(),
+        legA: {
+          outcome: 'homeDraw',
+          label: '1X',
+          bookmaker: dc.homeDraw.bookmaker,
+          price: dc.homeDraw.price,
+          url: dc.homeDraw.url,
+          marketKey: dc.homeDraw.marketKey || dcKey,
+          verificationStatus: dc.homeDraw.verificationStatus,
+        },
+        legB: {
+          outcome: 'no',
+          label: 'BTTS No',
+          bookmaker: btts.no.bookmaker,
+          price: btts.no.price,
+          url: btts.no.url,
+          marketKey: btts.no.marketKey || scope.bttsKey,
+          verificationStatus: btts.no.verificationStatus,
+        },
+      });
+    }
+    if (dc.drawAway && btts.no) {
+      pushCrossMarketPair(results, {
+        marketKey: `cross_${scope.prefix}dc_x2_btts_no`,
+        marketLabel: `${label}X2 (DC) + BTTS No`.trim(),
+        legA: {
+          outcome: 'drawAway',
+          label: 'X2',
+          bookmaker: dc.drawAway.bookmaker,
+          price: dc.drawAway.price,
+          url: dc.drawAway.url,
+          marketKey: dc.drawAway.marketKey || dcKey,
+          verificationStatus: dc.drawAway.verificationStatus,
+        },
+        legB: {
+          outcome: 'no',
+          label: 'BTTS No',
+          bookmaker: btts.no.bookmaker,
+          price: btts.no.price,
+          url: btts.no.url,
+          marketKey: btts.no.marketKey || scope.bttsKey,
+          verificationStatus: btts.no.verificationStatus,
+        },
+      });
+    }
   }
   return results;
 }

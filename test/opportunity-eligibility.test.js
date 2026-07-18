@@ -85,6 +85,14 @@ test('edge outliers stay in review even when every leg is verified', () => {
   assert.ok(outlier.eligibilityReasonCodes.includes('edge_outlier'));
 });
 
+test('EU↔Asian same-line O/U is safe only on half-lines', () => {
+  const { isSafeCrossMarket } = require('../src/engine/opportunity-eligibility');
+  assert.equal(isSafeCrossMarket('cross_eu_as_ou_goals_2_5'), true);
+  assert.equal(isSafeCrossMarket('cross_eu_as_ou_1h_goals_0_5'), true);
+  assert.equal(isSafeCrossMarket('cross_eu_as_ou_goals_3'), false);
+  assert.equal(isSafeCrossMarket('cross_eu_as_ou_goals_2_25'), false);
+});
+
 test('h2h vs AH half-line cross formulas are structurally safe', () => {
   const { isSafeCrossMarket } = require('../src/engine/opportunity-eligibility');
   const opp = evaluateOpportunityEligibility({

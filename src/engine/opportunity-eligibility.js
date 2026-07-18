@@ -158,8 +158,11 @@ function isSafeCrossMarket(marketKey) {
   if (SAFE_CROSS_MARKETS.has(key)) return true;
   // Half-line team+match totals identities used by detectTeamMatchTotalArbitrage.
   if (/^cross_totals(?:_inv)?_/.test(key)) return true;
-  // EU↔Asian half-line O/U pairs settle identically on integer outcomes.
-  if (/^cross_eu_as_ou_/.test(key)) return true;
+  // EU↔Asian O/U: only half-lines are push-free (integer/quarter stay review).
+  if (/^cross_eu_as_ou_/.test(key)) {
+    // Keys end with line token: ..._2_5 (half) vs ..._2 / ..._2_25
+    return /_(?:\d+_)*\d+_5$/.test(key);
+  }
   // H2H/DC ↔ AH half-line partitions only (.5 lines, no push). Integer/quarter
   // keys stay review via unsupported_formula / push settlement.
   if (/^cross_h2h_home_ah2_plus_\d+_5$/.test(key)) return true;

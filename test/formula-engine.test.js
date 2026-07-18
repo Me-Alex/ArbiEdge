@@ -1474,6 +1474,66 @@ test('detectCrossMarketArbitrage finds BTTS Yes + Under soft covers', () => {
   assert.strictEqual(hit.formulaFamily, 'btts-cross');
 });
 
+test('detectCrossMarketArbitrage surfaces 1X2/DC × BTTS soft pairs', () => {
+  const event = makeEvent({
+    bookmakers: [
+      {
+        name: 'BookA',
+        markets: {
+          h2h: { home: 2.2, draw: 3.1, away: 3.2 },
+          bothTeamsToScore: { yes: 1.95, no: 2.05 },
+          doubleChance: { homeDraw: 1.9, homeAway: 1.35, drawAway: 1.95 },
+        },
+      },
+      {
+        name: 'BookB',
+        markets: {
+          h2h: { home: 2.1, draw: 3.2, away: 3.15 },
+          bothTeamsToScore: { yes: 1.9, no: 2.15 },
+          doubleChance: { homeDraw: 1.85, homeAway: 1.32, drawAway: 1.92 },
+        },
+      },
+    ],
+  });
+  // Keep edges under MAX_ARB_EDGE (0.25): home 2.2+no 2.15≈0.92; away 3.2+no 2.15≈0.78
+  // 1X 1.9+no 2.15≈0.99; draw 3.2+yes 1.95≈0.82
+  const results = detectCrossMarketArbitrage(event);
+  assert.ok(results.some((item) => item.marketKey === 'cross_h2h_home_btts_no'));
+  assert.ok(results.some((item) => item.marketKey === 'cross_h2h_away_btts_no'));
+  assert.ok(results.some((item) => item.marketKey === 'cross_h2h_draw_btts_yes'));
+  assert.ok(results.some((item) => item.marketKey === 'cross_dc_1x_btts_no'
+    || item.marketKey === 'cross_dc_x2_btts_no'));
+  const hit = results.find((item) => item.marketKey === 'cross_h2h_home_btts_no');
+  assert.strictEqual(hit.formulaFamily, 'result-btts');
+});
+
+test('detectCrossMarketArbitrage finds integer EU↔Asian same-line O/U soft pairs', () => {
+  const event = makeEvent({
+    bookmakers: [
+      {
+        name: 'BookA',
+        markets: {
+          totalGoals_3: { over: 2.15, under: 1.7 },
+          asianTotalGoals_3: { over: 1.8, under: 2.1 },
+        },
+      },
+      {
+        name: 'BookB',
+        markets: {
+          totalGoals_3: { over: 1.85, under: 2.0 },
+          asianTotalGoals_3: { over: 2.2, under: 1.75 },
+        },
+      },
+    ],
+  });
+  // euro over 2.15 A + asian under 2.1 A same book skip; euro over 2.15 A + asian under? best under asian is 2.1 A
+  // best over = 2.2 asian B, best under = 2.0 euro B same book skip
+  // euro over 2.15 A + euro under 2.0 B = edge → same family still emitted
+  // asian over 2.2 B + euro under 2.0 B same book skip; asian over 2.2 B + euro under 1.7 A = edge
+  const results = detectCrossMarketArbitrage(event);
+  assert.ok(results.some((item) => String(item.marketKey).startsWith('cross_eu_as_ou_goals_3')));
+});
+
 test('detectCrossMarketArbitrage surfaces to-qualify vs AH half soft pairs', () => {
   const event = makeEvent({
     bookmakers: [
