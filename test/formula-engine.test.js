@@ -223,6 +223,36 @@ test('calculateNoVigMarket returns null when fewer than two valid prices exist',
   assert.strictEqual(calculateNoVigMarket({ home: 0, away: 1 }), null);
 });
 
+test('cross-market opportunities carry formulaFamily for scanner summary', () => {
+  const event = makeEvent({
+    bookmakers: [
+      { name: 'BookA', markets: { h2h: { home: 2.1, draw: 3.4, away: 3.6 }, doubleChance: { homeDraw: 1.45, drawAway: 1.5, homeAway: 1.35 } } },
+      { name: 'BookB', markets: { h2h: { home: 2.05, draw: 3.3, away: 3.9 }, doubleChance: { homeDraw: 1.4, drawAway: 1.55, homeAway: 1.33 } } },
+    ],
+  });
+  const results = detectCrossMarketArbitrage(event);
+  assert.ok(results.length > 0);
+  assert.ok(results.every((item) => typeof item.formulaFamily === 'string' && item.formulaFamily.length > 0));
+  assert.ok(results.some((item) => item.formulaFamily === 'h2h-dc'));
+});
+
+test('detectCrossMarketArbitrage surfaces DC 12 × AH0 soft pairs', () => {
+  const event = makeEvent({
+    bookmakers: [
+      {
+        name: 'BookA',
+        markets: {
+          doubleChance: { homeDraw: 1.4, drawAway: 1.5, homeAway: 2.15 },
+        },
+      },
+      { name: 'BookB', markets: { asianHandicap_0: { home: 2.1, away: 2.1 } } },
+    ],
+  });
+  const results = detectCrossMarketArbitrage(event);
+  assert.ok(results.some((item) => item.marketKey === 'cross_dc_12_ah0_home'));
+  assert.ok(results.some((item) => item.marketKey === 'cross_dc_12_ah0_away'));
+});
+
 test('detectCrossMarketArbitrage finds 1X + 2 edge', () => {
   // h2h: home=3.0, draw=3.0, away=3.0 → implied 1.0
   // DC 1X at 1.5 → implied 0.667

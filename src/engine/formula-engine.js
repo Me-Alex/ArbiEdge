@@ -614,11 +614,35 @@ function detectArbitrage(event, marketKey, sportKey) {
     totalProb,
     stake,
     type: 'classic',
+    formulaFamily: 'classic',
     confidence: classifyConfidence(edge, outcomeKeys.length, legs.length),
   };
 }
 
 /* ===== Formula 2: Cross-market arbitrage (1X2 vs doubleChance, all periods) ===== */
+/** Coarse family tag for scanner overview / summary topFamilies. */
+function formulaFamilyFromMarketKey(marketKey) {
+  const key = String(marketKey || '');
+  if (/^cross_(?:1H_|2H_)?1X_2$|^cross_(?:1H_|2H_)?1_X2$|^cross_(?:1H_|2H_)?12_X$/.test(key)) {
+    return 'h2h-dc';
+  }
+  if (/^cross_.*(?:h2h|ah|dnb|dc).*(?:ah|dnb|h2h|dc)/i.test(key)
+    || /^cross_h2h_|^cross_dc_|^cross_dnb_|^cross_ah0_/.test(key)) {
+    return 'result-handicap';
+  }
+  if (/^cross_qualify_/.test(key)) return 'qualify-soft';
+  if (/^cross_.*btts/.test(key)) return 'btts-cross';
+  if (/^cross_(?:home|away)_score|^cross_.*cs_|^cross_.*clean/.test(key)
+    || /score_identity|score_vs|cs_no/.test(key)) {
+    return 'team-score';
+  }
+  if (/^cross_eu_as_ou_/.test(key)) return 'eu-asian-totals';
+  if (/^cross_totals/.test(key)) return 'team-match-totals';
+  if (/^middle_/.test(key)) return 'middle';
+  if (key.startsWith('cross_')) return 'cross-market';
+  return null;
+}
+
 function pushCrossMarketPair(results, {
   marketKey,
   marketLabel,
@@ -640,6 +664,7 @@ function pushCrossMarketPair(results, {
     marketKey,
     marketLabel,
     type: 'cross-market',
+    formulaFamily: formulaFamilyFromMarketKey(marketKey) || 'cross-market',
     legs: [
       {
         outcome: legA.outcome,
@@ -1127,6 +1152,55 @@ function detectDcVsAhZeroCross(event) {
         url: ahHome.url,
         marketKey: ahHome.marketKey || 'asianHandicap_0',
         verificationStatus: ahHome.verificationStatus,
+      },
+    });
+  }
+  // Soft push: DC 12 + AH0 Home/Away — on draw AH0 refunds while 12 loses → review only.
+  if (dc.homeAway && ahHome) {
+    pushCrossMarketPair(results, {
+      marketKey: 'cross_dc_12_ah0_home',
+      marketLabel: '12 (DC) + AH0 Home',
+      legA: {
+        outcome: 'homeAway',
+        label: '12',
+        bookmaker: dc.homeAway.bookmaker,
+        price: dc.homeAway.price,
+        url: dc.homeAway.url,
+        marketKey: dc.homeAway.marketKey || 'doubleChance',
+        verificationStatus: dc.homeAway.verificationStatus,
+      },
+      legB: {
+        outcome: 'home',
+        label: 'AH0 Home',
+        bookmaker: ahHome.bookmaker,
+        price: ahHome.price,
+        url: ahHome.url,
+        marketKey: ahHome.marketKey || 'asianHandicap_0',
+        verificationStatus: ahHome.verificationStatus,
+      },
+    });
+  }
+  if (dc.homeAway && ahAway) {
+    pushCrossMarketPair(results, {
+      marketKey: 'cross_dc_12_ah0_away',
+      marketLabel: '12 (DC) + AH0 Away',
+      legA: {
+        outcome: 'homeAway',
+        label: '12',
+        bookmaker: dc.homeAway.bookmaker,
+        price: dc.homeAway.price,
+        url: dc.homeAway.url,
+        marketKey: dc.homeAway.marketKey || 'doubleChance',
+        verificationStatus: dc.homeAway.verificationStatus,
+      },
+      legB: {
+        outcome: 'away',
+        label: 'AH0 Away',
+        bookmaker: ahAway.bookmaker,
+        price: ahAway.price,
+        url: ahAway.url,
+        marketKey: ahAway.marketKey || 'asianHandicap_0',
+        verificationStatus: ahAway.verificationStatus,
       },
     });
   }
@@ -2315,6 +2389,7 @@ function detectMiddleBets(event) {
       marketFamilyLabel: lower.marketFamilyLabel || null,
       marketDescription: lower.marketDescription || higher.marketDescription || null,
       type: 'middle',
+      formulaFamily: crossFamily ? 'middle-cross-family' : 'middle',
       legs: [
         { outcome: 'over', label: formatMiddleLegLabel('over', lower.line, lower.marketFamilyLabel), bookmaker: lower.over.bookmaker, price: lower.over.price, stake: s1, url: lower.over.url || '', marketKey: lower.marketKey, verificationStatus: lower.over.verificationStatus || null },
         { outcome: 'under', label: formatMiddleLegLabel('under', higher.line, higher.marketFamilyLabel), bookmaker: higher.under.bookmaker, price: higher.under.price, stake: s2, url: higher.under.url || '', marketKey: higher.marketKey, verificationStatus: higher.under.verificationStatus || null },
@@ -2340,17 +2415,23 @@ function detectMiddleBets(event) {
     }
   }
 
-  // Extra candidates: European vs Asian lines for goals and corners.
+  // Extra candidates: European vs Asian lines for goals, corners, cards, points.
   const crossFamilyPairs = [
     ['totalGoals', 'asianTotalGoals'],
     ['totalCorners', 'asianTotalCorners'],
     ['totalCards', 'asianTotalCards'],
+    ['totalPoints', 'asianTotalPoints'],
     ['firstHalfTotalGoals', 'firstHalfAsianTotalGoals'],
     ['secondHalfTotalGoals', 'secondHalfAsianTotalGoals'],
     ['firstHalfTotalCorners', 'firstHalfAsianTotalCorners'],
     ['secondHalfTotalCorners', 'secondHalfAsianTotalCorners'],
     ['firstHalfTotalCards', 'firstHalfAsianTotalCards'],
     ['secondHalfTotalCards', 'secondHalfAsianTotalCards'],
+    // Team totals vs match totals soft middle windows (analysis only).
+    ['totalGoals', 'market_total_goluri_home'],
+    ['totalGoals', 'market_total_goluri_away'],
+    ['asianTotalGoals', 'market_total_goluri_home'],
+    ['asianTotalGoals', 'market_total_goluri_away'],
   ];
   for (const [groupA, groupB] of crossFamilyPairs) {
     const sideA = lineMarkets.filter((item) => item.groupKey === groupA);
@@ -2428,6 +2509,7 @@ function detectHandicapArbitrage(event) {
         marketKey: mk,
         marketLabel: getMarketLabel(mk),
         type: 'handicap',
+        formulaFamily: 'handicap',
         legs: [
           { outcome: 'home', label: 'Home', bookmaker: bestHome.bookmaker, price: bestHome.price, stake: s1, url: bestHome.url || '', marketKey: bestHome.marketKey || mk, verificationStatus: bestHome.verificationStatus || null },
           { outcome: 'away', label: 'Away', bookmaker: bestAway.bookmaker, price: bestAway.price, stake: s2, url: bestAway.url || '', marketKey: bestAway.marketKey || mk, verificationStatus: bestAway.verificationStatus || null },
@@ -2594,6 +2676,7 @@ function pushThreeWayCross(results, {
     marketKey,
     marketLabel,
     type: 'cross-market',
+    formulaFamily: formulaFamilyFromMarketKey(marketKey) || 'cross-market',
     legs: legs.map((leg) => ({
       outcome: leg.outcome,
       label: leg.label,
@@ -3071,6 +3154,11 @@ function finalizeOpportunity(opportunity, event, eventName, {
   opportunity.settlementScope = opportunity.type === 'settlement-formula'
     ? 'fulltime-score-matrix'
     : getSettlementScope(opportunity.marketKey);
+  if (!opportunity.formulaFamily) {
+    opportunity.formulaFamily = formulaFamilyFromMarketKey(opportunity.marketKey)
+      || opportunity.type
+      || 'classic';
+  }
   opportunity.competition = event.competition;
   opportunity.kickoff = event.startsAt;
   opportunity.kickoffTiming = evaluateKickoffTiming(opportunity.legs, {
