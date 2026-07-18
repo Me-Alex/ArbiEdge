@@ -292,7 +292,7 @@ test('keeps full-match special markets separate from period-specific markets', (
     homeDraw: 1.12,
     drawAway: 1.03,
   });
-  assert.deepEqual(event.bookmakers[0].markets.handicap_plus_0_5, {
+  assert.deepEqual(event.bookmakers[0].markets.asianHandicap_plus_0_5, {
     home: 1.66,
     away: 2.14,
   });
@@ -300,7 +300,8 @@ test('keeps full-match special markets separate from period-specific markets', (
     '1_minus0_5': 2.2,
     '2_plus0_5': 1.6,
   });
-  assert.equal(event.bookmakers[0].markets.handicap_minus_0_5, undefined);
+  assert.equal(event.bookmakers[0].markets.handicap_plus_0_5, undefined);
+  assert.equal(event.bookmakers[0].markets.asianHandicap_minus_0_5, undefined);
   assert.deepEqual(event.bookmakers[0].markets.firstHalfTotalCorners_4_5, {
     over: 2.05,
     under: 1.72,

@@ -683,9 +683,11 @@ function normalizeHandicapMarket(market, context = {}) {
     }
     groups.get(key).prices[parsed.side] = outcome.odds;
   }
+  // 2-way AH markets (no draw) use asianHandicap_* so H2H/DC×AH formulas and
+  // classic AH scanners can see Fortuna/UFO lines alongside other RO books.
   const markets = [...groups.values()]
     .filter(({ prices }) => ['home', 'away'].every((outcome) => isDecimalOdds(prices[outcome])))
-    .map(({ homeLine, prices }) => ({ key: handicapMarketKey('handicap', homeLine), prices }));
+    .map(({ homeLine, prices }) => ({ key: handicapMarketKey('asianHandicap', homeLine), prices }));
   return markets.length === 1 ? markets[0] : markets.length ? markets : null;
 }
 

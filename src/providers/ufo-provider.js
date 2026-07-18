@@ -610,7 +610,7 @@ function normalizeUfoHandicapMarket(market, context = {}) {
   }
   const markets = [...groups.values()]
     .filter(({ prices }) => ['home', 'away'].every((outcome) => isDecimalOdds(prices[outcome])))
-    .map(({ homeLine, prices }) => ({ key: handicapMarketKey('handicap', homeLine), prices }));
+    .map(({ homeLine, prices }) => ({ key: handicapMarketKey('asianHandicap', homeLine), prices }));
   return markets.length === 1 ? markets[0] : markets.length ? markets : null;
 }
 

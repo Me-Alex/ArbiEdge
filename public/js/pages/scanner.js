@@ -125,19 +125,23 @@ function renderMarketFilter() {
 function renderEmptyScanner(list, baseOpps) {
   const tab = state.scannerTab;
   const filteredOut = baseOpps.length > 0 && !areAllMarketTypesSelected();
+  const counts = getScannerTabCounts();
+  const eventsN = Number(state.eventsScanned || state.events?.length || 0);
   const copy = {
     actionable: {
       eyebrow: 'Poartă de siguranță',
       title: 'Niciun arbitraj verificat acționabil',
-      body: 'Aici apar doar surebet-urile cu fidelity pe website pe fiecare picior. Candidații matematici (neverificați) sunt în tab-ul „Candidați”.',
+      body: counts.review > 0
+        ? `Aici apar doar surebet-urile cu fidelity pe website. Ai ${counts.review} candidați matematici în tab-ul „Candidați”.`
+        : 'Aici apar doar surebet-urile cu fidelity pe website pe fiecare picior. Candidații matematici (neverificați) sunt în tab-ul „Candidați”.',
     },
     review: {
       eyebrow: 'Candidați matematici',
       title: 'Niciun candidat de arbitraj',
       body: counts.rejected > 0
         ? `Nu există candidați în review, dar ai ${counts.rejected} semnale în Respinse (same-book, edge outlier, fidelity failed). Verifică tab-ul Respinse sau coboară filtrul de edge.`
-        : (Number(state.eventsScanned || state.events?.length || 0) > 0
-          ? `Am scanat ${Number(state.eventsScanned || state.events.length)} evenimente, dar nicio combinație cross-book nu are edge pozitiv după filtre. Resetează edge/feed-uri, lărgește familiile de formule sau așteaptă refresh-ul cotelor.`
+        : (eventsN > 0
+          ? `Am scanat ${eventsN} evenimente, dar nicio combinație cross-book nu are edge pozitiv după filtre. Resetează edge/feed-uri (min. ${state.minFeeds || 0}), lărgește familiile de formule sau așteaptă refresh-ul cotelor.`
           : 'Nu există încă combinații cross-book cu edge pozitiv. Apasă Scan, așteaptă colectarea live (30–90s) și verifică modul „live”. Cache-ul de pe server se încălzește la pornire — nu reîncărca pagina în timpul scanului. Sortarea multi-feed / kickoff e disponibilă în filtre.'),
     },
     rejected: {

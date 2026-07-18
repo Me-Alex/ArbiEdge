@@ -854,12 +854,26 @@ function detectQualifyVsDcCross(event) {
 function collectAsianHalfLines(event) {
   const lines = new Set([0.5, 1.5, 2.5]);
   for (const mk of getEventMarkets(event)) {
-    if (!/^asianHandicap_(?:plus|minus)_/.test(mk)) continue;
+    // Some books historically stored 2-way AH under handicap_* — still harvest.
+    if (!/^(?:asianHandicap|handicap)_(?:plus|minus)_/.test(mk)) continue;
     const line = parseLineNumberFromKey(mk);
     if (line === null || line <= 0) continue;
     if (Math.abs((line % 1) - 0.5) < 1e-9) lines.add(line);
   }
   return [...lines].sort((a, b) => a - b);
+}
+
+/** Best home/away across asianHandicap_* and 2-way handicap_* for the same line. */
+function bestAhSidePrices(event, signedToken) {
+  const asian = findBestPrices(event, `asianHandicap_${signedToken}`);
+  const euro = findBestPrices(event, `handicap_${signedToken}`);
+  // Skip euro if it looks 3-way (draw present) — not a pure AH matrix.
+  const euroHome = euro.draw ? null : euro.home;
+  const euroAway = euro.draw ? null : euro.away;
+  return {
+    home: pickBestPriceEntry(asian.home, euroHome),
+    away: pickBestPriceEntry(asian.away, euroAway),
+  };
 }
 
 function detectH2hDcVsAhHalfCross(event) {
@@ -873,8 +887,8 @@ function detectH2hDcVsAhHalfCross(event) {
     const token = String(line).replace('.', '_');
     const plusKey = `asianHandicap_plus_${token}`;
     const minusKey = `asianHandicap_minus_${token}`;
-    const ahPlus = findBestPrices(event, plusKey);
-    const ahMinus = findBestPrices(event, minusKey);
+    const ahPlus = bestAhSidePrices(event, `plus_${token}`);
+    const ahMinus = bestAhSidePrices(event, `minus_${token}`);
 
     // 1 vs AH2(+L): AH2(+L) = away side of home-line -L
     if (h2h.home && ahMinus.away) {
@@ -994,9 +1008,12 @@ function detectDcVsAhZeroCross(event) {
   const results = [];
   const dc = findBestPrices(event, 'doubleChance');
   const ah = findBestPrices(event, 'asianHandicap_0');
+  const h0 = findBestPrices(event, 'handicap_0');
+  const ahAway = pickBestPriceEntry(ah.away, h0.draw ? null : h0.away);
+  const ahHome = pickBestPriceEntry(ah.home, h0.draw ? null : h0.home);
   if (!dc.homeDraw && !dc.drawAway) return results;
 
-  if (dc.homeDraw && ah.away) {
+  if (dc.homeDraw && ahAway) {
     pushCrossMarketPair(results, {
       marketKey: 'cross_dc_1x_ah0_away',
       marketLabel: '1X (DC) + AH0 Away',
@@ -1012,15 +1029,15 @@ function detectDcVsAhZeroCross(event) {
       legB: {
         outcome: 'away',
         label: 'AH0 Away',
-        bookmaker: ah.away.bookmaker,
-        price: ah.away.price,
-        url: ah.away.url,
-        marketKey: ah.away.marketKey || 'asianHandicap_0',
-        verificationStatus: ah.away.verificationStatus,
+        bookmaker: ahAway.bookmaker,
+        price: ahAway.price,
+        url: ahAway.url,
+        marketKey: ahAway.marketKey || 'asianHandicap_0',
+        verificationStatus: ahAway.verificationStatus,
       },
     });
   }
-  if (dc.drawAway && ah.home) {
+  if (dc.drawAway && ahHome) {
     pushCrossMarketPair(results, {
       marketKey: 'cross_dc_x2_ah0_home',
       marketLabel: 'X2 (DC) + AH0 Home',
@@ -1036,11 +1053,11 @@ function detectDcVsAhZeroCross(event) {
       legB: {
         outcome: 'home',
         label: 'AH0 Home',
-        bookmaker: ah.home.bookmaker,
-        price: ah.home.price,
-        url: ah.home.url,
-        marketKey: ah.home.marketKey || 'asianHandicap_0',
-        verificationStatus: ah.home.verificationStatus,
+        bookmaker: ahHome.bookmaker,
+        price: ahHome.price,
+        url: ahHome.url,
+        marketKey: ahHome.marketKey || 'asianHandicap_0',
+        verificationStatus: ahHome.verificationStatus,
       },
     });
   }
@@ -1059,9 +1076,10 @@ function detectAhZeroVsDnbCross(event) {
   // Full-time AH0 × DNB only (AH keys are FT-scoped in providers).
   const dnb = findBestPrices(event, 'drawNoBet');
   const ah = findBestPrices(event, 'asianHandicap_0');
+  const h0 = findBestPrices(event, 'handicap_0');
 
-  const bestHome = pickBestPriceEntry(dnb.home, ah.home);
-  const bestAway = pickBestPriceEntry(dnb.away, ah.away);
+  const bestHome = pickBestPriceEntry(dnb.home, ah.home, h0.draw ? null : h0.home);
+  const bestAway = pickBestPriceEntry(dnb.away, ah.away, h0.draw ? null : h0.away);
   if (bestHome && bestAway) {
     pushCrossMarketPair(results, {
       marketKey: 'cross_dnb_ah0_merged',
@@ -1619,18 +1637,26 @@ function detectDnbVsDcForScope(event, { dnbKey, dcKey, prefix, labelPrefix }) {
   const results = [];
   const dnb = findBestPrices(event, dnbKey);
   const dc = findBestPrices(event, dcKey);
-  if (dnb.home && dc.drawAway) {
+  let dnbHome = dnb.home;
+  let dnbAway = dnb.away;
+  if (dnbKey === 'drawNoBet') {
+    const ah0 = findBestPrices(event, 'asianHandicap_0');
+    const h0 = findBestPrices(event, 'handicap_0');
+    dnbHome = pickBestPriceEntry(dnb.home, ah0.home, h0.draw ? null : h0.home);
+    dnbAway = pickBestPriceEntry(dnb.away, ah0.away, h0.draw ? null : h0.away);
+  }
+  if (dnbHome && dc.drawAway) {
     pushCrossMarketPair(results, {
       marketKey: `cross_${prefix}dnb_home_x2`,
       marketLabel: `${labelPrefix}DNB Home + X2 (DC)`.trim(),
       legA: {
         outcome: 'home',
         label: `${labelPrefix}DNB 1`.trim(),
-        bookmaker: dnb.home.bookmaker,
-        price: dnb.home.price,
-        url: dnb.home.url,
-        marketKey: dnb.home.marketKey || dnbKey,
-        verificationStatus: dnb.home.verificationStatus,
+        bookmaker: dnbHome.bookmaker,
+        price: dnbHome.price,
+        url: dnbHome.url,
+        marketKey: dnbHome.marketKey || dnbKey,
+        verificationStatus: dnbHome.verificationStatus,
       },
       legB: {
         outcome: 'X2',
@@ -1643,18 +1669,18 @@ function detectDnbVsDcForScope(event, { dnbKey, dcKey, prefix, labelPrefix }) {
       },
     });
   }
-  if (dnb.away && dc.homeDraw) {
+  if (dnbAway && dc.homeDraw) {
     pushCrossMarketPair(results, {
       marketKey: `cross_${prefix}dnb_away_1x`,
       marketLabel: `${labelPrefix}DNB Away + 1X (DC)`.trim(),
       legA: {
         outcome: 'away',
         label: `${labelPrefix}DNB 2`.trim(),
-        bookmaker: dnb.away.bookmaker,
-        price: dnb.away.price,
-        url: dnb.away.url,
-        marketKey: dnb.away.marketKey || dnbKey,
-        verificationStatus: dnb.away.verificationStatus,
+        bookmaker: dnbAway.bookmaker,
+        price: dnbAway.price,
+        url: dnbAway.url,
+        marketKey: dnbAway.marketKey || dnbKey,
+        verificationStatus: dnbAway.verificationStatus,
       },
       legB: {
         outcome: '1X',
@@ -2310,9 +2336,9 @@ function detectBttsTeamScoreForScope(event, { bttsKey, prefix, labelPrefix }) {
     });
   }
 
-  // BTTS No + Home scores + Away scores
-  const bestHomeYes = pickBestPriceEntry(homeScoreBest.yes, homeTotal05Best.over);
-  const bestAwayYes = pickBestPriceEntry(awayScoreBest.yes, awayTotal05Best.over);
+  // BTTS No + Home scores + Away scores (merge CS No into scored identity).
+  const bestHomeYes = pickBestPriceEntry(homeScoreBest.yes, homeTotal05Best.over, awayCsBest.no);
+  const bestAwayYes = pickBestPriceEntry(awayScoreBest.yes, awayTotal05Best.over, homeCsBest.no);
   if (bttsBest.no && bestHomeYes && bestAwayYes) {
     pushThreeWayCross(results, {
       marketKey: `cross_${prefix}btts_no_both_score`,
