@@ -913,6 +913,22 @@ function collectAsianHalfLines(event) {
   return [...lines].sort((a, b) => a - b);
 }
 
+/** Half + quarter + integer AH lines present on the event (for soft H2H/DC×AH). */
+function collectAsianScanLines(event) {
+  const lines = new Set(collectAsianHalfLines(event));
+  // Common non-half defaults; half-lines stay SAFE, others → review.
+  for (const line of [0.25, 0.75, 1, 1.25, 1.75, 2, 2.25, 2.75, 3, 3.25, 3.75, 4, 4.25, 4.75, 5]) {
+    lines.add(line);
+  }
+  for (const mk of getEventMarkets(event)) {
+    if (!/^(?:asianHandicap|handicap)_(?:plus|minus)_/.test(mk)) continue;
+    const line = parseLineNumberFromKey(mk);
+    if (line === null || line <= 0 || line > 5.5) continue;
+    lines.add(line);
+  }
+  return [...lines].sort((a, b) => a - b);
+}
+
 /** Best home/away across asianHandicap_* and 2-way handicap_* for the same line. */
 function bestAhSidePrices(event, signedToken) {
   const asian = findBestPrices(event, `asianHandicap_${signedToken}`);
@@ -928,12 +944,13 @@ function bestAhSidePrices(event, signedToken) {
 
 function detectH2hDcVsAhHalfCross(event) {
   const results = [];
-  // Discover half-lines present on the event (plus common defaults).
-  const halfLines = collectAsianHalfLines(event);
+  // Half-lines are structurally SAFE; integer/quarter lines still surface as
+  // soft review candidates (push / half-win settlement).
+  const scanLines = collectAsianScanLines(event);
   const h2h = findBestPrices(event, 'h2h');
   const dc = findBestPrices(event, 'doubleChance');
 
-  for (const line of halfLines) {
+  for (const line of scanLines) {
     const token = String(line).replace('.', '_');
     const plusKey = `asianHandicap_plus_${token}`;
     const minusKey = `asianHandicap_minus_${token}`;

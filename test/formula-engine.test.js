@@ -978,6 +978,30 @@ test('detectCrossMarketArbitrage finds exhaustive 1 vs AH2(+0.5) half-line cover
   assert.ok(hit.edge > 0);
 });
 
+test('detectCrossMarketArbitrage surfaces integer AH soft pairs as review candidates', () => {
+  const event = makeEvent({
+    bookmakers: [
+      {
+        name: 'BookA',
+        markets: {
+          h2h: { home: 2.3, draw: 3.2, away: 3.0 },
+          asianHandicap_minus_1: { home: 1.85, away: 2.05 },
+        },
+      },
+      {
+        name: 'BookB',
+        markets: {
+          h2h: { home: 2.1, draw: 3.3, away: 3.4 },
+          asianHandicap_minus_1: { home: 1.9, away: 2.15 },
+        },
+      },
+    ],
+  });
+  // 1 + AH2(+1) uses asianHandicap_minus_1 away
+  const results = detectCrossMarketArbitrage(event);
+  assert.ok(results.some((item) => item.marketKey === 'cross_h2h_home_ah2_plus_1'));
+});
+
 test('detectCrossMarketArbitrage finds 1 vs AH2(+2.5) half-line covers', () => {
   const event = makeEvent({
     bookmakers: [

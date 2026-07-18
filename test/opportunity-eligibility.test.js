@@ -86,6 +86,7 @@ test('edge outliers stay in review even when every leg is verified', () => {
 });
 
 test('h2h vs AH half-line cross formulas are structurally safe', () => {
+  const { isSafeCrossMarket } = require('../src/engine/opportunity-eligibility');
   const opp = evaluateOpportunityEligibility({
     type: 'cross-market',
     marketKey: 'cross_h2h_home_ah2_plus_0_5',
@@ -107,6 +108,11 @@ test('h2h vs AH half-line cross formulas are structurally safe', () => {
     ],
   });
   assert.equal(discovered.structuralStatus, 'approved');
+
+  // Integer / quarter AH keys must not be treated as push-free SAFE covers.
+  assert.equal(isSafeCrossMarket('cross_h2h_home_ah2_plus_1'), false);
+  assert.equal(isSafeCrossMarket('cross_h2h_home_ah2_plus_0_25'), false);
+  assert.equal(isSafeCrossMarket('cross_dc_1x_ah2_minus_1_5'), true);
 });
 
 test('team vs match totals cross formulas are structurally safe', () => {
