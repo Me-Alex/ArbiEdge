@@ -1459,6 +1459,42 @@ test('detectCrossMarketArbitrage finds BTTS No + Over 1.5 soft cover', () => {
   assert.ok(hit.edge > 0);
 });
 
+test('detectCrossMarketArbitrage finds BTTS Yes + Under soft covers', () => {
+  const event = makeEvent({
+    bookmakers: [
+      { name: 'BookA', markets: { bothTeamsToScore: { yes: 2.2, no: 1.7 }, totalGoals_2_5: { over: 1.9, under: 1.95 } } },
+      { name: 'BookB', markets: { bothTeamsToScore: { yes: 1.95, no: 1.85 }, totalGoals_2_5: { over: 2.0, under: 2.15 } } },
+    ],
+  });
+  // best yes 2.2 + best under 2.15 → 1/2.2 + 1/2.15 ≈ 0.920
+  const results = detectCrossMarketArbitrage(event);
+  const hit = results.find((item) => item.marketKey === 'cross_btts_yes_under_2_5');
+  assert.ok(hit, 'should emit BTTS Yes + Under 2.5');
+  assert.ok(hit.edge > 0);
+  assert.strictEqual(hit.formulaFamily, 'btts-cross');
+});
+
+test('detectCrossMarketArbitrage surfaces to-qualify vs AH half soft pairs', () => {
+  const event = makeEvent({
+    bookmakers: [
+      { name: 'BookA', markets: { toQualify: { home: 1.85, away: 2.0 } } },
+      {
+        name: 'BookB',
+        markets: {
+          asianHandicap_minus_0_5: { home: 1.9, away: 2.25 },
+          asianHandicap_plus_0_5: { home: 2.2, away: 1.75 },
+        },
+      },
+    ],
+  });
+  // qualify home 1.85 + AH2(+0.5) away 2.25 → 1/1.85 + 1/2.25 ≈ 0.985
+  const results = detectCrossMarketArbitrage(event);
+  assert.ok(results.some((item) => item.marketKey === 'cross_qualify_home_ah2_plus_0_5'));
+  assert.ok(results.some((item) => item.marketKey === 'cross_qualify_away_ah1_plus_0_5'));
+  const hit = results.find((item) => item.marketKey === 'cross_qualify_home_ah2_plus_0_5');
+  assert.strictEqual(hit.formulaFamily, 'qualify-soft');
+});
+
 test('detectCrossMarketArbitrage finds first-half 1X2 vs double-chance edges', () => {
   const event = makeEvent({
     bookmakers: [

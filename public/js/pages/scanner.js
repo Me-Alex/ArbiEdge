@@ -142,7 +142,7 @@ function renderEmptyScanner(list, baseOpps) {
       body: counts.rejected > 0
         ? `Nu există candidați în review, dar ai ${counts.rejected} semnale în Respinse (same-book, edge outlier, fidelity failed). Verifică tab-ul Respinse sau coboară filtrul de edge.`
         : (eventsN > 0
-          ? `Am scanat ${eventsN} evenimente, dar nicio combinație cross-book nu are edge pozitiv după filtre. Resetează edge (min. ${Number(state.minEdge || 0)}%), feed-uri (min. ${state.minFeeds || 0}), lărgește familiile de formule sau așteaptă refresh-ul cotelor.`
+          ? `Am scanat ${eventsN} evenimente, dar nicio combinație cross-book nu are edge pozitiv după filtre. Resetează edge (min. ${Number(state.minEdge || 0)}%), feed-uri (min. ${state.minFeeds || 0}), lărgește familiile (BTTS×totals, qualify×AH, DNB/AH0) sau așteaptă refresh-ul cotelor.`
           : 'Nu există încă combinații cross-book cu edge pozitiv. Apasă Scan, așteaptă colectarea live (30–90s) și verifică modul „live”. Cache-ul de pe server se încălzește la pornire — nu reîncărca pagina în timpul scanului. Sortarea multi-feed / kickoff e disponibilă în filtre.'),
     },
     rejected: {

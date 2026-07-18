@@ -803,7 +803,81 @@ function detectCrossMarketArbitrage(event) {
     ...detectDcVsAhZeroCross(event),
     ...detectH2hDcVsAhHalfCross(event),
     ...detectQualifyVsDcCross(event),
+    ...detectQualifyVsAhCross(event),
   ];
+}
+
+/**
+ * Soft review: To Qualify vs Asian Handicap half-lines.
+ * Qualify settles on advance (ET/pens possible); AH is 90' — never SAFE_CROSS.
+ * Mirrors H2H×AH legs so cup books with only qualify (no 1X2) still pair.
+ */
+function detectQualifyVsAhCross(event) {
+  const results = [];
+  const qualify = findBestPrices(event, 'toQualify');
+  if (!qualify.home && !qualify.away) return results;
+
+  // Half-lines only for cleaner pairing; integer/quarter still review via AH scan.
+  for (const line of collectAsianHalfLines(event)) {
+    const token = String(line).replace('.', '_');
+    const plusKey = `asianHandicap_plus_${token}`;
+    const minusKey = `asianHandicap_minus_${token}`;
+    const ahPlus = bestAhSidePrices(event, `plus_${token}`);
+    const ahMinus = bestAhSidePrices(event, `minus_${token}`);
+
+    // Qualify 1 + AH2(+L)  (away side of home-line −L)
+    if (qualify.home && ahMinus.away) {
+      pushCrossMarketPair(results, {
+        marketKey: `cross_qualify_home_ah2_plus_${token}`,
+        marketLabel: `To Qualify Home + AH2(+${line})`,
+        legA: {
+          outcome: 'home',
+          label: 'Qualify 1',
+          bookmaker: qualify.home.bookmaker,
+          price: qualify.home.price,
+          url: qualify.home.url,
+          marketKey: qualify.home.marketKey || 'toQualify',
+          verificationStatus: qualify.home.verificationStatus,
+        },
+        legB: {
+          outcome: 'away',
+          label: `AH2(+${line})`,
+          bookmaker: ahMinus.away.bookmaker,
+          price: ahMinus.away.price,
+          url: ahMinus.away.url,
+          marketKey: ahMinus.away.marketKey || minusKey,
+          verificationStatus: ahMinus.away.verificationStatus,
+        },
+      });
+    }
+
+    // Qualify 2 + AH1(+L)  (home side of home-line +L)
+    if (qualify.away && ahPlus.home) {
+      pushCrossMarketPair(results, {
+        marketKey: `cross_qualify_away_ah1_plus_${token}`,
+        marketLabel: `To Qualify Away + AH1(+${line})`,
+        legA: {
+          outcome: 'away',
+          label: 'Qualify 2',
+          bookmaker: qualify.away.bookmaker,
+          price: qualify.away.price,
+          url: qualify.away.url,
+          marketKey: qualify.away.marketKey || 'toQualify',
+          verificationStatus: qualify.away.verificationStatus,
+        },
+        legB: {
+          outcome: 'home',
+          label: `AH1(+${line})`,
+          bookmaker: ahPlus.home.bookmaker,
+          price: ahPlus.home.price,
+          url: ahPlus.home.url,
+          marketKey: ahPlus.home.marketKey || plusKey,
+          verificationStatus: ahPlus.home.verificationStatus,
+        },
+      });
+    }
+  }
+  return results;
 }
 
 /**
@@ -2218,14 +2292,13 @@ function detectQualifyVsH2hCross(event) {
 }
 
 /**
- * Exhaustive soft covers pairing BTTS No with low Over lines.
- * - Over 0.5 covers any goal; BTTS No covers blanks / one-team blanks.
- * - Over 1.5 covers 2+ goals; BTTS No covers 0-0 and 1-0 / 0-1.
- * Period variants use matching half BTTS + half totals when present.
+ * Soft covers pairing BTTS with match/half totals (FT + period, EU + Asian).
+ * - BTTS No + Over L: soft cover with double-win middle on one-team multi-goal.
+ * - BTTS Yes + Under L: soft cover with double-win middle when both score under L.
+ * Only BTTS No + Over 0.5/1.5 stay SAFE_CROSS; higher lines and Yes+Under → review.
  */
 function detectBttsTotalsSoftCross(event) {
   const results = [];
-  // Discover O/U half-lines on the event (defaults 0.5/1.5; soft up to 3.5).
   const scopes = [
     {
       bttsKey: 'bothTeamsToScore',
@@ -2254,7 +2327,7 @@ function detectBttsTotalsSoftCross(event) {
   const pairs = [];
   for (const scope of scopes) {
     for (const family of scope.prefixes) {
-      // Defaults include 2.5–4.5 (soft review only — SAFE regex still only 0.5/1.5).
+      // Defaults include 2.5–4.5 (soft review only — SAFE regex still only No+Over 0.5/1.5).
       const lines = new Set([0.5, 1.5, 2.5, 3.5, 4.5]);
       for (const mk of marketKeys) {
         if (!mk.startsWith(family.prefix)) continue;
@@ -2266,22 +2339,30 @@ function detectBttsTotalsSoftCross(event) {
       for (const line of [...lines].sort((a, b) => a - b)) {
         const token = String(line).replace('.', '_');
         const totalKey = `${family.prefix}${token}`;
-        let marketKey;
-        if (!family.period) {
-          marketKey = family.asian
-            ? `cross_btts_no_asian_over_${token}`
-            : `cross_btts_no_over_${token}`;
-        } else {
-          marketKey = family.asian
-            ? `cross_${family.period}_btts_no_asian_over_${token}`
-            : `cross_${family.period}_btts_no_over_${token}`;
-        }
+        const periodTag = family.period ? `${family.period}_` : '';
+        const asianTag = family.asian ? 'asian_' : '';
         pairs.push({
           bttsKey: scope.bttsKey,
           totalKey,
-          marketKey,
+          side: 'no_over',
+          marketKey: `cross_${periodTag}btts_no_${asianTag}over_${token}`,
           marketLabel: `${family.label}BTTS No + Over ${line}`.replace(/\s+/g, ' ').trim(),
-          overLabel: `${family.label}Over ${line}`.replace(/\s+/g, ' ').trim(),
+          bttsOutcome: 'no',
+          bttsLabel: 'BTTS No',
+          totalOutcome: 'over',
+          totalLabel: `${family.label}Over ${line}`.replace(/\s+/g, ' ').trim(),
+        });
+        // Mirror: BTTS Yes + Under L — review only (one-team blanks / over-line both lose).
+        pairs.push({
+          bttsKey: scope.bttsKey,
+          totalKey,
+          side: 'yes_under',
+          marketKey: `cross_${periodTag}btts_yes_${asianTag}under_${token}`,
+          marketLabel: `${family.label}BTTS Yes + Under ${line}`.replace(/\s+/g, ' ').trim(),
+          bttsOutcome: 'yes',
+          bttsLabel: 'BTTS Yes',
+          totalOutcome: 'under',
+          totalLabel: `${family.label}Under ${line}`.replace(/\s+/g, ' ').trim(),
         });
       }
     }
@@ -2290,27 +2371,29 @@ function detectBttsTotalsSoftCross(event) {
   for (const pair of pairs) {
     const btts = findBestPrices(event, pair.bttsKey);
     const totals = findBestPrices(event, pair.totalKey);
-    if (!btts.no || !totals.over) continue;
+    const bttsLeg = btts[pair.bttsOutcome];
+    const totalLeg = totals[pair.totalOutcome];
+    if (!bttsLeg || !totalLeg) continue;
     pushCrossMarketPair(results, {
       marketKey: pair.marketKey,
       marketLabel: pair.marketLabel,
       legA: {
-        outcome: 'no',
-        label: 'BTTS No',
-        bookmaker: btts.no.bookmaker,
-        price: btts.no.price,
-        url: btts.no.url,
-        marketKey: btts.no.marketKey || pair.bttsKey,
-        verificationStatus: btts.no.verificationStatus,
+        outcome: pair.bttsOutcome,
+        label: pair.bttsLabel,
+        bookmaker: bttsLeg.bookmaker,
+        price: bttsLeg.price,
+        url: bttsLeg.url,
+        marketKey: bttsLeg.marketKey || pair.bttsKey,
+        verificationStatus: bttsLeg.verificationStatus,
       },
       legB: {
-        outcome: 'over',
-        label: pair.overLabel,
-        bookmaker: totals.over.bookmaker,
-        price: totals.over.price,
-        url: totals.over.url,
-        marketKey: totals.over.marketKey || pair.totalKey,
-        verificationStatus: totals.over.verificationStatus,
+        outcome: pair.totalOutcome,
+        label: pair.totalLabel,
+        bookmaker: totalLeg.bookmaker,
+        price: totalLeg.price,
+        url: totalLeg.url,
+        marketKey: totalLeg.marketKey || pair.totalKey,
+        verificationStatus: totalLeg.verificationStatus,
       },
     });
   }
