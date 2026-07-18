@@ -125,6 +125,7 @@ function renderMarketFilter() {
 function renderEmptyScanner(list, baseOpps) {
   const tab = state.scannerTab;
   const filteredOut = baseOpps.length > 0 && !areAllMarketTypesSelected();
+  const fidelityFilter = String(state.scannerVerificationFilter || '').trim();
   const counts = getScannerTabCounts();
   const eventsN = Number(state.eventsScanned || state.events?.length || 0);
   const copy = {
@@ -157,9 +158,18 @@ function renderEmptyScanner(list, baseOpps) {
       body: 'Middles are tracked separately because their upside window is not a guaranteed arbitrage.',
     },
   }[tab];
-  const body = filteredOut
+  let body = filteredOut
     ? 'No signals matched the selected market types. Widen the market filter to continue.'
     : copy.body;
+  // Verification filter is applied before tab partition — count raw opps so we
+  // can still explain an empty list when fidelity filter hid everything.
+  if (!filteredOut && fidelityFilter) {
+    const raw = state.opportunities || [];
+    const rawN = raw.length;
+    if (rawN > 0 && baseOpps.length === 0) {
+      body = `Filtrul de fidelity „${fidelityFilter}” ascunde semnalele din acest tab (${rawN} semnale brute). Resetează filtrul de verificare pentru a le vedea din nou.`;
+    }
+  }
   list.innerHTML = `<div class="state-panel scanner-empty"><div class="state-panel__copy"><span class="state-panel__eyebrow">${escapeHtml(copy.eyebrow)}</span><strong>${escapeHtml(copy.title)}</strong><span>${escapeHtml(body)}</span></div></div>`;
 }
 

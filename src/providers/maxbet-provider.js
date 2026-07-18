@@ -472,6 +472,23 @@ function normalizeMaxBetMarkets(markets) {
       continue;
     }
 
+    if (
+      labelKey.includes('se califica')
+      || labelKey.includes('to qualify')
+      || labelKey.includes('merge mai departe')
+      || labelKey.includes('calificare')
+      || labelKey === 'to qualify'
+    ) {
+      const prices = nsoftPrices(market, {
+        '1': 'home',
+        '2': 'away',
+      });
+      if (hasOutcomes(prices, ['home', 'away']) && !normalized.toQualify) {
+        normalized.toQualify = prices;
+      }
+      continue;
+    }
+
     // Generic fallback — harvest any remaining complete 2/3-way markets by label.
     addMaxBetGenericMarket(normalized, market, label);
   }

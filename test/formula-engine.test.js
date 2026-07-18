@@ -1143,6 +1143,20 @@ test('detectCrossMarketArbitrage finds DNB Home + X2 soft cover', () => {
   assert.ok(results.some((item) => item.marketKey === 'cross_dnb_home_x2'));
 });
 
+test('detectCrossMarketArbitrage emits H2H×AH0 soft mirrors from AH0-only books', () => {
+  const event = makeEvent({
+    bookmakers: [
+      { name: 'BookA', markets: { h2h: { home: 2.2, draw: 3.2, away: 3.1 } } },
+      { name: 'BookB', markets: { asianHandicap_0: { home: 1.75, away: 2.2 } } },
+    ],
+  });
+  const results = detectCrossMarketArbitrage(event);
+  assert.ok(results.some((item) => item.marketKey === 'cross_h2h_home_ah0_away'
+    || item.marketKey === 'cross_h2h_home_dnb_away'));
+  assert.ok(results.some((item) => item.marketKey === 'cross_h2h_away_ah0_home'
+    || item.marketKey === 'cross_h2h_away_dnb_home'));
+});
+
 test('detectCrossMarketArbitrage finds 1X2 Home + DNB Away soft cover', () => {
   const event = makeEvent({
     bookmakers: [

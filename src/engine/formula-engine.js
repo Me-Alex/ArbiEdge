@@ -1110,8 +1110,11 @@ function detectAhZeroVsDnbCross(event) {
     });
   }
 
-  // Complementary soft: best AH0/handicap_0 Home vs DNB Away (and inverse)
-  if (ahHome && dnb.away) {
+  // Complementary soft: best AH0/handicap_0 Home vs best opposite Away
+  // (DNB preferred, else pure AH0 from another book via bestAway).
+  const oppAway = dnb.away || (bestAway && bestAway !== ahHome ? bestAway : null);
+  const oppHome = dnb.home || (bestHome && bestHome !== ahAway ? bestHome : null);
+  if (ahHome && oppAway) {
     pushCrossMarketPair(results, {
       marketKey: 'cross_ah0_home_dnb_away',
       marketLabel: 'AH0 Home + DNB Away',
@@ -1127,15 +1130,15 @@ function detectAhZeroVsDnbCross(event) {
       legB: {
         outcome: 'away',
         label: 'DNB Away',
-        bookmaker: dnb.away.bookmaker,
-        price: dnb.away.price,
-        url: dnb.away.url,
-        marketKey: dnb.away.marketKey || 'drawNoBet',
-        verificationStatus: dnb.away.verificationStatus,
+        bookmaker: oppAway.bookmaker,
+        price: oppAway.price,
+        url: oppAway.url,
+        marketKey: oppAway.marketKey || 'drawNoBet',
+        verificationStatus: oppAway.verificationStatus,
       },
     });
   }
-  if (ahAway && dnb.home) {
+  if (ahAway && oppHome) {
     pushCrossMarketPair(results, {
       marketKey: 'cross_ah0_away_dnb_home',
       marketLabel: 'AH0 Away + DNB Home',
@@ -1151,11 +1154,62 @@ function detectAhZeroVsDnbCross(event) {
       legB: {
         outcome: 'home',
         label: 'DNB Home',
-        bookmaker: dnb.home.bookmaker,
-        price: dnb.home.price,
-        url: dnb.home.url,
-        marketKey: dnb.home.marketKey || 'drawNoBet',
-        verificationStatus: dnb.home.verificationStatus,
+        bookmaker: oppHome.bookmaker,
+        price: oppHome.price,
+        url: oppHome.url,
+        marketKey: oppHome.marketKey || 'drawNoBet',
+        verificationStatus: oppHome.verificationStatus,
+      },
+    });
+  }
+
+  // Soft push: H2H Home + AH0/DNB Away (and inverse) when only AH0 books exist.
+  const h2h = findBestPrices(event, 'h2h');
+  if (h2h.home && bestAway) {
+    pushCrossMarketPair(results, {
+      marketKey: 'cross_h2h_home_ah0_away',
+      marketLabel: '1 (1X2) + AH0/DNB Away',
+      legA: {
+        outcome: 'home',
+        label: '1',
+        bookmaker: h2h.home.bookmaker,
+        price: h2h.home.price,
+        url: h2h.home.url,
+        marketKey: h2h.home.marketKey || 'h2h',
+        verificationStatus: h2h.home.verificationStatus,
+      },
+      legB: {
+        outcome: 'away',
+        label: 'AH0/DNB 2',
+        bookmaker: bestAway.bookmaker,
+        price: bestAway.price,
+        url: bestAway.url,
+        marketKey: bestAway.marketKey || 'asianHandicap_0',
+        verificationStatus: bestAway.verificationStatus,
+      },
+    });
+  }
+  if (h2h.away && bestHome) {
+    pushCrossMarketPair(results, {
+      marketKey: 'cross_h2h_away_ah0_home',
+      marketLabel: '2 (1X2) + AH0/DNB Home',
+      legA: {
+        outcome: 'away',
+        label: '2',
+        bookmaker: h2h.away.bookmaker,
+        price: h2h.away.price,
+        url: h2h.away.url,
+        marketKey: h2h.away.marketKey || 'h2h',
+        verificationStatus: h2h.away.verificationStatus,
+      },
+      legB: {
+        outcome: 'home',
+        label: 'AH0/DNB 1',
+        bookmaker: bestHome.bookmaker,
+        price: bestHome.price,
+        url: bestHome.url,
+        marketKey: bestHome.marketKey || 'asianHandicap_0',
+        verificationStatus: bestHome.verificationStatus,
       },
     });
   }
@@ -1962,8 +2016,8 @@ function detectBttsTotalsSoftCross(event) {
   const pairs = [];
   for (const scope of scopes) {
     for (const family of scope.prefixes) {
-      // Defaults include 2.5 (soft review only — SAFE regex still only 0.5/1.5).
-      const lines = new Set([0.5, 1.5, 2.5]);
+      // Defaults include 2.5/3.5 (soft review only — SAFE regex still only 0.5/1.5).
+      const lines = new Set([0.5, 1.5, 2.5, 3.5]);
       for (const mk of marketKeys) {
         if (!mk.startsWith(family.prefix)) continue;
         const line = parseLineNumberFromKey(mk);

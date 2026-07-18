@@ -510,6 +510,24 @@ function normalizeDigitainMarkets(matchBets, { homeTeam, awayTeam } = {}) {
     }
 
     if (
+      marketName.includes('se califica')
+      || marketName.includes('to qualify')
+      || marketName.includes('merge mai departe')
+      || marketName.includes('calificare')
+    ) {
+      const prices = digitainPrices(market, {
+        '1': 'home',
+        '2': 'away',
+        P1: 'home',
+        P2: 'away',
+      });
+      if (hasOutcomes(prices, ['home', 'away']) && !markets.toQualify) {
+        markets.toQualify = prices;
+      }
+      continue;
+    }
+
+    if (
       marketName.includes('sansa dubla')
       || marketName.includes('double chance')
     ) {
