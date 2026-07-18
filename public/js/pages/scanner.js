@@ -155,7 +155,9 @@ function renderEmptyScanner(list, baseOpps) {
     middles: {
       eyebrow: 'Analysis queue clear',
       title: 'No middle windows match',
-      body: 'Middles are tracked separately because their upside window is not a guaranteed arbitrage.',
+      body: counts.review > 0
+        ? `Niciun middle după filtre, dar ai ${counts.review} candidați de arbitraj în tab-ul „Candidați”. Middles sunt ferestre de scor, nu surebet-uri garantate.`
+        : 'Middles are tracked separately because their upside window is not a guaranteed arbitrage. Resetează edge/feed-uri sau așteaptă refresh-ul cotelor.',
     },
   }[tab];
   let body = filteredOut

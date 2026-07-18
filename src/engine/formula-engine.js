@@ -1916,6 +1916,55 @@ function detectDnbVsDcForScope(event, { dnbKey, dcKey, prefix, labelPrefix }) {
       },
     });
   }
+  // Soft push variants with DC 12: on draw DNB refunds while 12 loses — review only.
+  if (dnbHome && dc.homeAway) {
+    pushCrossMarketPair(results, {
+      marketKey: `cross_${prefix}dnb_home_12`,
+      marketLabel: `${labelPrefix}DNB Home + 12 (DC)`.trim(),
+      legA: {
+        outcome: 'home',
+        label: `${labelPrefix}DNB 1`.trim(),
+        bookmaker: dnbHome.bookmaker,
+        price: dnbHome.price,
+        url: dnbHome.url,
+        marketKey: dnbHome.marketKey || dnbKey,
+        verificationStatus: dnbHome.verificationStatus,
+      },
+      legB: {
+        outcome: '12',
+        label: '12',
+        bookmaker: dc.homeAway.bookmaker,
+        price: dc.homeAway.price,
+        url: dc.homeAway.url,
+        marketKey: dc.homeAway.marketKey || dcKey,
+        verificationStatus: dc.homeAway.verificationStatus,
+      },
+    });
+  }
+  if (dnbAway && dc.homeAway) {
+    pushCrossMarketPair(results, {
+      marketKey: `cross_${prefix}dnb_away_12`,
+      marketLabel: `${labelPrefix}DNB Away + 12 (DC)`.trim(),
+      legA: {
+        outcome: 'away',
+        label: `${labelPrefix}DNB 2`.trim(),
+        bookmaker: dnbAway.bookmaker,
+        price: dnbAway.price,
+        url: dnbAway.url,
+        marketKey: dnbAway.marketKey || dnbKey,
+        verificationStatus: dnbAway.verificationStatus,
+      },
+      legB: {
+        outcome: '12',
+        label: '12',
+        bookmaker: dc.homeAway.bookmaker,
+        price: dc.homeAway.price,
+        url: dc.homeAway.url,
+        marketKey: dc.homeAway.marketKey || dcKey,
+        verificationStatus: dc.homeAway.verificationStatus,
+      },
+    });
+  }
   return results;
 }
 
@@ -2039,6 +2088,55 @@ function detectQualifyVsH2hCross(event) {
         url: h2h.home.url,
         marketKey: h2h.home.marketKey || 'h2h',
         verificationStatus: h2h.home.verificationStatus,
+      },
+    });
+  }
+  // Soft ET/penalties: Qualify + Match Draw — review only (draw may still go to ET).
+  if (qualify.home && h2h.draw) {
+    pushCrossMarketPair(results, {
+      marketKey: 'cross_qualify_home_match_draw',
+      marketLabel: 'To Qualify Home + Match Draw',
+      legA: {
+        outcome: 'home',
+        label: 'Qualify 1',
+        bookmaker: qualify.home.bookmaker,
+        price: qualify.home.price,
+        url: qualify.home.url,
+        marketKey: qualify.home.marketKey || 'toQualify',
+        verificationStatus: qualify.home.verificationStatus,
+      },
+      legB: {
+        outcome: 'draw',
+        label: 'X',
+        bookmaker: h2h.draw.bookmaker,
+        price: h2h.draw.price,
+        url: h2h.draw.url,
+        marketKey: h2h.draw.marketKey || 'h2h',
+        verificationStatus: h2h.draw.verificationStatus,
+      },
+    });
+  }
+  if (qualify.away && h2h.draw) {
+    pushCrossMarketPair(results, {
+      marketKey: 'cross_qualify_away_match_draw',
+      marketLabel: 'To Qualify Away + Match Draw',
+      legA: {
+        outcome: 'away',
+        label: 'Qualify 2',
+        bookmaker: qualify.away.bookmaker,
+        price: qualify.away.price,
+        url: qualify.away.url,
+        marketKey: qualify.away.marketKey || 'toQualify',
+        verificationStatus: qualify.away.verificationStatus,
+      },
+      legB: {
+        outcome: 'draw',
+        label: 'X',
+        bookmaker: h2h.draw.bookmaker,
+        price: h2h.draw.price,
+        url: h2h.draw.url,
+        marketKey: h2h.draw.marketKey || 'h2h',
+        verificationStatus: h2h.draw.verificationStatus,
       },
     });
   }

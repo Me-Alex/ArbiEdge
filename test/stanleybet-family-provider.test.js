@@ -76,6 +76,48 @@ const payload = {
   },
 };
 
+test('normalizes Stanleybet-family team total goals markets', () => {
+  const teamPayload = structuredClone(payload);
+  teamPayload.data.events[0].markets.push(
+    {
+      marketId: 3101,
+      active: 1,
+      name: 'Total goluri gazde',
+      outcomes: [
+        { active: 1, name: 'Peste 1.5', shortcut: '1', odd: 2.1 },
+        { active: 1, name: 'Sub 1.5', shortcut: '2', odd: 1.7 },
+      ],
+    },
+    {
+      marketId: 3102,
+      active: 1,
+      name: 'Total goluri oaspeti',
+      outcomes: [
+        { active: 1, name: 'Peste 0.5', shortcut: '1', odd: 1.55 },
+        { active: 1, name: 'Sub 0.5', shortcut: '2', odd: 2.35 },
+      ],
+    },
+  );
+
+  const [event] = normalizeStanleybetFamilyPayload(teamPayload, {
+    bookmaker: 'Stanleybet',
+    fetchedAt: '2026-07-05T19:00:00.000Z',
+    origin: 'https://www.stanleybet.ro',
+  });
+
+  assert.deepEqual(event.bookmakers[0].markets.market_total_goluri_home_1_5, {
+    over: 2.1,
+    under: 1.7,
+  });
+  assert.deepEqual(event.bookmakers[0].markets.market_total_goluri_away_0_5, {
+    over: 1.55,
+    under: 2.35,
+  });
+  // Must not collapse team lines into match totalGoals_*.
+  assert.equal(event.bookmakers[0].markets.totalGoals_1_5, undefined);
+  assert.equal(event.bookmakers[0].markets.totalGoals_0_5, undefined);
+});
+
 test('normalizes Stanleybet-family Asian handicap markets', () => {
   const ahPayload = structuredClone(payload);
   ahPayload.data.events[0].markets.push({

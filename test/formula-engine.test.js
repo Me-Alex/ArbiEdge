@@ -1173,6 +1173,36 @@ test('detectCrossMarketArbitrage finds EU↔Asian same-line O/U edges', () => {
   assert.ok(results.some((item) => String(item.marketKey).startsWith('cross_eu_as_ou_goals_2_5')));
 });
 
+test('detectCrossMarketArbitrage surfaces DNB×DC 12 soft pairs', () => {
+  const event = makeEvent({
+    bookmakers: [
+      { name: 'BookA', markets: { drawNoBet: { home: 2.15, away: 2.15 } } },
+      {
+        name: 'BookB',
+        markets: {
+          doubleChance: { homeDraw: 1.4, drawAway: 1.5, homeAway: 2.2 },
+        },
+      },
+    ],
+  });
+  // 2.15 + 2.2 → edge on both DNB×12 mirrors
+  const results = detectCrossMarketArbitrage(event);
+  assert.ok(results.some((item) => item.marketKey === 'cross_dnb_home_12'));
+  assert.ok(results.some((item) => item.marketKey === 'cross_dnb_away_12'));
+});
+
+test('detectCrossMarketArbitrage surfaces qualify×match draw soft pairs', () => {
+  const event = makeEvent({
+    bookmakers: [
+      { name: 'BookA', markets: { toQualify: { home: 1.9, away: 1.9 } } },
+      { name: 'BookB', markets: { h2h: { home: 2.4, draw: 2.2, away: 3.1 } } },
+    ],
+  });
+  const results = detectCrossMarketArbitrage(event);
+  assert.ok(results.some((item) => item.marketKey === 'cross_qualify_home_match_draw'));
+  assert.ok(results.some((item) => item.marketKey === 'cross_qualify_away_match_draw'));
+});
+
 test('detectCrossMarketArbitrage finds DNB Home + X2 soft cover', () => {
   const event = makeEvent({
     bookmakers: [

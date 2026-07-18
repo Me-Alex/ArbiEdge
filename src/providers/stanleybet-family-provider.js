@@ -231,6 +231,15 @@ function normalizeStanleybetFamilyMarkets(markets) {
       continue;
     }
 
+    // Team O/U before match totals — labels share "total goluri" + gazde/oaspeti.
+    if (isTeamTotalGoalsMarket(marketKey, market)) {
+      const base = teamTotalGoalsBaseKey(marketKey, market);
+      if (base) {
+        addTotalGoalsMarket(normalized, market, base);
+        continue;
+      }
+    }
+
     if (isTotalGoalsMarket(marketKey, market)) {
       addTotalGoalsMarket(normalized, market, totalGoalsBaseKey(marketKey, market));
       continue;
@@ -501,11 +510,79 @@ function stanleybetFamilyEventUrl(origin, event) {
   return event?.id ? absoluteEventUrl(`/pariu-sportiv/${event.id}`, origin) : null;
 }
 
+function isTeamTotalGoalsMarket(marketKey, market) {
+  if (
+    marketKey === 'market_total_goluri_home'
+    || marketKey === 'market_total_goluri_away'
+    || String(marketKey || '').startsWith('market_total_goluri_home_')
+    || String(marketKey || '').startsWith('market_total_goluri_away_')
+  ) {
+    return true;
+  }
+  const key = labelKey(market?.name);
+  if (!key.includes('total_goluri') && !key.includes('total_goals') && !key.includes('team_total')) {
+    return false;
+  }
+  // Exclude match-level odd/even and plain match totals without a team side.
+  if (key.includes('par_impar') || key.includes('odd_even')) return false;
+  const hasTeamSide = key.includes('gazda')
+    || key.includes('gazde')
+    || key.includes('home')
+    || key.includes('echipa_1')
+    || key.includes('team_1')
+    || key.includes('oaspete')
+    || key.includes('oaspeti')
+    || key.includes('away')
+    || key.includes('echipa_2')
+    || key.includes('team_2');
+  if (!hasTeamSide) return false;
+  return activeOutcomes(market).some((outcome) =>
+    ['over', 'under'].includes(normalizeOutcomeKey(outcome.name || outcome.shortcut)),
+  );
+}
+
+function teamTotalGoalsBaseKey(marketKey, market) {
+  if (
+    marketKey === 'market_total_goluri_home'
+    || String(marketKey || '').startsWith('market_total_goluri_home')
+  ) {
+    return 'market_total_goluri_home';
+  }
+  if (
+    marketKey === 'market_total_goluri_away'
+    || String(marketKey || '').startsWith('market_total_goluri_away')
+  ) {
+    return 'market_total_goluri_away';
+  }
+  const key = labelKey(market?.name);
+  if (
+    key.includes('gazda')
+    || key.includes('gazde')
+    || key.includes('home')
+    || key.includes('echipa_1')
+    || key.includes('team_1')
+  ) {
+    return 'market_total_goluri_home';
+  }
+  if (
+    key.includes('oaspete')
+    || key.includes('oaspeti')
+    || key.includes('away')
+    || key.includes('echipa_2')
+    || key.includes('team_2')
+  ) {
+    return 'market_total_goluri_away';
+  }
+  return null;
+}
+
 function isTotalGoalsMarket(marketKey, market) {
   if (['totalGoals', 'asianTotalGoals', 'firstHalfTotalGoals', 'secondHalfTotalGoals']
     .includes(marketKey)) {
     return true;
   }
+  // Team totals are handled separately so they do not collapse into match O/U.
+  if (isTeamTotalGoalsMarket(marketKey, market)) return false;
   const key = labelKey(market?.name);
   return key.includes('total_goluri') &&
     !key.includes('par_impar') &&
