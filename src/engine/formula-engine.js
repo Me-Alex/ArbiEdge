@@ -1244,6 +1244,97 @@ function detectScoreVsTeamTotalIdentityCross(event) {
     });
   }
 
+  // Explicit SAFE pairwise identities (score/CS ↔ team O/U 0.5) for cross-book
+  // fidelity paths that the merged cluster alone may not label.
+  const homeScore = findBestPrices(event, 'market_marcheaza_home');
+  const awayScore = findBestPrices(event, 'market_marcheaza_away');
+  const homeCs = findBestPrices(event, 'market_clean_sheet_home');
+  const awayCs = findBestPrices(event, 'market_clean_sheet_away');
+  const homeOu = findBestPrices(event, 'market_total_goluri_home_0_5');
+  const awayOu = findBestPrices(event, 'market_total_goluri_away_0_5');
+
+  const pushPair = (marketKey, marketLabel, legA, legB) => {
+    if (!legA || !legB) return;
+    pushCrossMarketPair(results, {
+      marketKey,
+      marketLabel,
+      legA: {
+        outcome: legA.outcome || legA._outcome,
+        label: legA._label,
+        bookmaker: legA.bookmaker,
+        price: legA.price,
+        url: legA.url,
+        marketKey: legA.marketKey || legA._marketKey,
+        verificationStatus: legA.verificationStatus,
+      },
+      legB: {
+        outcome: legB.outcome || legB._outcome,
+        label: legB._label,
+        bookmaker: legB.bookmaker,
+        price: legB.price,
+        url: legB.url,
+        marketKey: legB.marketKey || legB._marketKey,
+        verificationStatus: legB.verificationStatus,
+      },
+    });
+  };
+
+  const tag = (entry, outcome, label, marketKey) => (
+    entry ? { ...entry, outcome, _outcome: outcome, _label: label, _marketKey: marketKey } : null
+  );
+
+  // Team scores Yes ≡ Over 0.5; No ≡ Under 0.5
+  pushPair(
+    'cross_home_score_yes_vs_home_under_0_5',
+    'Home Scores Yes + Home Under 0.5',
+    tag(homeScore.yes, 'yes', 'Home Scores Yes', 'market_marcheaza_home'),
+    tag(homeOu.under, 'under', 'Home Under 0.5', 'market_total_goluri_home_0_5'),
+  );
+  pushPair(
+    'cross_home_score_no_vs_home_over_0_5',
+    'Home Scores No + Home Over 0.5',
+    tag(homeScore.no, 'no', 'Home Scores No', 'market_marcheaza_home'),
+    tag(homeOu.over, 'over', 'Home Over 0.5', 'market_total_goluri_home_0_5'),
+  );
+  pushPair(
+    'cross_away_score_yes_vs_away_under_0_5',
+    'Away Scores Yes + Away Under 0.5',
+    tag(awayScore.yes, 'yes', 'Away Scores Yes', 'market_marcheaza_away'),
+    tag(awayOu.under, 'under', 'Away Under 0.5', 'market_total_goluri_away_0_5'),
+  );
+  pushPair(
+    'cross_away_score_no_vs_away_over_0_5',
+    'Away Scores No + Away Over 0.5',
+    tag(awayScore.no, 'no', 'Away Scores No', 'market_marcheaza_away'),
+    tag(awayOu.over, 'over', 'Away Over 0.5', 'market_total_goluri_away_0_5'),
+  );
+
+  // Clean sheet Yes ≡ opponent Under 0.5; CS No ≡ opponent Over 0.5
+  pushPair(
+    'cross_home_cs_yes_vs_away_over_0_5',
+    'Home CS Yes + Away Over 0.5',
+    tag(homeCs.yes, 'yes', 'Home Clean Sheet Yes', 'market_clean_sheet_home'),
+    tag(awayOu.over, 'over', 'Away Over 0.5', 'market_total_goluri_away_0_5'),
+  );
+  pushPair(
+    'cross_home_cs_no_vs_away_under_0_5',
+    'Home CS No + Away Under 0.5',
+    tag(homeCs.no, 'no', 'Home Clean Sheet No', 'market_clean_sheet_home'),
+    tag(awayOu.under, 'under', 'Away Under 0.5', 'market_total_goluri_away_0_5'),
+  );
+  pushPair(
+    'cross_away_cs_yes_vs_home_over_0_5',
+    'Away CS Yes + Home Over 0.5',
+    tag(awayCs.yes, 'yes', 'Away Clean Sheet Yes', 'market_clean_sheet_away'),
+    tag(homeOu.over, 'over', 'Home Over 0.5', 'market_total_goluri_home_0_5'),
+  );
+  pushPair(
+    'cross_away_cs_no_vs_home_under_0_5',
+    'Away CS No + Home Under 0.5',
+    tag(awayCs.no, 'no', 'Away Clean Sheet No', 'market_clean_sheet_away'),
+    tag(homeOu.under, 'under', 'Home Under 0.5', 'market_total_goluri_home_0_5'),
+  );
+
   return results;
 }
 

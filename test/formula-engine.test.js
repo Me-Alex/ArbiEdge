@@ -1205,6 +1205,31 @@ test('detectCrossMarketArbitrage merges AH0 with DNB for soft two-way edges', ()
   assert.ok(results.some((item) => item.marketKey === 'cross_ah0_home_dnb_away'));
 });
 
+test('detectCrossMarketArbitrage emits SAFE score vs team O/U 0.5 pairwise keys', () => {
+  const event = makeEvent({
+    bookmakers: [
+      {
+        name: 'BookA',
+        markets: {
+          market_marcheaza_home: { yes: 2.2, no: 1.7 },
+          market_total_goluri_home_0_5: { over: 1.65, under: 2.25 },
+        },
+      },
+      {
+        name: 'BookB',
+        markets: {
+          market_marcheaza_home: { yes: 1.75, no: 2.15 },
+          market_total_goluri_home_0_5: { over: 2.2, under: 1.7 },
+        },
+      },
+    ],
+  });
+  // Home yes 2.2 + under 2.25 → edge; home no 2.15 + over 2.2 → edge
+  const results = detectCrossMarketArbitrage(event);
+  assert.ok(results.some((item) => item.marketKey === 'cross_home_score_yes_vs_home_under_0_5'));
+  assert.ok(results.some((item) => item.marketKey === 'cross_home_score_no_vs_home_over_0_5'));
+});
+
 test('detectCrossMarketArbitrage finds team-score identity dutch across O/U and CS markets', () => {
   const event = makeEvent({
     bookmakers: [

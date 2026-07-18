@@ -111,8 +111,8 @@ function totalsBandDefinitions(anchor) {
   const quarterLow = anchor - 0.25;
   const quarterHigh = anchor + 0.25;
 
-  const over = (line) => selection('totalGoals', `Over ${formatTotalLine(line)}`, { outcome: 'over', line });
-  const under = (line) => selection('totalGoals', `Under ${formatTotalLine(line)}`, { outcome: 'under', line });
+  const over = (line) => selection('totalGoals', `Over ${formatTotalLine(line)}`, { outcome: 'over', line, family: 'goals' });
+  const under = (line) => selection('totalGoals', `Under ${formatTotalLine(line)}`, { outcome: 'under', line, family: 'goals' });
   const create = (id, selections) => ({
     id: `totals_${definitionToken(anchor)}_${id}`,
     family: 'totals-band',
@@ -285,7 +285,9 @@ function uniqueSortedLines(lines) {
  */
 function createAdditionalFormulaDefinitions(options = {}) {
   const handicapLines = uniqueSortedLines(options.handicapLines);
-  const totalLines = uniqueSortedLines(options.totalLines).filter((line) => line >= 0);
+  const totalLinesByFamily = options.totalLinesByFamily || {
+    goals: uniqueSortedLines(options.totalLines).filter((line) => line >= 0),
+  };
   const definitions = resultSubstitutionDefinitions(options);
 
   // Opposite quarter lines can have half-win/half-loss returns at the boundary.
@@ -310,34 +312,41 @@ function createAdditionalFormulaDefinitions(options = {}) {
     }
   }
 
-  for (const totalLine of totalLines.filter(isQuarterLine)) {
-    const formatted = formatTotalLine(totalLine);
-    definitions.push({
-      id: `asian_total_pair_${definitionToken(totalLine)}`,
-      family: 'asian-total-pair',
-      label: `Over ${formatted} - Under ${formatted}`,
-      selections: [
-        selection('totalGoals', `Over ${formatted}`, { outcome: 'over', line: totalLine }),
-        selection('totalGoals', `Under ${formatted}`, { outcome: 'under', line: totalLine }),
-      ],
-    });
-  }
+  // Per-family corridors so goals/corners/cards never mix legs.
+  for (const [countFamily, rawLines] of Object.entries(totalLinesByFamily)) {
+    const totalLines = uniqueSortedLines(rawLines).filter((line) => line >= 0);
+    const idPrefix = countFamily === 'goals' ? '' : `${countFamily}_`;
+    const labelPrefix = countFamily === 'goals' ? '' : `${countFamily[0].toUpperCase()}${countFamily.slice(1)} `;
 
-  for (const lowerLine of totalLines) {
-    for (const upperLine of totalLines) {
-      const width = upperLine - lowerLine;
-      if (width <= EPSILON || width > 1 + EPSILON) continue;
-      const lowerLabel = formatTotalLine(lowerLine);
-      const upperLabel = formatTotalLine(upperLine);
+    for (const totalLine of totalLines.filter(isQuarterLine)) {
+      const formatted = formatTotalLine(totalLine);
       definitions.push({
-        id: `totals_corridor_${definitionToken(lowerLine)}_${definitionToken(upperLine)}`,
-        family: 'totals-corridor',
-        label: `Over ${lowerLabel} - Under ${upperLabel}`,
+        id: `asian_total_pair_${idPrefix}${definitionToken(totalLine)}`,
+        family: 'asian-total-pair',
+        label: `${labelPrefix}Over ${formatted} - Under ${formatted}`.trim(),
         selections: [
-          selection('totalGoals', `Over ${lowerLabel}`, { outcome: 'over', line: lowerLine }),
-          selection('totalGoals', `Under ${upperLabel}`, { outcome: 'under', line: upperLine }),
+          selection('totalGoals', `Over ${formatted}`, { outcome: 'over', line: totalLine, family: countFamily }),
+          selection('totalGoals', `Under ${formatted}`, { outcome: 'under', line: totalLine, family: countFamily }),
         ],
       });
+    }
+
+    for (const lowerLine of totalLines) {
+      for (const upperLine of totalLines) {
+        const width = upperLine - lowerLine;
+        if (width <= EPSILON || width > 1 + EPSILON) continue;
+        const lowerLabel = formatTotalLine(lowerLine);
+        const upperLabel = formatTotalLine(upperLine);
+        definitions.push({
+          id: `totals_corridor_${idPrefix}${definitionToken(lowerLine)}_${definitionToken(upperLine)}`,
+          family: 'totals-corridor',
+          label: `${labelPrefix}Over ${lowerLabel} - Under ${upperLabel}`.trim(),
+          selections: [
+            selection('totalGoals', `Over ${lowerLabel}`, { outcome: 'over', line: lowerLine, family: countFamily }),
+            selection('totalGoals', `Under ${upperLabel}`, { outcome: 'under', line: upperLine, family: countFamily }),
+          ],
+        });
+      }
     }
   }
 
@@ -533,20 +542,26 @@ function parseHandicapMarketKey(marketKey) {
 }
 
 function parseTotalMarketKey(marketKey) {
-  // Goals, corners, and cards share the same over/under count settlement model.
-  // Catalog keys stay totalGoals:* so existing corridor/band formulas apply.
+  // Goals / corners / cards (incl. period + asian) share count settlement math
+  // but must NOT share catalog keys — mixing Over goals with Under corners is a
+  // false surebet. Namespace by family; bands/corridors run per family.
   const match = String(marketKey).match(
-    /^(?:asianTotalGoals|totalGoals|asianTotalCorners|totalCorners|asianTotalCards|totalCards)_(\d+(?:_\d+)?)$/,
+    /^(?:firstHalf|secondHalf)?(?:asian)?[Tt]otal(Goals|Corners|Cards)_(\d+(?:_\d+)?)$/,
   );
   if (!match) return null;
-  const value = parseNumericKey(match[1]);
-  return Number.isFinite(value) ? value : null;
+  const family = match[1].toLowerCase(); // goals | corners | cards
+  const value = parseNumericKey(match[2]);
+  if (!Number.isFinite(value)) return null;
+  return { family, line: value };
 }
 
 function selectionCatalogKey(spec) {
   if (spec.kind === 'h2h' || spec.kind === 'doubleChance') return `${spec.kind}:${spec.outcome}`;
   if (spec.kind === 'handicap') return `${spec.kind}:${spec.side}:${lineKey(spec.line)}`;
-  if (spec.kind === 'totalGoals') return `${spec.kind}:${spec.outcome}:${lineKey(spec.line)}`;
+  if (spec.kind === 'totalGoals') {
+    const family = spec.family || 'goals';
+    return `count:${family}:${spec.outcome}:${lineKey(spec.line)}`;
+  }
   return '';
 }
 
@@ -580,6 +595,21 @@ function buildCatalog(event, findBestPrices, getEventMarkets) {
       continue;
     }
 
+    // DNB ≡ AH0 (push on draw) — feed result-dnb / bridge families from either market.
+    if (marketKey === 'drawNoBet' && !best.draw) {
+      setBestPrice(catalog, `handicap:home:${lineKey(0)}`, best.home && {
+        ...best.home,
+        marketKey,
+        outcome: 'home',
+      });
+      setBestPrice(catalog, `handicap:away:${lineKey(0)}`, best.away && {
+        ...best.away,
+        marketKey,
+        outcome: 'away',
+      });
+      continue;
+    }
+
     const homeLine = parseHandicapMarketKey(marketKey);
     if (homeLine !== null && !best.draw) {
       setBestPrice(catalog, `handicap:home:${lineKey(homeLine)}`, best.home && {
@@ -595,14 +625,15 @@ function buildCatalog(event, findBestPrices, getEventMarkets) {
       continue;
     }
 
-    const totalLine = parseTotalMarketKey(marketKey);
-    if (totalLine !== null) {
-      setBestPrice(catalog, `totalGoals:over:${lineKey(totalLine)}`, best.over && {
+    const parsedTotal = parseTotalMarketKey(marketKey);
+    if (parsedTotal) {
+      const { family, line: totalLine } = parsedTotal;
+      setBestPrice(catalog, `count:${family}:over:${lineKey(totalLine)}`, best.over && {
         ...best.over,
         marketKey,
         outcome: 'over',
       });
-      setBestPrice(catalog, `totalGoals:under:${lineKey(totalLine)}`, best.under && {
+      setBestPrice(catalog, `count:${family}:under:${lineKey(totalLine)}`, best.under && {
         ...best.under,
         marketKey,
         outcome: 'under',
@@ -615,19 +646,27 @@ function buildCatalog(event, findBestPrices, getEventMarkets) {
 
 function availableLinesFromCatalog(catalog) {
   const handicapLines = [];
-  const totalLines = [];
+  const linesByFamily = { goals: [], corners: [], cards: [] };
   for (const key of catalog.keys()) {
     let match = key.match(/^handicap:(?:home|away):(-?\d+(?:\.\d+)?)$/);
     if (match) {
       handicapLines.push(Number(match[1]));
       continue;
     }
-    match = key.match(/^totalGoals:(?:over|under):(\d+(?:\.\d+)?)$/);
-    if (match) totalLines.push(Number(match[1]));
+    match = key.match(/^count:(goals|corners|cards):(?:over|under):(\d+(?:\.\d+)?)$/);
+    if (match && linesByFamily[match[1]]) {
+      linesByFamily[match[1]].push(Number(match[2]));
+    }
   }
+  // totalLines keeps goals for static band defs; per-family lines feed corridors.
   return {
     handicapLines: uniqueSortedLines(handicapLines),
-    totalLines: uniqueSortedLines(totalLines),
+    totalLines: uniqueSortedLines(linesByFamily.goals),
+    totalLinesByFamily: {
+      goals: uniqueSortedLines(linesByFamily.goals),
+      corners: uniqueSortedLines(linesByFamily.corners),
+      cards: uniqueSortedLines(linesByFamily.cards),
+    },
   };
 }
 

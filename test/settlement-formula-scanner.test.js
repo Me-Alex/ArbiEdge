@@ -195,8 +195,54 @@ test('detectSettlementFormulaArbitrage finds corner total corridors via shared c
     bookmaker('Book B', { totalCorners_9_5: { under: 2 } }),
   ]);
   const opportunity = detectSettlementFormulaArbitrage(event)
-    .find((item) => item.marketLabel === 'Over 9 - Under 9.5');
+    .find((item) => item.marketLabel === 'Corners Over 9 - Under 9.5' || item.marketLabel === 'Over 9 - Under 9.5');
   assert.ok(opportunity, 'corner lines should enter the totals catalog for corridor formulas');
+  assert.ok(opportunity.edge > 0);
+});
+
+test('detectSettlementFormulaArbitrage does not mix goals Over with corners Under', () => {
+  // Same numeric line, different families — must not form a false corridor.
+  const event = eventWithMarkets([
+    bookmaker('Book A', { totalGoals_8_5: { over: 2.2 } }),
+    bookmaker('Book B', { totalCorners_8_5: { under: 2.2 } }),
+  ]);
+  const opportunities = detectSettlementFormulaArbitrage(event);
+  const mixed = opportunities.find((item) => {
+    const keys = (item.legs || []).map((leg) => leg.marketKey || '');
+    return keys.some((k) => k.includes('Goals') || k.includes('goals'))
+      && keys.some((k) => k.includes('Corners') || k.includes('corners'));
+  });
+  assert.equal(mixed, undefined, 'goals and corners must not share a settlement pair');
+});
+
+test('detectSettlementFormulaArbitrage uses DNB prices as AH0 catalog legs', () => {
+  // 1 - X - AH2(0) lives in resultSubstitutionDefinitions (additional families).
+  const event = eventWithMarkets([
+    bookmaker('Book A', { h2h: { home: 2.8 } }),
+    bookmaker('Book B', { h2h: { draw: 3.2 } }),
+    bookmaker('Book C', { drawNoBet: { away: 3.2 } }),
+  ]);
+  const dnbOpp = detectSettlementFormulaArbitrage(event, {
+    definitionOptions: { handicapLines: [], bridgeLines: [], totalsAnchors: [] },
+    additionalDefinitionOptions: {
+      handicapLines: [0],
+      totalLines: [],
+      handicapDoubleChanceLines: [],
+      halfHandicapLines: [],
+    },
+  }).find((item) => item.formulaId === 'result_home_x_ah2_0' || item.marketLabel === '1 - X - AH2(0)');
+  assert.ok(dnbOpp, 'DNB away should supply AH0 away for result-dnb formulas');
+  assert.ok(dnbOpp.legs.some((leg) => leg.marketKey === 'drawNoBet'));
+});
+
+test('detectSettlementFormulaArbitrage uses first-half totals in corridor catalog', () => {
+  const event = eventWithMarkets([
+    bookmaker('Book A', { firstHalfTotalGoals_1: { over: 2.2 } }),
+    bookmaker('Book B', { firstHalfTotalGoals_1_5: { under: 2 } }),
+  ]);
+  const opportunity = detectSettlementFormulaArbitrage(event)
+    .find((item) => item.marketLabel === 'Over 1 - Under 1.5');
+  assert.ok(opportunity, 'period goal lines should enter the goals count catalog');
   assert.ok(opportunity.edge > 0);
 });
 
