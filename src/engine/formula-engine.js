@@ -839,6 +839,55 @@ function detectQualifyVsDcCross(event) {
       },
     });
   }
+  // Soft ET/penalties: Qualify + DC 12 (either side wins in 90') — review only.
+  if (qualify.home && dc.homeAway) {
+    pushCrossMarketPair(results, {
+      marketKey: 'cross_qualify_home_dc_12',
+      marketLabel: 'To Qualify Home + 12 (DC)',
+      legA: {
+        outcome: 'home',
+        label: 'Qualify 1',
+        bookmaker: qualify.home.bookmaker,
+        price: qualify.home.price,
+        url: qualify.home.url,
+        marketKey: qualify.home.marketKey || 'toQualify',
+        verificationStatus: qualify.home.verificationStatus,
+      },
+      legB: {
+        outcome: 'homeAway',
+        label: '12',
+        bookmaker: dc.homeAway.bookmaker,
+        price: dc.homeAway.price,
+        url: dc.homeAway.url,
+        marketKey: dc.homeAway.marketKey || 'doubleChance',
+        verificationStatus: dc.homeAway.verificationStatus,
+      },
+    });
+  }
+  if (qualify.away && dc.homeAway) {
+    pushCrossMarketPair(results, {
+      marketKey: 'cross_qualify_away_dc_12',
+      marketLabel: 'To Qualify Away + 12 (DC)',
+      legA: {
+        outcome: 'away',
+        label: 'Qualify 2',
+        bookmaker: qualify.away.bookmaker,
+        price: qualify.away.price,
+        url: qualify.away.url,
+        marketKey: qualify.away.marketKey || 'toQualify',
+        verificationStatus: qualify.away.verificationStatus,
+      },
+      legB: {
+        outcome: 'homeAway',
+        label: '12',
+        bookmaker: dc.homeAway.bookmaker,
+        price: dc.homeAway.price,
+        url: dc.homeAway.url,
+        marketKey: dc.homeAway.marketKey || 'doubleChance',
+        verificationStatus: dc.homeAway.verificationStatus,
+      },
+    });
+  }
   return results;
 }
 
@@ -852,8 +901,8 @@ function detectQualifyVsDcCross(event) {
  * stake sizing is not required for a simple two-way dutch.
  */
 function collectAsianHalfLines(event) {
-  // Wider defaults: RO books often post ±3.5 / ±4.5 even when other lines lag.
-  const lines = new Set([0.5, 1.5, 2.5, 3.5, 4.5]);
+  // Wider defaults: RO books often post deep half-lines even when others lag.
+  const lines = new Set([0.5, 1.5, 2.5, 3.5, 4.5, 5.5]);
   for (const mk of getEventMarkets(event)) {
     // Some books historically stored 2-way AH under handicap_* — still harvest.
     if (!/^(?:asianHandicap|handicap)_(?:plus|minus)_/.test(mk)) continue;
@@ -2016,12 +2065,12 @@ function detectBttsTotalsSoftCross(event) {
   const pairs = [];
   for (const scope of scopes) {
     for (const family of scope.prefixes) {
-      // Defaults include 2.5/3.5 (soft review only — SAFE regex still only 0.5/1.5).
-      const lines = new Set([0.5, 1.5, 2.5, 3.5]);
+      // Defaults include 2.5–4.5 (soft review only — SAFE regex still only 0.5/1.5).
+      const lines = new Set([0.5, 1.5, 2.5, 3.5, 4.5]);
       for (const mk of marketKeys) {
         if (!mk.startsWith(family.prefix)) continue;
         const line = parseLineNumberFromKey(mk);
-        if (line !== null && Math.abs((line % 1) - 0.5) < 1e-9 && line > 0 && line <= 4.5) {
+        if (line !== null && Math.abs((line % 1) - 0.5) < 1e-9 && line > 0 && line <= 5.5) {
           lines.add(line);
         }
       }
@@ -2117,7 +2166,7 @@ function detectMiddleBets(event) {
   // Pair any lower Over with higher Under in the same family (not only adjacent
   // lines) so e.g. Over 2.5 / Under 3.5 is found when 3.0 sits between them.
   // Wider windows surface more analysis middles (still non-actionable).
-  const MAX_MIDDLE_GAP = 5.0;
+  const MAX_MIDDLE_GAP = 5.5;
   const pushMiddle = (lower, higher, { crossFamily = false } = {}) => {
     if (higher.line <= lower.line) return;
     const gap = higher.line - lower.line;
@@ -2647,8 +2696,8 @@ function detectTeamMatchTotalArbitrage(event) {
     for (const h of homeLines) {
       // Match Over M + Home Under H + Away Under A when H + A = M + slack
       // (if both teams stay under their lines, match cannot exceed M on half-lines).
-      // slack 0.5 is the classic lattice; 1.0–2.0 cover wider team-line spreads.
-      for (const slack of [0.5, 1.0, 1.5, 2.0]) {
+      // slack 0.5 is the classic lattice; 1.0–2.5 cover wider team-line spreads.
+      for (const slack of [0.5, 1.0, 1.5, 2.0, 2.5]) {
         const neededA = m.line + slack - h.line;
         if (neededA > 0) {
           const a = awayLines.find((item) => Math.abs(item.line - neededA) < 0.01);
@@ -3005,8 +3054,8 @@ function getValueBets(events, maxBets = 40) {
   for (const event of events) {
     const eventName = `${event.homeTeam} vs ${event.awayTeam}`;
     const { allMarketKeys: marketKeys } = buildEventIndex(event);
-      for (const mk of marketKeys) {
-        const vb = detectValueBet(event, mk, event.sport);
+    for (const mk of marketKeys) {
+      const vb = detectValueBet(event, mk, event.sport);
       if (vb) {
         vb.eventName = eventName;
         bets.push(vb);

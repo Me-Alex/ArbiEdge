@@ -134,7 +134,7 @@ function resultSubstitutionDefinitions(options = {}) {
   const handicapDoubleChanceLines = options.handicapDoubleChanceLines
     || [-3, -2.5, -2, -1.5, -1.25, -1, -0.75, -0.5, -0.25, 0, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3];
   const halfHandicapLines = options.halfHandicapLines
-    || [0.5, 1.5, 2.5, 3.5, 4.5, -0.5, -1.5, -2.5, -3.5, -4.5];
+    || [0.5, 1.5, 2.5, 3.5, 4.5, 5.5, -0.5, -1.5, -2.5, -3.5, -4.5, -5.5];
   const ah = (side, line) => selection(
     'handicap',
     `AH${side === 'home' ? '1' : '2'}(${formatLine(line)})`,

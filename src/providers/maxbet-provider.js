@@ -458,16 +458,16 @@ function normalizeMaxBetMarkets(markets) {
       continue;
     }
 
-    if (marketId === NSOFT_MARKETS.oddEvenGoals || labelKey.includes('par') && labelKey.includes('impar')) {
+    if (marketId === NSOFT_MARKETS.oddEvenGoals || (labelKey.includes('par') && labelKey.includes('impar'))) {
       const prices = nsoftPrices(market, {
         Par: 'even',
         Impar: 'odd',
         Even: 'even',
         Odd: 'odd',
       });
-      const key = genericMarketKey('Total goluri par impar');
-      if (key && hasOutcomes(prices, ['odd', 'even'])) {
-        normalized[key] = prices;
+      // Canonical SAFE classic key so odd/even enters classic scanners.
+      if (hasOutcomes(prices, ['odd', 'even']) && !normalized.market_total_goluri_impar_par) {
+        normalized.market_total_goluri_impar_par = prices;
       }
       continue;
     }
