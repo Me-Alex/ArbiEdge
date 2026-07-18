@@ -382,11 +382,10 @@ function normalizeSuperbetMarketGroup(group, { homeTeam, awayTeam }) {
     return mapSuperbetLineMarket(group, 'totalCards');
   }
 
+  // Superbet 2-way handicap (home/away only) settles like AH — use asianHandicap_*
+  // so H2H/DC×AH formulas and classic AH scanners align with other RO books.
   if (normalizedLabel === 'handicap' || normalizedLabel === 'handicap asiatic') {
-    return mapSuperbetHandicapMarket(
-      group,
-      normalizedLabel === 'handicap' ? 'handicap' : 'asianHandicap',
-    );
+    return mapSuperbetHandicapMarket(group, 'asianHandicap');
   }
 
   if (

@@ -888,6 +888,24 @@ test('detectHandicapArbitrage scans zero-line AH (DNB-equivalent) as candidates'
   assert.strictEqual(getMarketLabel('asianHandicap_0'), 'AH 0 (DNB)');
 });
 
+test('detectHandicapArbitrage merges asianHandicap and 2-way handicap prefixes', () => {
+  // BookA only has handicap_* (legacy), BookB only asianHandicap_* — same line.
+  const event = makeEvent({
+    bookmakers: [
+      { name: 'BookA', markets: { handicap_plus_0_5: { home: 2.15, away: 1.75 } } },
+      { name: 'BookB', markets: { asianHandicap_plus_0_5: { home: 1.85, away: 2.2 } } },
+    ],
+  });
+  const arbs = detectHandicapArbitrage(event);
+  assert.strictEqual(arbs.length, 1);
+  assert.strictEqual(arbs[0].marketKey, 'asianHandicap_plus_0_5');
+  assert.ok(arbs[0].edge > 0);
+  const homeLeg = arbs[0].legs.find((l) => l.outcome === 'home');
+  const awayLeg = arbs[0].legs.find((l) => l.outcome === 'away');
+  assert.strictEqual(homeLeg.bookmaker, 'BookA');
+  assert.strictEqual(awayLeg.bookmaker, 'BookB');
+});
+
 test('detectCrossMarketArbitrage finds exhaustive 1 vs AH2(+0.5) half-line covers', () => {
   const event = makeEvent({
     bookmakers: [

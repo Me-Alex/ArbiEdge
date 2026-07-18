@@ -479,12 +479,9 @@ function normalizeGetsBetMarket(market, selections, match) {
     }
   }
 
-  if (label.includes('handicap asiatic')) {
+  // 2-way AH (home/away) → asianHandicap_* so cross formulas align across RO books.
+  if (label.includes('handicap asiatic') || (label.includes('handicap') && !label.includes('asiatic'))) {
     return handicapMarkets('asianHandicap', selections);
-  }
-
-  if (label.includes('handicap') && !label.includes('asiatic')) {
-    return handicapMarkets('handicap', selections);
   }
 
   if (

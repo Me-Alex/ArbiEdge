@@ -1545,13 +1545,14 @@ function detectH2hVsDnbForScope(event, { h2hKey, dnbKey, prefix, labelPrefix }) 
   const results = [];
   const h2h = findBestPrices(event, h2hKey);
   const dnb = findBestPrices(event, dnbKey);
-  // FT DNB shares settlement with AH0 — merge best prices for more candidates.
+  // FT DNB shares settlement with AH0 / handicap_0 — merge best prices.
   let dnbHome = dnb.home;
   let dnbAway = dnb.away;
   if (dnbKey === 'drawNoBet') {
     const ah0 = findBestPrices(event, 'asianHandicap_0');
-    dnbHome = pickBestPriceEntry(dnb.home, ah0.home);
-    dnbAway = pickBestPriceEntry(dnb.away, ah0.away);
+    const h0 = findBestPrices(event, 'handicap_0');
+    dnbHome = pickBestPriceEntry(dnb.home, ah0.home, h0.draw ? null : h0.home);
+    dnbAway = pickBestPriceEntry(dnb.away, ah0.away, h0.draw ? null : h0.away);
   }
   if (h2h.home && dnbAway) {
     pushCrossMarketPair(results, {
@@ -2049,24 +2050,34 @@ function detectMiddleBets(event) {
 function detectHandicapArbitrage(event) {
   const results = [];
   const marketKeys = getEventMarkets(event);
+  // Group asianHandicap_* and 2-way handicap_* by signed line so books that
+  // still emit either prefix contribute to the same dutch.
+  const byLineToken = new Map();
 
   for (const mk of marketKeys) {
-    if (!/^handicap_|^asianHandicap_/.test(mk)) continue;
-    // Scan all AH lines; half-lines remain actionable via eligibility.
+    if (!/^(?:asianHandicap|handicap)_/.test(mk)) continue;
     if (!isScannableHandicapMarket(mk) && !isSupportedHandicapMarket(mk)) continue;
 
     const allPrices = collectAllPrices(event, mk);
-    const outcomes = Object.keys(allPrices);
-    if (outcomes.length < 2) continue;
-
     // Skip 3-way European Handicap markets
-    if (allPrices.draw && allPrices.draw.length > 0) {
-      continue;
+    if (allPrices.draw && allPrices.draw.length > 0) continue;
+    if (!allPrices.home?.length && !allPrices.away?.length) continue;
+
+    const lineToken = mk.replace(/^(?:asianHandicap|handicap)_/, '');
+    if (!byLineToken.has(lineToken)) {
+      byLineToken.set(lineToken, { homes: [], aways: [], preferredKey: mk });
     }
+    const bucket = byLineToken.get(lineToken);
+    // Prefer asianHandicap_* as the canonical market key for labels/eligibility.
+    if (mk.startsWith('asianHandicap_')) bucket.preferredKey = mk;
+    if (allPrices.home) bucket.homes.push(...allPrices.home);
+    if (allPrices.away) bucket.aways.push(...allPrices.away);
+  }
 
-    const bestHome = allPrices.home?.sort((a, b) => b.price - a.price)[0];
-    const bestAway = allPrices.away?.sort((a, b) => b.price - a.price)[0];
-
+  for (const [, bucket] of byLineToken) {
+    const mk = bucket.preferredKey;
+    const bestHome = bucket.homes.sort((a, b) => b.price - a.price)[0];
+    const bestAway = bucket.aways.sort((a, b) => b.price - a.price)[0];
     if (!bestHome || !bestAway) continue;
 
     const total = impliedProb(bestHome.price) + impliedProb(bestAway.price);

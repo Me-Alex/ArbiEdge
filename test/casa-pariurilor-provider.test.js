@@ -162,7 +162,7 @@ test('loads Casa Pariurilor through the shared UFO offer model', async () => {
     homeAway: 3.75,
     drawAway: 1.03,
   });
-  assert.deepEqual(events[0].bookmakers[0].markets.handicap_plus_0_5, {
+  assert.deepEqual(events[0].bookmakers[0].markets.asianHandicap_plus_0_5, {
     home: 1.66,
     away: 2.14,
   });
@@ -170,7 +170,8 @@ test('loads Casa Pariurilor through the shared UFO offer model', async () => {
     '1_minus0_5': 2.2,
     '2_plus0_5': 1.6,
   });
-  assert.equal(events[0].bookmakers[0].markets.handicap_minus_0_5, undefined);
+  assert.equal(events[0].bookmakers[0].markets.handicap_plus_0_5, undefined);
+  assert.equal(events[0].bookmakers[0].markets.asianHandicap_minus_0_5, undefined);
   assert.deepEqual(events[0].bookmakers[0].markets.firstHalfTotalCorners_4_5, {
     over: 2.05,
     under: 1.72,
@@ -184,7 +185,7 @@ test('loads Casa Pariurilor through the shared UFO offer model', async () => {
     yes: 1.48,
     no: 2.43,
   });
-  assert.deepEqual(events[0].bookmakers[0].markets.market_prima_repriza_ambele_marcheaza, {
+  assert.deepEqual(events[0].bookmakers[0].markets.firstHalfBothTeamsToScore, {
     yes: 3.35,
     no: 1.28,
   });
