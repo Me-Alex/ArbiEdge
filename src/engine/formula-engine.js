@@ -627,12 +627,20 @@ function formulaFamilyFromMarketKey(marketKey) {
     return 'h2h-dc';
   }
   // Result/DC × BTTS before generic h2h/dc tags (keys share those tokens).
-  if (/btts/i.test(key) && /(?:h2h|dc_)/i.test(key)) return 'result-btts';
+  if (/btts/i.test(key) && /(?:h2h|dc_|dnb)/i.test(key)) return 'result-btts';
+  // Result/DNB × team blank (to-nil soft covers).
+  if (/(?:h2h|dnb|dc_).*(?:_ns|_blank|away_ns|home_ns)|(?:away_ns|home_ns)/i.test(key)
+    && /cross_/.test(key)) {
+    if (/btts/i.test(key)) return 'result-btts';
+    if (/(?:_ns|blank|no_score)/i.test(key)) return 'result-team-score';
+  }
   if (/^cross_.*(?:h2h|ah|dnb|dc).*(?:ah|dnb|h2h|dc)/i.test(key)
     || /^cross_h2h_|^cross_dc_|^cross_dnb_|^cross_ah0_/.test(key)) {
     return 'result-handicap';
   }
   if (/^cross_qualify_/.test(key)) return 'qualify-soft';
+  // Odd/Even soft before generic btts (keys like cross_even_btts_yes).
+  if (/^cross_(?:odd|even)_/.test(key)) return 'odd-even-soft';
   if (/^cross_.*btts/.test(key)) return 'btts-cross';
   if (/^cross_(?:home|away)_score|^cross_.*cs_|^cross_.*clean/.test(key)
     || /score_identity|score_vs|cs_no/.test(key)) {
@@ -794,6 +802,9 @@ function detectCrossMarketArbitrage(event) {
     ...detectPeriodCrossMarket(event, 'secondHalfH2h', 'secondHalfDoubleChance', '2H_', '2H'),
     ...detectBttsTotalsSoftCross(event),
     ...detectResultVsBttsSoftCross(event),
+    ...detectDnbVsBttsSoftCross(event),
+    ...detectResultVsTeamScoreSoftCross(event),
+    ...detectOddEvenSoftCross(event),
     ...detectQualifyVsH2hCross(event),
     ...detectTeamScoreVsCleanSheetCross(event),
     ...detectScoreVsTeamTotalIdentityCross(event),
@@ -2463,6 +2474,424 @@ function detectResultVsBttsSoftCross(event) {
           verificationStatus: btts.no.verificationStatus,
         },
       });
+    }
+    // Soft: DC 12 + BTTS Yes (a decisive 90' with both teams scoring).
+    if (dc.homeAway && btts.yes) {
+      pushCrossMarketPair(results, {
+        marketKey: `cross_${scope.prefix}dc_12_btts_yes`,
+        marketLabel: `${label}12 (DC) + BTTS Yes`.trim(),
+        legA: {
+          outcome: 'homeAway',
+          label: '12',
+          bookmaker: dc.homeAway.bookmaker,
+          price: dc.homeAway.price,
+          url: dc.homeAway.url,
+          marketKey: dc.homeAway.marketKey || dcKey,
+          verificationStatus: dc.homeAway.verificationStatus,
+        },
+        legB: {
+          outcome: 'yes',
+          label: 'BTTS Yes',
+          bookmaker: btts.yes.bookmaker,
+          price: btts.yes.price,
+          url: btts.yes.url,
+          marketKey: btts.yes.marketKey || scope.bttsKey,
+          verificationStatus: btts.yes.verificationStatus,
+        },
+      });
+    }
+  }
+  return results;
+}
+
+/**
+ * Soft review: DNB/AH0 × BTTS. Push on draw + non-exhaustive score covers → review.
+ */
+function detectDnbVsBttsSoftCross(event) {
+  const results = [];
+  const btts = findBestPrices(event, 'bothTeamsToScore');
+  const dnb = findBestPrices(event, 'drawNoBet');
+  const ah0 = findBestPrices(event, 'asianHandicap_0');
+  const h0 = findBestPrices(event, 'handicap_0');
+  const dnbHome = pickBestPriceEntry(dnb.home, ah0.home, h0.draw ? null : h0.home);
+  const dnbAway = pickBestPriceEntry(dnb.away, ah0.away, h0.draw ? null : h0.away);
+
+  const pairs = [
+    { side: dnbHome, outcome: 'home', key: 'cross_dnb_home_btts_no', label: 'DNB Home + BTTS No', bttsSide: 'no', bttsLabel: 'BTTS No' },
+    { side: dnbAway, outcome: 'away', key: 'cross_dnb_away_btts_no', label: 'DNB Away + BTTS No', bttsSide: 'no', bttsLabel: 'BTTS No' },
+    { side: dnbHome, outcome: 'home', key: 'cross_dnb_home_btts_yes', label: 'DNB Home + BTTS Yes', bttsSide: 'yes', bttsLabel: 'BTTS Yes' },
+    { side: dnbAway, outcome: 'away', key: 'cross_dnb_away_btts_yes', label: 'DNB Away + BTTS Yes', bttsSide: 'yes', bttsLabel: 'BTTS Yes' },
+  ];
+  for (const pair of pairs) {
+    const bttsLeg = btts[pair.bttsSide];
+    if (!pair.side || !bttsLeg) continue;
+    pushCrossMarketPair(results, {
+      marketKey: pair.key,
+      marketLabel: pair.label,
+      legA: {
+        outcome: pair.outcome,
+        label: pair.outcome === 'home' ? 'DNB 1' : 'DNB 2',
+        bookmaker: pair.side.bookmaker,
+        price: pair.side.price,
+        url: pair.side.url,
+        marketKey: pair.side.marketKey || 'drawNoBet',
+        verificationStatus: pair.side.verificationStatus,
+      },
+      legB: {
+        outcome: pair.bttsSide,
+        label: pair.bttsLabel,
+        bookmaker: bttsLeg.bookmaker,
+        price: bttsLeg.price,
+        url: bttsLeg.url,
+        marketKey: bttsLeg.marketKey || 'bothTeamsToScore',
+        verificationStatus: bttsLeg.verificationStatus,
+      },
+    });
+  }
+  return results;
+}
+
+/**
+ * Soft review: result / DNB / DC × opponent blank (to-nil style).
+ * Uses team-score identity cluster (marcheaza / CS / team O/U 0.5).
+ */
+function detectResultVsTeamScoreSoftCross(event) {
+  const results = [];
+  const id = teamScoreIdentityClusters(event);
+  const h2h = findBestPrices(event, 'h2h');
+  const dc = findBestPrices(event, 'doubleChance');
+  const dnb = findBestPrices(event, 'drawNoBet');
+  const ah0 = findBestPrices(event, 'asianHandicap_0');
+  const h0 = findBestPrices(event, 'handicap_0');
+  const dnbHome = pickBestPriceEntry(dnb.home, ah0.home, h0.draw ? null : h0.home);
+  const dnbAway = pickBestPriceEntry(dnb.away, ah0.away, h0.draw ? null : h0.away);
+
+  // 1 + Away blank (home win to nil soft)
+  if (h2h.home && id.awayBlank) {
+    pushCrossMarketPair(results, {
+      marketKey: 'cross_h2h_home_away_ns',
+      marketLabel: '1 (1X2) + Away No Score',
+      legA: {
+        outcome: 'home',
+        label: '1',
+        bookmaker: h2h.home.bookmaker,
+        price: h2h.home.price,
+        url: h2h.home.url,
+        marketKey: h2h.home.marketKey || 'h2h',
+        verificationStatus: h2h.home.verificationStatus,
+      },
+      legB: {
+        outcome: id.awayBlank.outcome || 'no',
+        label: 'Away No Score',
+        bookmaker: id.awayBlank.bookmaker,
+        price: id.awayBlank.price,
+        url: id.awayBlank.url,
+        marketKey: id.awayBlank.marketKey || 'market_marcheaza_away',
+        verificationStatus: id.awayBlank.verificationStatus,
+      },
+    });
+  }
+  // 2 + Home blank
+  if (h2h.away && id.homeBlank) {
+    pushCrossMarketPair(results, {
+      marketKey: 'cross_h2h_away_home_ns',
+      marketLabel: '2 (1X2) + Home No Score',
+      legA: {
+        outcome: 'away',
+        label: '2',
+        bookmaker: h2h.away.bookmaker,
+        price: h2h.away.price,
+        url: h2h.away.url,
+        marketKey: h2h.away.marketKey || 'h2h',
+        verificationStatus: h2h.away.verificationStatus,
+      },
+      legB: {
+        outcome: id.homeBlank.outcome || 'no',
+        label: 'Home No Score',
+        bookmaker: id.homeBlank.bookmaker,
+        price: id.homeBlank.price,
+        url: id.homeBlank.url,
+        marketKey: id.homeBlank.marketKey || 'market_marcheaza_home',
+        verificationStatus: id.homeBlank.verificationStatus,
+      },
+    });
+  }
+  // DNB Home + Away blank / DNB Away + Home blank
+  if (dnbHome && id.awayBlank) {
+    pushCrossMarketPair(results, {
+      marketKey: 'cross_dnb_home_away_ns',
+      marketLabel: 'DNB Home + Away No Score',
+      legA: {
+        outcome: 'home',
+        label: 'DNB 1',
+        bookmaker: dnbHome.bookmaker,
+        price: dnbHome.price,
+        url: dnbHome.url,
+        marketKey: dnbHome.marketKey || 'drawNoBet',
+        verificationStatus: dnbHome.verificationStatus,
+      },
+      legB: {
+        outcome: id.awayBlank.outcome || 'no',
+        label: 'Away No Score',
+        bookmaker: id.awayBlank.bookmaker,
+        price: id.awayBlank.price,
+        url: id.awayBlank.url,
+        marketKey: id.awayBlank.marketKey || 'market_marcheaza_away',
+        verificationStatus: id.awayBlank.verificationStatus,
+      },
+    });
+  }
+  if (dnbAway && id.homeBlank) {
+    pushCrossMarketPair(results, {
+      marketKey: 'cross_dnb_away_home_ns',
+      marketLabel: 'DNB Away + Home No Score',
+      legA: {
+        outcome: 'away',
+        label: 'DNB 2',
+        bookmaker: dnbAway.bookmaker,
+        price: dnbAway.price,
+        url: dnbAway.url,
+        marketKey: dnbAway.marketKey || 'drawNoBet',
+        verificationStatus: dnbAway.verificationStatus,
+      },
+      legB: {
+        outcome: id.homeBlank.outcome || 'no',
+        label: 'Home No Score',
+        bookmaker: id.homeBlank.bookmaker,
+        price: id.homeBlank.price,
+        url: id.homeBlank.url,
+        marketKey: id.homeBlank.marketKey || 'market_marcheaza_home',
+        verificationStatus: id.homeBlank.verificationStatus,
+      },
+    });
+  }
+  // DC 1X + Away blank / X2 + Home blank
+  if (dc.homeDraw && id.awayBlank) {
+    pushCrossMarketPair(results, {
+      marketKey: 'cross_dc_1x_away_ns',
+      marketLabel: '1X (DC) + Away No Score',
+      legA: {
+        outcome: 'homeDraw',
+        label: '1X',
+        bookmaker: dc.homeDraw.bookmaker,
+        price: dc.homeDraw.price,
+        url: dc.homeDraw.url,
+        marketKey: dc.homeDraw.marketKey || 'doubleChance',
+        verificationStatus: dc.homeDraw.verificationStatus,
+      },
+      legB: {
+        outcome: id.awayBlank.outcome || 'no',
+        label: 'Away No Score',
+        bookmaker: id.awayBlank.bookmaker,
+        price: id.awayBlank.price,
+        url: id.awayBlank.url,
+        marketKey: id.awayBlank.marketKey || 'market_marcheaza_away',
+        verificationStatus: id.awayBlank.verificationStatus,
+      },
+    });
+  }
+  if (dc.drawAway && id.homeBlank) {
+    pushCrossMarketPair(results, {
+      marketKey: 'cross_dc_x2_home_ns',
+      marketLabel: 'X2 (DC) + Home No Score',
+      legA: {
+        outcome: 'drawAway',
+        label: 'X2',
+        bookmaker: dc.drawAway.bookmaker,
+        price: dc.drawAway.price,
+        url: dc.drawAway.url,
+        marketKey: dc.drawAway.marketKey || 'doubleChance',
+        verificationStatus: dc.drawAway.verificationStatus,
+      },
+      legB: {
+        outcome: id.homeBlank.outcome || 'no',
+        label: 'Home No Score',
+        bookmaker: id.homeBlank.bookmaker,
+        price: id.homeBlank.price,
+        url: id.homeBlank.url,
+        marketKey: id.homeBlank.marketKey || 'market_marcheaza_home',
+        verificationStatus: id.homeBlank.verificationStatus,
+      },
+    });
+  }
+  return results;
+}
+
+/**
+ * Soft review: Goals Odd/Even × totals / BTTS.
+ * Integer totals and score parity are not exhaustive two-ways with O/U or BTTS.
+ */
+function detectOddEvenSoftCross(event) {
+  const results = [];
+  const oe = findBestPrices(event, 'market_total_goluri_impar_par');
+  if (!oe.odd && !oe.even) return results;
+
+  const btts = findBestPrices(event, 'bothTeamsToScore');
+  // Even + BTTS Yes (1-1, 2-2…); Odd + BTTS No (1-0, 0-1, 3-0…)
+  if (oe.even && btts.yes) {
+    pushCrossMarketPair(results, {
+      marketKey: 'cross_even_btts_yes',
+      marketLabel: 'Goals Even + BTTS Yes',
+      legA: {
+        outcome: 'even',
+        label: 'Even',
+        bookmaker: oe.even.bookmaker,
+        price: oe.even.price,
+        url: oe.even.url,
+        marketKey: oe.even.marketKey || 'market_total_goluri_impar_par',
+        verificationStatus: oe.even.verificationStatus,
+      },
+      legB: {
+        outcome: 'yes',
+        label: 'BTTS Yes',
+        bookmaker: btts.yes.bookmaker,
+        price: btts.yes.price,
+        url: btts.yes.url,
+        marketKey: btts.yes.marketKey || 'bothTeamsToScore',
+        verificationStatus: btts.yes.verificationStatus,
+      },
+    });
+  }
+  if (oe.odd && btts.no) {
+    pushCrossMarketPair(results, {
+      marketKey: 'cross_odd_btts_no',
+      marketLabel: 'Goals Odd + BTTS No',
+      legA: {
+        outcome: 'odd',
+        label: 'Odd',
+        bookmaker: oe.odd.bookmaker,
+        price: oe.odd.price,
+        url: oe.odd.url,
+        marketKey: oe.odd.marketKey || 'market_total_goluri_impar_par',
+        verificationStatus: oe.odd.verificationStatus,
+      },
+      legB: {
+        outcome: 'no',
+        label: 'BTTS No',
+        bookmaker: btts.no.bookmaker,
+        price: btts.no.price,
+        url: btts.no.url,
+        marketKey: btts.no.marketKey || 'bothTeamsToScore',
+        verificationStatus: btts.no.verificationStatus,
+      },
+    });
+  }
+  if (oe.even && btts.no) {
+    pushCrossMarketPair(results, {
+      marketKey: 'cross_even_btts_no',
+      marketLabel: 'Goals Even + BTTS No',
+      legA: {
+        outcome: 'even',
+        label: 'Even',
+        bookmaker: oe.even.bookmaker,
+        price: oe.even.price,
+        url: oe.even.url,
+        marketKey: oe.even.marketKey || 'market_total_goluri_impar_par',
+        verificationStatus: oe.even.verificationStatus,
+      },
+      legB: {
+        outcome: 'no',
+        label: 'BTTS No',
+        bookmaker: btts.no.bookmaker,
+        price: btts.no.price,
+        url: btts.no.url,
+        marketKey: btts.no.marketKey || 'bothTeamsToScore',
+        verificationStatus: btts.no.verificationStatus,
+      },
+    });
+  }
+  if (oe.odd && btts.yes) {
+    pushCrossMarketPair(results, {
+      marketKey: 'cross_odd_btts_yes',
+      marketLabel: 'Goals Odd + BTTS Yes',
+      legA: {
+        outcome: 'odd',
+        label: 'Odd',
+        bookmaker: oe.odd.bookmaker,
+        price: oe.odd.price,
+        url: oe.odd.url,
+        marketKey: oe.odd.marketKey || 'market_total_goluri_impar_par',
+        verificationStatus: oe.odd.verificationStatus,
+      },
+      legB: {
+        outcome: 'yes',
+        label: 'BTTS Yes',
+        bookmaker: btts.yes.bookmaker,
+        price: btts.yes.price,
+        url: btts.yes.url,
+        marketKey: btts.yes.marketKey || 'bothTeamsToScore',
+        verificationStatus: btts.yes.verificationStatus,
+      },
+    });
+  }
+
+  // Odd/Even × half-line totals (soft parity vs O/U).
+  const marketKeys = getEventMarkets(event);
+  const lines = new Set([0.5, 1.5, 2.5, 3.5, 4.5]);
+  for (const mk of marketKeys) {
+    if (!mk.startsWith('totalGoals_') && !mk.startsWith('asianTotalGoals_')) continue;
+    const line = parseLineNumberFromKey(mk);
+    if (line !== null && Math.abs((line % 1) - 0.5) < 1e-9 && line > 0 && line <= 5.5) {
+      lines.add(line);
+    }
+  }
+  for (const line of [...lines].sort((a, b) => a - b)) {
+    const token = String(line).replace('.', '_');
+    for (const prefix of ['totalGoals_', 'asianTotalGoals_']) {
+      const totalKey = `${prefix}${token}`;
+      const totals = findBestPrices(event, totalKey);
+      if (!totals.over && !totals.under) continue;
+      const asian = prefix.startsWith('asian');
+      const tag = asian ? 'asian_' : '';
+      // Even + Over L / Odd + Under L soft parity windows
+      if (oe.even && totals.over) {
+        pushCrossMarketPair(results, {
+          marketKey: `cross_even_${tag}over_${token}`,
+          marketLabel: `Goals Even + ${asian ? 'Asian ' : ''}Over ${line}`,
+          legA: {
+            outcome: 'even',
+            label: 'Even',
+            bookmaker: oe.even.bookmaker,
+            price: oe.even.price,
+            url: oe.even.url,
+            marketKey: oe.even.marketKey || 'market_total_goluri_impar_par',
+            verificationStatus: oe.even.verificationStatus,
+          },
+          legB: {
+            outcome: 'over',
+            label: `${asian ? 'Asian ' : ''}Over ${line}`.trim(),
+            bookmaker: totals.over.bookmaker,
+            price: totals.over.price,
+            url: totals.over.url,
+            marketKey: totals.over.marketKey || totalKey,
+            verificationStatus: totals.over.verificationStatus,
+          },
+        });
+      }
+      if (oe.odd && totals.under) {
+        pushCrossMarketPair(results, {
+          marketKey: `cross_odd_${tag}under_${token}`,
+          marketLabel: `Goals Odd + ${asian ? 'Asian ' : ''}Under ${line}`,
+          legA: {
+            outcome: 'odd',
+            label: 'Odd',
+            bookmaker: oe.odd.bookmaker,
+            price: oe.odd.price,
+            url: oe.odd.url,
+            marketKey: oe.odd.marketKey || 'market_total_goluri_impar_par',
+            verificationStatus: oe.odd.verificationStatus,
+          },
+          legB: {
+            outcome: 'under',
+            label: `${asian ? 'Asian ' : ''}Under ${line}`.trim(),
+            bookmaker: totals.under.bookmaker,
+            price: totals.under.price,
+            url: totals.under.url,
+            marketKey: totals.under.marketKey || totalKey,
+            verificationStatus: totals.under.verificationStatus,
+          },
+        });
+      }
     }
   }
   return results;

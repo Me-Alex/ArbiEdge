@@ -1507,6 +1507,70 @@ test('detectCrossMarketArbitrage surfaces 1X2/DC × BTTS soft pairs', () => {
   assert.strictEqual(hit.formulaFamily, 'result-btts');
 });
 
+test('detectCrossMarketArbitrage surfaces DNB×BTTS and result×team-blank soft pairs', () => {
+  const event = makeEvent({
+    bookmakers: [
+      {
+        name: 'BookA',
+        markets: {
+          h2h: { home: 2.15, draw: 3.2, away: 2.65 },
+          drawNoBet: { home: 1.9, away: 2.0 },
+          bothTeamsToScore: { yes: 1.9, no: 2.1 },
+          market_marcheaza_away: { yes: 1.45, no: 2.55 },
+          market_marcheaza_home: { yes: 1.4, no: 2.45 },
+        },
+      },
+      {
+        name: 'BookB',
+        markets: {
+          h2h: { home: 2.1, draw: 3.3, away: 2.7 },
+          drawNoBet: { home: 1.85, away: 2.05 },
+          bothTeamsToScore: { yes: 1.85, no: 2.2 },
+          market_marcheaza_away: { yes: 1.42, no: 2.6 },
+          market_marcheaza_home: { yes: 1.38, no: 2.5 },
+        },
+      },
+    ],
+  });
+  // home 2.15 + away NS 2.6 → ~0.85; away 2.7 + home NS 2.5 → ~0.77; dnb 1.9 + no 2.2 → ~0.98
+  const results = detectCrossMarketArbitrage(event);
+  assert.ok(results.some((item) => item.marketKey === 'cross_h2h_home_away_ns'));
+  assert.ok(results.some((item) => item.marketKey === 'cross_h2h_away_home_ns'));
+  assert.ok(results.some((item) => item.marketKey === 'cross_dnb_home_btts_no'
+    || item.marketKey === 'cross_dnb_away_btts_no'));
+  const ns = results.find((item) => item.marketKey === 'cross_h2h_home_away_ns');
+  assert.strictEqual(ns.formulaFamily, 'result-team-score');
+});
+
+test('detectCrossMarketArbitrage surfaces odd/even × BTTS soft pairs', () => {
+  const event = makeEvent({
+    bookmakers: [
+      {
+        name: 'BookA',
+        markets: {
+          market_total_goluri_impar_par: { odd: 1.95, even: 2.05 },
+          bothTeamsToScore: { yes: 1.95, no: 2.05 },
+          totalGoals_2_5: { over: 2.05, under: 1.8 },
+        },
+      },
+      {
+        name: 'BookB',
+        markets: {
+          market_total_goluri_impar_par: { odd: 1.9, even: 2.1 },
+          bothTeamsToScore: { yes: 1.9, no: 2.15 },
+          totalGoals_2_5: { over: 1.95, under: 1.9 },
+        },
+      },
+    ],
+  });
+  // even 2.1 + yes 1.95 → ~0.99; odd 1.95 + no 2.15 → ~0.98
+  const results = detectCrossMarketArbitrage(event);
+  assert.ok(results.some((item) => item.marketKey === 'cross_even_btts_yes'));
+  assert.ok(results.some((item) => item.marketKey === 'cross_odd_btts_no'));
+  const hit = results.find((item) => item.marketKey === 'cross_even_btts_yes');
+  assert.strictEqual(hit.formulaFamily, 'odd-even-soft');
+});
+
 test('detectCrossMarketArbitrage finds integer EU↔Asian same-line O/U soft pairs', () => {
   const event = makeEvent({
     bookmakers: [

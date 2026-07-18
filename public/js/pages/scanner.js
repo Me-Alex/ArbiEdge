@@ -68,10 +68,11 @@ function renderScannerOverview() {
       .map(([k, v]) => `${v} ${k}`);
     return parts.length ? parts.join(' · ') : 'După validare formulă';
   })();
+  const eventsN = Number(state.eventsScanned || state.events?.length || 0);
   const items = [
     { key: 'candidates', label: 'Total semnale', value: candidateCount, hint: typeHint },
     { key: 'actionable', label: 'Acționabile', value: counts.actionable, hint: 'Fidelity verified pe website' },
-    { key: 'review', label: 'Candidați', value: counts.review, hint: 'Arbitraj matematic, neverificat pe site' },
+    { key: 'review', label: 'Candidați', value: counts.review, hint: eventsN > 0 ? `Math pe ${eventsN} evenimente · neverificat pe site` : 'Arbitraj matematic, neverificat pe site' },
     { key: 'rejected', label: 'Respinse', value: counts.rejected, hint: 'Same-book / failed evidence / invalid' },
   ];
   overview.innerHTML = items.map((item) => `
