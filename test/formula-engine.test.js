@@ -1243,6 +1243,21 @@ test('detectCrossMarketArbitrage surfaces to-qualify vs match soft pairs', () =>
   assert.ok(results.some((item) => item.marketKey === 'cross_qualify_home_match_away'));
 });
 
+test('detectCrossMarketArbitrage merges AH0 into qualify×DNB soft pairs', () => {
+  // No drawNoBet market — only AH0; prices need positive edge on both mirrors.
+  const event = makeEvent({
+    bookmakers: [
+      { name: 'BookA', markets: { toQualify: { home: 2.2, away: 2.2 } } },
+      { name: 'BookB', markets: { asianHandicap_0: { home: 2.15, away: 2.15 } } },
+    ],
+  });
+  const results = detectCrossMarketArbitrage(event);
+  assert.ok(results.some((item) => item.marketKey === 'cross_qualify_home_dnb_away'));
+  assert.ok(results.some((item) => item.marketKey === 'cross_qualify_away_dnb_home'));
+  const homeAway = results.find((item) => item.marketKey === 'cross_qualify_home_dnb_away');
+  assert.strictEqual(homeAway.legs.find((l) => l.label === 'DNB 2').bookmaker, 'BookB');
+});
+
 test('detectCrossMarketArbitrage finds BTTS No + Over 1.5 soft cover', () => {
   const event = makeEvent({
     bookmakers: [

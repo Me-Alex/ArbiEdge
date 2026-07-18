@@ -1077,9 +1077,11 @@ function detectAhZeroVsDnbCross(event) {
   const dnb = findBestPrices(event, 'drawNoBet');
   const ah = findBestPrices(event, 'asianHandicap_0');
   const h0 = findBestPrices(event, 'handicap_0');
+  const ahHome = pickBestPriceEntry(ah.home, h0.draw ? null : h0.home);
+  const ahAway = pickBestPriceEntry(ah.away, h0.draw ? null : h0.away);
 
-  const bestHome = pickBestPriceEntry(dnb.home, ah.home, h0.draw ? null : h0.home);
-  const bestAway = pickBestPriceEntry(dnb.away, ah.away, h0.draw ? null : h0.away);
+  const bestHome = pickBestPriceEntry(dnb.home, ahHome);
+  const bestAway = pickBestPriceEntry(dnb.away, ahAway);
   if (bestHome && bestAway) {
     pushCrossMarketPair(results, {
       marketKey: 'cross_dnb_ah0_merged',
@@ -1105,19 +1107,19 @@ function detectAhZeroVsDnbCross(event) {
     });
   }
 
-  // Complementary soft: AH0 Home vs DNB Away (and inverse)
-  if (ah.home && dnb.away) {
+  // Complementary soft: best AH0/handicap_0 Home vs DNB Away (and inverse)
+  if (ahHome && dnb.away) {
     pushCrossMarketPair(results, {
       marketKey: 'cross_ah0_home_dnb_away',
       marketLabel: 'AH0 Home + DNB Away',
       legA: {
         outcome: 'home',
         label: 'AH0 Home',
-        bookmaker: ah.home.bookmaker,
-        price: ah.home.price,
-        url: ah.home.url,
-        marketKey: ah.home.marketKey || 'asianHandicap_0',
-        verificationStatus: ah.home.verificationStatus,
+        bookmaker: ahHome.bookmaker,
+        price: ahHome.price,
+        url: ahHome.url,
+        marketKey: ahHome.marketKey || 'asianHandicap_0',
+        verificationStatus: ahHome.verificationStatus,
       },
       legB: {
         outcome: 'away',
@@ -1130,18 +1132,18 @@ function detectAhZeroVsDnbCross(event) {
       },
     });
   }
-  if (ah.away && dnb.home) {
+  if (ahAway && dnb.home) {
     pushCrossMarketPair(results, {
       marketKey: 'cross_ah0_away_dnb_home',
       marketLabel: 'AH0 Away + DNB Home',
       legA: {
         outcome: 'away',
         label: 'AH0 Away',
-        bookmaker: ah.away.bookmaker,
-        price: ah.away.price,
-        url: ah.away.url,
-        marketKey: ah.away.marketKey || 'asianHandicap_0',
-        verificationStatus: ah.away.verificationStatus,
+        bookmaker: ahAway.bookmaker,
+        price: ahAway.price,
+        url: ahAway.url,
+        marketKey: ahAway.marketKey || 'asianHandicap_0',
+        verificationStatus: ahAway.verificationStatus,
       },
       legB: {
         outcome: 'home',
@@ -1462,7 +1464,12 @@ function detectQualifyVsDnbCross(event) {
   const results = [];
   const qualify = findBestPrices(event, 'toQualify');
   const dnb = findBestPrices(event, 'drawNoBet');
-  if (qualify.home && dnb.away) {
+  const ah0 = findBestPrices(event, 'asianHandicap_0');
+  const h0 = findBestPrices(event, 'handicap_0');
+  // DNB ≡ AH0 settlement (push on draw) — merge best prices for more candidates.
+  const dnbHome = pickBestPriceEntry(dnb.home, ah0.home, h0.draw ? null : h0.home);
+  const dnbAway = pickBestPriceEntry(dnb.away, ah0.away, h0.draw ? null : h0.away);
+  if (qualify.home && dnbAway) {
     pushCrossMarketPair(results, {
       marketKey: 'cross_qualify_home_dnb_away',
       marketLabel: 'To Qualify Home + DNB Away',
@@ -1478,15 +1485,15 @@ function detectQualifyVsDnbCross(event) {
       legB: {
         outcome: 'away',
         label: 'DNB 2',
-        bookmaker: dnb.away.bookmaker,
-        price: dnb.away.price,
-        url: dnb.away.url,
-        marketKey: dnb.away.marketKey || 'drawNoBet',
-        verificationStatus: dnb.away.verificationStatus,
+        bookmaker: dnbAway.bookmaker,
+        price: dnbAway.price,
+        url: dnbAway.url,
+        marketKey: dnbAway.marketKey || 'drawNoBet',
+        verificationStatus: dnbAway.verificationStatus,
       },
     });
   }
-  if (qualify.away && dnb.home) {
+  if (qualify.away && dnbHome) {
     pushCrossMarketPair(results, {
       marketKey: 'cross_qualify_away_dnb_home',
       marketLabel: 'To Qualify Away + DNB Home',
@@ -1502,11 +1509,11 @@ function detectQualifyVsDnbCross(event) {
       legB: {
         outcome: 'home',
         label: 'DNB 1',
-        bookmaker: dnb.home.bookmaker,
-        price: dnb.home.price,
-        url: dnb.home.url,
-        marketKey: dnb.home.marketKey || 'drawNoBet',
-        verificationStatus: dnb.home.verificationStatus,
+        bookmaker: dnbHome.bookmaker,
+        price: dnbHome.price,
+        url: dnbHome.url,
+        marketKey: dnbHome.marketKey || 'drawNoBet',
+        verificationStatus: dnbHome.verificationStatus,
       },
     });
   }

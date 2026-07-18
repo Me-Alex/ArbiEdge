@@ -146,8 +146,8 @@ test('normalizes The Odds API spreads and totals when present', async () => {
 
   const events = await provider.getOdds();
 
-  assert.equal(events[0].bookmakers[0].markets.handicap_1_5, undefined);
-  assert.deepEqual(events[0].bookmakers[0].markets.handicap_plus_1_5, {
+  assert.equal(events[0].bookmakers[0].markets.handicap_plus_1_5, undefined);
+  assert.deepEqual(events[0].bookmakers[0].markets.asianHandicap_plus_1_5, {
     home: 1.91,
     away: 1.95,
   });
@@ -262,11 +262,11 @@ test('fetches configured event markets and merges them into base bookmakers', as
     home: 2.82,
     away: 1.42,
   });
-  assert.deepEqual(events[0].bookmakers[0].markets.handicap_plus_0_5, {
+  assert.deepEqual(events[0].bookmakers[0].markets.asianHandicap_plus_0_5, {
     home: 1.72,
     away: 2.08,
   });
-  assert.deepEqual(events[0].bookmakers[0].markets.handicap_plus_1_5, {
+  assert.deepEqual(events[0].bookmakers[0].markets.asianHandicap_plus_1_5, {
     home: 2.2,
     away: 1.68,
   });

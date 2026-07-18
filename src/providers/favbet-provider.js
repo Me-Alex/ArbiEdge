@@ -216,9 +216,10 @@ function normalizeFavbetMarket(market, teams) {
     if (homeLine === null) {
       return null;
     }
-    const base = templateId === MARKET_TEMPLATES.asianHandicap ? 'asianHandicap' : 'handicap';
+    // Both handicap and asianHandicap templates are 2-way home/away here —
+    // normalize to asianHandicap_* so AH/DNB cross formulas see Favbet lines.
     return mappedMarket(
-      handicapMarketKey(base, homeLine),
+      handicapMarketKey('asianHandicap', homeLine),
       outcomes,
       { 1: 'home', 3: 'away' },
       ['home', 'away'],

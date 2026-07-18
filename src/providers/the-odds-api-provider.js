@@ -516,8 +516,9 @@ function normalizeSpreadMarket(market, homeTeam, awayTeam) {
     .filter(({ prices }) =>
       isDecimalOdds(prices.home) && isDecimalOdds(prices.away),
     )
+    // Spreads are 2-way Asian-style — use asianHandicap_* for formula alignment.
     .map(({ homeLine, prices }) => ({
-      key: handicapMarketKey('handicap', homeLine),
+      key: handicapMarketKey('asianHandicap', homeLine),
       prices,
     }));
   return markets.length === 1 ? markets[0] : markets.length ? markets : null;

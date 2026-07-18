@@ -288,7 +288,8 @@ function normalizeBetOneMarkets(markets, { homeTeam, awayTeam } = {}) {
     }
 
     if (marketId === BETONE_MARKETS.handicap) {
-      addHandicapMarkets(normalized, market, 'handicap');
+      // 2-way AH (home/away) → asianHandicap_* for cross-book H2H/DC×AH formulas.
+      addHandicapMarkets(normalized, market, 'asianHandicap');
       continue;
     }
 
@@ -396,7 +397,11 @@ function routeBetOneLabelMarket(normalized, market, label, { homeTeam, awayTeam 
     return Object.keys(normalized).some((k) => k.startsWith(base));
   }
 
-  if (label.includes('handicap asiatic') || label.includes('asian handicap')) {
+  if (
+    label.includes('handicap asiatic')
+    || label.includes('asian handicap')
+    || (label.includes('handicap') && !label.includes('european'))
+  ) {
     addHandicapMarkets(normalized, market, 'asianHandicap');
     return Object.keys(normalized).some((k) => k.startsWith('asianHandicap'));
   }

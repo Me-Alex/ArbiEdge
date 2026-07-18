@@ -70,7 +70,7 @@ test('normalizes Favbet public Lineout event and numeric market identifiers', ()
         totalGoals_2_5: { over: 1.75, under: 2 },
         asianTotalGoals_2_25: { over: 1.54, under: 2.32 },
         asianHandicap_minus_0_25: { home: 2.18, away: 1.62 },
-        handicap_0: { home: 1.89, away: 1.84 },
+        asianHandicap_0: { home: 1.89, away: 1.84 },
         market_total_goluri_home_1_5: { over: 2.25, under: 1.59 },
         bothTeamsToScore: { yes: 1.64, no: 2.16 },
         halfTimeOrFullTime: { home: 2.12, draw: 1.85, away: 2.07 },
