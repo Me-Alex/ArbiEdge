@@ -26,7 +26,7 @@ function makeState(overrides = {}) {
 }
 
 test('scanner tab helpers partition actionable, review, rejected, and middle queues', async () => {
-  const { getScannerTabOpportunities } = await loadScannerFilters();
+  const { getScannerTabOpportunities, getScannerTabCounts } = await loadScannerFilters();
   const scannerState = makeState({
     opportunities: [
       { eventName: 'Classic Game', marketKey: 'h2h', type: 'classic', eligibility: 'actionable', edge: 0.03 },
@@ -52,6 +52,25 @@ test('scanner tab helpers partition actionable, review, rejected, and middle que
     getScannerTabOpportunities(scannerState, 'middles').map((opp) => opp.eventName),
     ['Middle Game'],
   );
+});
+
+test('scanner tab counts ignore market-type filter so badges stay truthful', async () => {
+  const {
+    getScannerTabCounts,
+    getScannerTabOpportunities,
+    setSelectedMarketTypes,
+  } = await loadScannerFilters();
+  const scannerState = makeState({
+    opportunities: [
+      { eventName: 'Classic Game', marketKey: 'h2h', type: 'classic', eligibility: 'actionable', edge: 0.03 },
+      { eventName: 'Cross Game', marketKey: 'cross_btts_team_score', type: 'cross-market', eligibility: 'review', edge: 0.02 },
+    ],
+  });
+  // Select only classic — list for review becomes empty, but count still shows 1.
+  setSelectedMarketTypes(scannerState, ['classic']);
+  assert.equal(getScannerTabOpportunities(scannerState, 'review').length, 0);
+  assert.equal(getScannerTabCounts(scannerState).review, 1);
+  assert.equal(getScannerTabCounts(scannerState).actionable, 1);
 });
 
 test('scanner base filters preserve min edge, search, verification, and pinned sorting', async () => {

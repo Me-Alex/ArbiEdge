@@ -209,15 +209,31 @@ async function loadData(refresh = false) {
 
 async function refreshOpportunities() {
   try {
+    const sort = state.scannerSort === 'feeds' || state.scannerSort === 'kickoff'
+      ? state.scannerSort
+      : 'edge';
     const [o, v] = await Promise.all([
-      fetchJson('/api/opportunities?sort=edge'),
+      fetchJson(`/api/opportunities?sort=${encodeURIComponent(sort)}`),
       fetchJson('/api/value-bets?limit=40'),
     ]);
     state.opportunities = o.opportunities || [];
+    // Keep overview metrics and empty-state copy in sync with stream refreshes.
+    state.opportunitySummary = o.summary || state.opportunitySummary || null;
+    state.eventsScanned = Number(
+      o.eventsScanned || state.eventsScanned || state.events?.length || 0,
+    );
     state.valueBets = v.valueBets || [];
     const actionable = state.opportunities.filter((opportunity) => opportunity.eligibility === 'actionable');
     const ch = detectArbChanges(actionable);
     if (ch.appeared.length > 0) logActivity(`${ch.appeared.length} new actionable arb${ch.appeared.length === 1 ? '' : 's'}`, 'scanner');
+    // Prefer review tab when actionable is empty but math candidates exist.
+    const review = state.opportunitySummary
+      ? Number(state.opportunitySummary.review || 0)
+      : state.opportunities.filter((opportunity) =>
+        opportunity.eligibility === 'review' || opportunity.confidence === 'review').length;
+    if (state.scannerTab === 'actionable' && actionable.length === 0 && review > 0) {
+      state.scannerTab = 'review';
+    }
     renderScanner();
     renderValue();
     renderAi();

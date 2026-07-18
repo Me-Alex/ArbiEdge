@@ -142,11 +142,13 @@ export function getScannerTabOpportunities(scannerState, tab = scannerState.scan
 }
 
 export function getScannerTabCounts(scannerState) {
+  // Tab badges ignore market-type filter so operators still see true queue sizes
+  // when a narrow market filter zeros the current list.
   return {
-    actionable: getScannerTabOpportunities(scannerState, 'actionable').length,
-    review: getScannerTabOpportunities(scannerState, 'review').length,
-    rejected: getScannerTabOpportunities(scannerState, 'rejected').length,
-    middles: getScannerTabOpportunities(scannerState, 'middles').length,
+    actionable: getScannerTabOpportunities(scannerState, 'actionable', { includeMarketTypeFilter: false }).length,
+    review: getScannerTabOpportunities(scannerState, 'review', { includeMarketTypeFilter: false }).length,
+    rejected: getScannerTabOpportunities(scannerState, 'rejected', { includeMarketTypeFilter: false }).length,
+    middles: getScannerTabOpportunities(scannerState, 'middles', { includeMarketTypeFilter: false }).length,
   };
 }
 

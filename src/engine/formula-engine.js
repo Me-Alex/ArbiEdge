@@ -789,7 +789,7 @@ function detectQualifyVsDcCross(event) {
   const results = [];
   const qualify = findBestPrices(event, 'toQualify');
   const dc = findBestPrices(event, 'doubleChance');
-  if (!qualify.home || !qualify.away) return results;
+  // Single-side qualify is enough for soft review candidates.
 
   if (qualify.home && dc.drawAway) {
     pushCrossMarketPair(results, {
@@ -852,7 +852,8 @@ function detectQualifyVsDcCross(event) {
  * stake sizing is not required for a simple two-way dutch.
  */
 function collectAsianHalfLines(event) {
-  const lines = new Set([0.5, 1.5, 2.5]);
+  // Wider defaults: RO books often post ±3.5 / ±4.5 even when other lines lag.
+  const lines = new Set([0.5, 1.5, 2.5, 3.5, 4.5]);
   for (const mk of getEventMarkets(event)) {
     // Some books historically stored 2-way AH under handicap_* — still harvest.
     if (!/^(?:asianHandicap|handicap)_(?:plus|minus)_/.test(mk)) continue;
@@ -1652,6 +1653,7 @@ function detectH2hVsDnbForScope(event, { h2hKey, dnbKey, prefix, labelPrefix }) 
     dnbHome = pickBestPriceEntry(dnb.home, ah0.home, h0.draw ? null : h0.home);
     dnbAway = pickBestPriceEntry(dnb.away, ah0.away, h0.draw ? null : h0.away);
   }
+  // Soft push cover: draw refunds DNB/AH0 leg — review only.
   if (h2h.home && dnbAway) {
     pushCrossMarketPair(results, {
       marketKey: `cross_${prefix}h2h_home_dnb_away`,
@@ -1867,54 +1869,57 @@ function detectQualifyVsH2hCross(event) {
   const results = [];
   const qualify = findBestPrices(event, 'toQualify');
   const h2h = findBestPrices(event, 'h2h');
-  if (!qualify.home || !qualify.away || !h2h.home || !h2h.away) return results;
-
   // Soft pairs: qualify home vs match away (and inverse). Not guaranteed under
   // extra-time qualification rules — eligibility keeps them non-actionable.
-  pushCrossMarketPair(results, {
-    marketKey: 'cross_qualify_home_match_away',
-    marketLabel: 'To Qualify Home + Match Away',
-    legA: {
-      outcome: 'home',
-      label: 'Qualify 1',
-      bookmaker: qualify.home.bookmaker,
-      price: qualify.home.price,
-      url: qualify.home.url,
-      marketKey: qualify.home.marketKey || 'toQualify',
-      verificationStatus: qualify.home.verificationStatus,
-    },
-    legB: {
-      outcome: 'away',
-      label: '2',
-      bookmaker: h2h.away.bookmaker,
-      price: h2h.away.price,
-      url: h2h.away.url,
-      marketKey: h2h.away.marketKey || 'h2h',
-      verificationStatus: h2h.away.verificationStatus,
-    },
-  });
-  pushCrossMarketPair(results, {
-    marketKey: 'cross_qualify_away_match_home',
-    marketLabel: 'To Qualify Away + Match Home',
-    legA: {
-      outcome: 'away',
-      label: 'Qualify 2',
-      bookmaker: qualify.away.bookmaker,
-      price: qualify.away.price,
-      url: qualify.away.url,
-      marketKey: qualify.away.marketKey || 'toQualify',
-      verificationStatus: qualify.away.verificationStatus,
-    },
-    legB: {
-      outcome: 'home',
-      label: '1',
-      bookmaker: h2h.home.bookmaker,
-      price: h2h.home.price,
-      url: h2h.home.url,
-      marketKey: h2h.home.marketKey || 'h2h',
-      verificationStatus: h2h.home.verificationStatus,
-    },
-  });
+  // Allow single-side qualify/h2h when one book only posts one qualifier price.
+  if (qualify.home && h2h.away) {
+    pushCrossMarketPair(results, {
+      marketKey: 'cross_qualify_home_match_away',
+      marketLabel: 'To Qualify Home + Match Away',
+      legA: {
+        outcome: 'home',
+        label: 'Qualify 1',
+        bookmaker: qualify.home.bookmaker,
+        price: qualify.home.price,
+        url: qualify.home.url,
+        marketKey: qualify.home.marketKey || 'toQualify',
+        verificationStatus: qualify.home.verificationStatus,
+      },
+      legB: {
+        outcome: 'away',
+        label: '2',
+        bookmaker: h2h.away.bookmaker,
+        price: h2h.away.price,
+        url: h2h.away.url,
+        marketKey: h2h.away.marketKey || 'h2h',
+        verificationStatus: h2h.away.verificationStatus,
+      },
+    });
+  }
+  if (qualify.away && h2h.home) {
+    pushCrossMarketPair(results, {
+      marketKey: 'cross_qualify_away_match_home',
+      marketLabel: 'To Qualify Away + Match Home',
+      legA: {
+        outcome: 'away',
+        label: 'Qualify 2',
+        bookmaker: qualify.away.bookmaker,
+        price: qualify.away.price,
+        url: qualify.away.url,
+        marketKey: qualify.away.marketKey || 'toQualify',
+        verificationStatus: qualify.away.verificationStatus,
+      },
+      legB: {
+        outcome: 'home',
+        label: '1',
+        bookmaker: h2h.home.bookmaker,
+        price: h2h.home.price,
+        url: h2h.home.url,
+        marketKey: h2h.home.marketKey || 'h2h',
+        verificationStatus: h2h.home.verificationStatus,
+      },
+    });
+  }
   return results;
 }
 
@@ -2573,8 +2578,8 @@ function detectTeamMatchTotalArbitrage(event) {
     for (const h of homeLines) {
       // Match Over M + Home Under H + Away Under A when H + A = M + slack
       // (if both teams stay under their lines, match cannot exceed M on half-lines).
-      // slack 0.5 is the classic lattice; 1.0/1.5 cover wider team-line spreads.
-      for (const slack of [0.5, 1.0, 1.5]) {
+      // slack 0.5 is the classic lattice; 1.0–2.0 cover wider team-line spreads.
+      for (const slack of [0.5, 1.0, 1.5, 2.0]) {
         const neededA = m.line + slack - h.line;
         if (neededA > 0) {
           const a = awayLines.find((item) => Math.abs(item.line - neededA) < 0.01);
