@@ -82,6 +82,8 @@ const SAFE_CROSS_MARKETS = new Set([
   'cross_home_cs_no_vs_away_under_0_5',
   'cross_away_cs_yes_vs_home_over_0_5',
   'cross_away_cs_no_vs_home_under_0_5',
+  'cross_home_score_identity_yes_no',
+  'cross_away_score_identity_yes_no',
   // H2H / DC ↔ AH half-line partitions (no push).
   'cross_h2h_home_ah2_plus_0_5',
   'cross_h2h_home_ah2_plus_1_5',

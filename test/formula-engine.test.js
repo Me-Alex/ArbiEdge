@@ -1187,7 +1187,7 @@ test('detectCrossMarketArbitrage merges AH0 with DNB for soft two-way edges', ()
   assert.ok(results.some((item) => item.marketKey === 'cross_ah0_home_dnb_away'));
 });
 
-test('detectCrossMarketArbitrage finds team-score vs team-total 0.5 identity covers', () => {
+test('detectCrossMarketArbitrage finds team-score identity dutch across O/U and CS markets', () => {
   const event = makeEvent({
     bookmakers: [
       {
@@ -1195,8 +1195,7 @@ test('detectCrossMarketArbitrage finds team-score vs team-total 0.5 identity cov
         markets: {
           market_marcheaza_home: { yes: 1.7, no: 2.2 },
           market_total_goluri_home_0_5: { over: 1.55, under: 2.4 },
-          market_clean_sheet_home: { yes: 2.15, no: 1.7 },
-          market_total_goluri_away_0_5: { over: 1.65, under: 2.2 },
+          market_clean_sheet_away: { yes: 2.15, no: 1.7 },
         },
       },
       {
@@ -1204,17 +1203,15 @@ test('detectCrossMarketArbitrage finds team-score vs team-total 0.5 identity cov
         markets: {
           market_marcheaza_home: { yes: 1.6, no: 2.3 },
           market_total_goluri_home_0_5: { over: 1.5, under: 2.9 },
-          market_clean_sheet_home: { yes: 2.05, no: 1.75 },
-          market_total_goluri_away_0_5: { over: 2.05, under: 1.8 },
+          market_clean_sheet_away: { yes: 2.05, no: 1.75 },
         },
       },
     ],
   });
-  // Home scores Yes 1.7 + Home Under 0.5 2.9 → edge ~6.7%
-  // Home CS Yes 2.15 + Away Over 0.5 2.05 → edge ~2.7%
+  // Home scored cluster best: yes 1.7; blank cluster best: under 2.9
   const results = detectCrossMarketArbitrage(event);
-  assert.ok(results.some((item) => item.marketKey === 'cross_home_score_yes_vs_home_under_0_5'));
-  assert.ok(results.some((item) => item.marketKey === 'cross_home_cs_yes_vs_away_over_0_5'));
+  assert.ok(results.some((item) => item.marketKey === 'cross_home_score_identity_yes_no'));
+  assert.ok(results.some((item) => item.marketKey === 'cross_home_score_vs_away_cs'));
 });
 
 test('detectCrossMarketArbitrage surfaces to-qualify vs match soft pairs', () => {
