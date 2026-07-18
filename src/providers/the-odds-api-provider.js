@@ -22,7 +22,8 @@ class TheOddsApiProvider {
     sportKeys,
     regions = ['eu', 'uk'],
     bookmakers = [],
-    marketKeys = ['h2h', 'spreads', 'totals'],
+    // btts + draw_no_bet unlock more cross formulas (BTTS soft, DNB/AH0 mirrors).
+    marketKeys = ['h2h', 'spreads', 'totals', 'btts', 'draw_no_bet'],
     eventMarketKeys = [],
     maxEventDetailRequests = DEFAULT_MAX_EVENT_DETAIL_REQUESTS,
     eventDetailConcurrency = DEFAULT_EVENT_DETAIL_CONCURRENCY,

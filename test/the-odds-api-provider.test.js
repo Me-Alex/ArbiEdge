@@ -239,7 +239,7 @@ test('fetches configured event markets and merges them into base bookmakers', as
 
   assert.equal(requests.length, 2);
   assert.equal(requests[0].pathname, '/v4/sports/soccer_fifa_world_cup/odds/');
-  assert.equal(requests[0].searchParams.get('markets'), 'h2h,spreads,totals');
+  assert.equal(requests[0].searchParams.get('markets'), 'h2h,spreads,totals,btts,draw_no_bet');
   assert.equal(
     requests[1].pathname,
     '/v4/sports/soccer_fifa_world_cup/events/match-1/odds',
@@ -371,7 +371,7 @@ test('requests multiple bookmaker regions by default', async () => {
 
   await provider.getOdds();
 
-  assert.equal(requestUrl.searchParams.get('markets'), 'h2h,spreads,totals');
+  assert.equal(requestUrl.searchParams.get('markets'), 'h2h,spreads,totals,btts,draw_no_bet');
   assert.equal(requestUrl.searchParams.get('regions'), 'eu,uk');
   assert.equal(requestUrl.searchParams.get('bookmakers'), null);
 });

@@ -674,13 +674,13 @@ function detectPeriodCrossMarket(event, h2hKey, dcKey, keyPrefix, labelPrefix) {
   const results = [];
   const h2hBest = findBestPrices(event, h2hKey);
   const dcBest = findBestPrices(event, dcKey);
-  if (!h2hBest.away || !h2hBest.home) return results;
+  // Allow partial 1X2 books: each pair only needs its own legs.
 
   const prefix = keyPrefix || '';
   const label = labelPrefix ? `${labelPrefix} ` : '';
 
   // DC 1X + h2h 2
-  if (dcBest.homeDraw) {
+  if (dcBest.homeDraw && h2hBest.away) {
     pushCrossMarketPair(results, {
       marketKey: `cross_${prefix}1X_2`,
       marketLabel: `${label}1X (DC) + 2 (1X2)`.trim(),
@@ -706,7 +706,7 @@ function detectPeriodCrossMarket(event, h2hKey, dcKey, keyPrefix, labelPrefix) {
   }
 
   // DC X2 + h2h 1
-  if (dcBest.drawAway) {
+  if (dcBest.drawAway && h2hBest.home) {
     pushCrossMarketPair(results, {
       marketKey: `cross_${prefix}1_X2`,
       marketLabel: `${label}1 (1X2) + X2 (DC)`.trim(),
@@ -2060,7 +2060,7 @@ function detectMiddleBets(event) {
   // Pair any lower Over with higher Under in the same family (not only adjacent
   // lines) so e.g. Over 2.5 / Under 3.5 is found when 3.0 sits between them.
   // Wider windows surface more analysis middles (still non-actionable).
-  const MAX_MIDDLE_GAP = 4.0;
+  const MAX_MIDDLE_GAP = 5.0;
   const pushMiddle = (lower, higher, { crossFamily = false } = {}) => {
     if (higher.line <= lower.line) return;
     const gap = higher.line - lower.line;

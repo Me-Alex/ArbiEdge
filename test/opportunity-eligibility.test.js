@@ -7,6 +7,7 @@ const {
   attachOpportunityEligibility,
   evaluateOpportunityEligibility,
   isHalfLineMarket,
+  isScannableClassicMarket,
   isScannableHandicapMarket,
   isSupportedClassicMarket,
   isSupportedHandicapMarket,
@@ -139,6 +140,23 @@ test('isSupportedHandicapMarket only approves two-way half lines', () => {
   assert.equal(isScannableHandicapMarket('handicap_0'), true);
   assert.equal(isSupportedHandicapMarket('asianHandicap_0'), false);
   assert.equal(isSupportedHandicapMarket('asianHandicap_plus_0'), false);
+});
+
+test('classic DNB candidates stay in review as push settlement', () => {
+  const dnb = evaluateOpportunityEligibility({
+    type: 'classic',
+    marketKey: 'drawNoBet',
+    edge: 0.03,
+    legs: [
+      { bookmaker: 'Book A', verificationStatus: 'verified' },
+      { bookmaker: 'Book B', verificationStatus: 'verified' },
+    ],
+  });
+  assert.equal(dnb.eligibility, 'review');
+  assert.ok(dnb.eligibilityReasonCodes.includes('push_settlement'));
+  assert.equal(isScannableClassicMarket('drawNoBet'), true);
+  assert.equal(isScannableClassicMarket('firstHalfDrawNoBet'), true);
+  assert.equal(isSupportedClassicMarket('drawNoBet'), false);
 });
 
 test('zero-line AH candidates stay in review as push settlement', () => {

@@ -140,6 +140,10 @@ function isScannableClassicMarket(marketKey) {
   // Integer / quarter totals — candidate only (push / half-win settlement).
   if (TOTAL_LINE_MARKET_RE.test(key) && isPositiveLineMarket(key)) return true;
   if (TEAM_TOTAL_MARKET_RE.test(key) && isPositiveLineMarket(key)) return true;
+  // DNB is 2-way with push on draw — classic dutch is math-valid for non-draw
+  // outcomes and stays review via push_settlement (not actionable).
+  // Keys: drawNoBet, firstHalfDrawNoBet, secondHalfDrawNoBet.
+  if (/^(?:firstHalf|secondHalf)?drawNoBet$/i.test(key)) return true;
   return false;
 }
 

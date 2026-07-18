@@ -874,6 +874,20 @@ test('detectHandicapArbitrage checks Asian Handicap and ignores European Handica
   assert.strictEqual(europeanArbs.length, 0, 'European Handicap with draw outcome should be skipped');
 });
 
+test('detectArbitrage scans drawNoBet as classic math candidates', () => {
+  const event = makeEvent({
+    bookmakers: [
+      { name: 'BookA', markets: { drawNoBet: { home: 2.15, away: 1.75 } } },
+      { name: 'BookB', markets: { drawNoBet: { home: 1.8, away: 2.2 } } },
+    ],
+  });
+  const arb = detectArbitrage(event, 'drawNoBet');
+  assert.ok(arb);
+  assert.ok(arb.edge > 0);
+  assert.strictEqual(arb.type, 'classic');
+  assert.strictEqual(arb.marketKey, 'drawNoBet');
+});
+
 test('detectHandicapArbitrage scans zero-line AH (DNB-equivalent) as candidates', () => {
   const event = makeEvent({
     bookmakers: [
