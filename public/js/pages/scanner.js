@@ -134,7 +134,7 @@ function renderEmptyScanner(list, baseOpps) {
       eyebrow: 'Poartă de siguranță',
       title: 'Niciun arbitraj verificat acționabil',
       body: counts.review > 0
-        ? `Aici apar doar surebet-urile cu fidelity pe website. Ai ${counts.review} candidați matematici în tab-ul „Candidați”.`
+        ? `Aici apar doar surebet-urile cu fidelity pe website. Ai ${counts.review} candidați matematici în tab-ul „Candidați” (result×totals, BTTS, DNB/AH0, qualify…).`
         : 'Aici apar doar surebet-urile cu fidelity pe website pe fiecare picior. Candidații matematici (neverificați) sunt în tab-ul „Candidați”.',
     },
     review: {

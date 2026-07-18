@@ -168,7 +168,7 @@ test('.env.example mirrors provider option defaults', () => {
   assert.equal(Number(envExample.UNIBET_REQUEST_CONCURRENCY), defaults.unibetRequestConcurrency);
   assert.equal(Number(envExample.XSPORT_LOOKAHEAD_DAYS), defaults.xsportLookaheadDays);
   assert.equal(envExample.ODDS_API_REGIONS, 'eu,uk');
-  assert.equal(envExample.ODDS_API_MARKETS, 'h2h,spreads,totals');
+  assert.equal(envExample.ODDS_API_MARKETS, 'h2h,spreads,totals,btts,draw_no_bet');
   assert.deepEqual(parseCsv(envExample.ODDS_API_EVENT_MARKETS), defaults.oddsApiEventMarketKeys);
   assert.equal(
     Number(envExample.ODDS_API_MAX_EVENT_DETAIL_REQUESTS_PER_SPORT),

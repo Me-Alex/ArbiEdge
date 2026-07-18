@@ -214,8 +214,8 @@ npm start
 | `ODDS_SPORT_PRESET` | `football` | Fallback sport bundle (`football`, `core`, or `extended`) when explicit sport keys are empty |
 | `ODDS_API_REGIONS` | `eu,uk` | Comma-separated Odds API regions when no explicit bookmakers are set |
 | `ODDS_API_BOOKMAKERS` | empty | Comma-separated Odds API bookmaker keys; takes priority over regions |
-| `ODDS_API_MARKETS` | `h2h,spreads,totals` | Comma-separated Odds API market keys |
-| `ODDS_API_EVENT_MARKETS` | empty | Extra Odds API market keys fetched through per-event odds requests |
+| `ODDS_API_MARKETS` | `h2h,spreads,totals,btts,draw_no_bet` | Comma-separated Odds API market keys |
+| `ODDS_API_EVENT_MARKETS` | `alternate_spreads,alternate_totals,btts,draw_no_bet` | Extra Odds API market keys fetched through per-event odds requests |
 | `ODDS_API_MAX_EVENT_DETAIL_REQUESTS_PER_SPORT` | `20` | Maximum Odds API event-detail odds requests per sport |
 | `ODDS_API_EVENT_DETAIL_CONCURRENCY` | `2` | Odds API event-detail request concurrency |
 | `ODDS_API_DISCOVER_SPORTS` | `0` | Discover currently active sport keys before collection (opt-in because each odds sport consumes quota) |

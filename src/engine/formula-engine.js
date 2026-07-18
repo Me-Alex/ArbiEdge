@@ -634,6 +634,11 @@ function formulaFamilyFromMarketKey(marketKey) {
     if (/btts/i.test(key)) return 'result-btts';
     if (/(?:_ns|blank|no_score)/i.test(key)) return 'result-team-score';
   }
+  // 1X2/DC/DNB × O/U totals soft (before generic result-handicap).
+  if (/(?:h2h|dc_|dnb).*(?:over|under)|(?:over|under).*(?:h2h|dc_|dnb)/i.test(key)
+    && /^cross_/.test(key)) {
+    return 'result-totals';
+  }
   if (/^cross_.*(?:h2h|ah|dnb|dc).*(?:ah|dnb|h2h|dc)/i.test(key)
     || /^cross_h2h_|^cross_dc_|^cross_dnb_|^cross_ah0_/.test(key)) {
     return 'result-handicap';
@@ -802,10 +807,12 @@ function detectCrossMarketArbitrage(event) {
     ...detectPeriodCrossMarket(event, 'secondHalfH2h', 'secondHalfDoubleChance', '2H_', '2H'),
     ...detectBttsTotalsSoftCross(event),
     ...detectResultVsBttsSoftCross(event),
+    ...detectResultVsTotalsSoftCross(event),
     ...detectDnbVsBttsSoftCross(event),
     ...detectResultVsTeamScoreSoftCross(event),
     ...detectOddEvenSoftCross(event),
     ...detectQualifyVsH2hCross(event),
+    ...detectQualifyVsBttsSoftCross(event),
     ...detectTeamScoreVsCleanSheetCross(event),
     ...detectScoreVsTeamTotalIdentityCross(event),
     ...detectDnbVsDoubleChanceCross(event),
@@ -2500,6 +2507,306 @@ function detectResultVsBttsSoftCross(event) {
         },
       });
     }
+  }
+  return results;
+}
+
+/**
+ * Soft review: 1X2 / DC / DNB × match (or period) totals.
+ * Not exhaustive (e.g. Home + Under 2.5 both lose on 3-0). Surfaces RO mispricings.
+ */
+function detectResultVsTotalsSoftCross(event) {
+  const results = [];
+  const scopes = [
+    {
+      h2hKey: 'h2h',
+      dcKey: 'doubleChance',
+      dnbKey: 'drawNoBet',
+      mergeAh0: true,
+      prefixes: [
+        { prefix: 'totalGoals_', asian: false, label: '' },
+        { prefix: 'asianTotalGoals_', asian: true, label: 'Asian ' },
+      ],
+      period: '',
+      labelPrefix: '',
+    },
+    {
+      h2hKey: 'firstHalfH2h',
+      dcKey: 'firstHalfDoubleChance',
+      dnbKey: 'firstHalfDrawNoBet',
+      mergeAh0: false,
+      prefixes: [
+        { prefix: 'firstHalfTotalGoals_', asian: false, label: '1H ' },
+        { prefix: 'firstHalfAsianTotalGoals_', asian: true, label: '1H Asian ' },
+      ],
+      period: '1H_',
+      labelPrefix: '1H ',
+    },
+    {
+      h2hKey: 'secondHalfH2h',
+      dcKey: 'secondHalfDoubleChance',
+      dnbKey: 'secondHalfDrawNoBet',
+      mergeAh0: false,
+      prefixes: [
+        { prefix: 'secondHalfTotalGoals_', asian: false, label: '2H ' },
+        { prefix: 'secondHalfAsianTotalGoals_', asian: true, label: '2H Asian ' },
+      ],
+      period: '2H_',
+      labelPrefix: '2H ',
+    },
+  ];
+
+  const marketKeys = getEventMarkets(event);
+  for (const scope of scopes) {
+    const h2h = findBestPrices(event, scope.h2hKey);
+    const dc = findBestPrices(event, scope.dcKey);
+    const dnb = findBestPrices(event, scope.dnbKey);
+    let dnbHome = dnb.home;
+    let dnbAway = dnb.away;
+    if (scope.mergeAh0) {
+      const ah0 = findBestPrices(event, 'asianHandicap_0');
+      const h0 = findBestPrices(event, 'handicap_0');
+      dnbHome = pickBestPriceEntry(dnb.home, ah0.home, h0.draw ? null : h0.home);
+      dnbAway = pickBestPriceEntry(dnb.away, ah0.away, h0.draw ? null : h0.away);
+    }
+
+    for (const family of scope.prefixes) {
+      const lines = new Set([0.5, 1.5, 2.5, 3.5, 4.5]);
+      for (const mk of marketKeys) {
+        if (!mk.startsWith(family.prefix)) continue;
+        const line = parseLineNumberFromKey(mk);
+        if (line !== null && Math.abs((line % 1) - 0.5) < 1e-9 && line > 0 && line <= 5.5) {
+          lines.add(line);
+        }
+      }
+      for (const line of [...lines].sort((a, b) => a - b)) {
+        const token = String(line).replace('.', '_');
+        const totalKey = `${family.prefix}${token}`;
+        const totals = findBestPrices(event, totalKey);
+        if (!totals.over && !totals.under) continue;
+        const asianTag = family.asian ? 'asian_' : '';
+        const p = scope.period;
+        const lab = family.label || scope.labelPrefix;
+
+        const push = (marketKey, marketLabel, legA, totalOutcome, totalLabel) => {
+          const totalLeg = totals[totalOutcome];
+          if (!legA || !totalLeg) return;
+          pushCrossMarketPair(results, {
+            marketKey,
+            marketLabel,
+            legA,
+            legB: {
+              outcome: totalOutcome,
+              label: totalLabel,
+              bookmaker: totalLeg.bookmaker,
+              price: totalLeg.price,
+              url: totalLeg.url,
+              marketKey: totalLeg.marketKey || totalKey,
+              verificationStatus: totalLeg.verificationStatus,
+            },
+          });
+        };
+
+        const underLabel = `${lab}Under ${line}`.replace(/\s+/g, ' ').trim();
+        const overLabel = `${lab}Over ${line}`.replace(/\s+/g, ' ').trim();
+
+        if (h2h.home) {
+          push(
+            `cross_${p}h2h_home_${asianTag}under_${token}`,
+            `${scope.labelPrefix}1 + ${underLabel}`.trim(),
+            {
+              outcome: 'home',
+              label: '1',
+              bookmaker: h2h.home.bookmaker,
+              price: h2h.home.price,
+              url: h2h.home.url,
+              marketKey: h2h.home.marketKey || scope.h2hKey,
+              verificationStatus: h2h.home.verificationStatus,
+            },
+            'under',
+            underLabel,
+          );
+        }
+        if (h2h.away) {
+          push(
+            `cross_${p}h2h_away_${asianTag}under_${token}`,
+            `${scope.labelPrefix}2 + ${underLabel}`.trim(),
+            {
+              outcome: 'away',
+              label: '2',
+              bookmaker: h2h.away.bookmaker,
+              price: h2h.away.price,
+              url: h2h.away.url,
+              marketKey: h2h.away.marketKey || scope.h2hKey,
+              verificationStatus: h2h.away.verificationStatus,
+            },
+            'under',
+            underLabel,
+          );
+        }
+        if (h2h.draw) {
+          push(
+            `cross_${p}h2h_draw_${asianTag}over_${token}`,
+            `${scope.labelPrefix}X + ${overLabel}`.trim(),
+            {
+              outcome: 'draw',
+              label: 'X',
+              bookmaker: h2h.draw.bookmaker,
+              price: h2h.draw.price,
+              url: h2h.draw.url,
+              marketKey: h2h.draw.marketKey || scope.h2hKey,
+              verificationStatus: h2h.draw.verificationStatus,
+            },
+            'over',
+            overLabel,
+          );
+          push(
+            `cross_${p}h2h_draw_${asianTag}under_${token}`,
+            `${scope.labelPrefix}X + ${underLabel}`.trim(),
+            {
+              outcome: 'draw',
+              label: 'X',
+              bookmaker: h2h.draw.bookmaker,
+              price: h2h.draw.price,
+              url: h2h.draw.url,
+              marketKey: h2h.draw.marketKey || scope.h2hKey,
+              verificationStatus: h2h.draw.verificationStatus,
+            },
+            'under',
+            underLabel,
+          );
+        }
+        if (dc.homeDraw) {
+          push(
+            `cross_${p}dc_1x_${asianTag}under_${token}`,
+            `${scope.labelPrefix}1X + ${underLabel}`.trim(),
+            {
+              outcome: 'homeDraw',
+              label: '1X',
+              bookmaker: dc.homeDraw.bookmaker,
+              price: dc.homeDraw.price,
+              url: dc.homeDraw.url,
+              marketKey: dc.homeDraw.marketKey || scope.dcKey,
+              verificationStatus: dc.homeDraw.verificationStatus,
+            },
+            'under',
+            underLabel,
+          );
+        }
+        if (dc.drawAway) {
+          push(
+            `cross_${p}dc_x2_${asianTag}under_${token}`,
+            `${scope.labelPrefix}X2 + ${underLabel}`.trim(),
+            {
+              outcome: 'drawAway',
+              label: 'X2',
+              bookmaker: dc.drawAway.bookmaker,
+              price: dc.drawAway.price,
+              url: dc.drawAway.url,
+              marketKey: dc.drawAway.marketKey || scope.dcKey,
+              verificationStatus: dc.drawAway.verificationStatus,
+            },
+            'under',
+            underLabel,
+          );
+        }
+        if (dc.homeAway) {
+          push(
+            `cross_${p}dc_12_${asianTag}over_${token}`,
+            `${scope.labelPrefix}12 + ${overLabel}`.trim(),
+            {
+              outcome: 'homeAway',
+              label: '12',
+              bookmaker: dc.homeAway.bookmaker,
+              price: dc.homeAway.price,
+              url: dc.homeAway.url,
+              marketKey: dc.homeAway.marketKey || scope.dcKey,
+              verificationStatus: dc.homeAway.verificationStatus,
+            },
+            'over',
+            overLabel,
+          );
+        }
+        if (dnbHome) {
+          push(
+            `cross_${p}dnb_home_${asianTag}under_${token}`,
+            `${scope.labelPrefix}DNB 1 + ${underLabel}`.trim(),
+            {
+              outcome: 'home',
+              label: 'DNB 1',
+              bookmaker: dnbHome.bookmaker,
+              price: dnbHome.price,
+              url: dnbHome.url,
+              marketKey: dnbHome.marketKey || scope.dnbKey,
+              verificationStatus: dnbHome.verificationStatus,
+            },
+            'under',
+            underLabel,
+          );
+        }
+        if (dnbAway) {
+          push(
+            `cross_${p}dnb_away_${asianTag}under_${token}`,
+            `${scope.labelPrefix}DNB 2 + ${underLabel}`.trim(),
+            {
+              outcome: 'away',
+              label: 'DNB 2',
+              bookmaker: dnbAway.bookmaker,
+              price: dnbAway.price,
+              url: dnbAway.url,
+              marketKey: dnbAway.marketKey || scope.dnbKey,
+              verificationStatus: dnbAway.verificationStatus,
+            },
+            'under',
+            underLabel,
+          );
+        }
+      }
+    }
+  }
+  return results;
+}
+
+/**
+ * Soft review: To Qualify × BTTS (ET/pens + goals both score). Review only.
+ */
+function detectQualifyVsBttsSoftCross(event) {
+  const results = [];
+  const qualify = findBestPrices(event, 'toQualify');
+  const btts = findBestPrices(event, 'bothTeamsToScore');
+  if (!qualify.home && !qualify.away) return results;
+  if (!btts.yes && !btts.no) return results;
+
+  const pairs = [
+    { q: qualify.home, qOutcome: 'home', qLabel: 'Qualify 1', b: btts.no, bOutcome: 'no', bLabel: 'BTTS No', key: 'cross_qualify_home_btts_no' },
+    { q: qualify.away, qOutcome: 'away', qLabel: 'Qualify 2', b: btts.no, bOutcome: 'no', bLabel: 'BTTS No', key: 'cross_qualify_away_btts_no' },
+    { q: qualify.home, qOutcome: 'home', qLabel: 'Qualify 1', b: btts.yes, bOutcome: 'yes', bLabel: 'BTTS Yes', key: 'cross_qualify_home_btts_yes' },
+    { q: qualify.away, qOutcome: 'away', qLabel: 'Qualify 2', b: btts.yes, bOutcome: 'yes', bLabel: 'BTTS Yes', key: 'cross_qualify_away_btts_yes' },
+  ];
+  for (const pair of pairs) {
+    if (!pair.q || !pair.b) continue;
+    pushCrossMarketPair(results, {
+      marketKey: pair.key,
+      marketLabel: `${pair.qLabel} + ${pair.bLabel}`,
+      legA: {
+        outcome: pair.qOutcome,
+        label: pair.qLabel,
+        bookmaker: pair.q.bookmaker,
+        price: pair.q.price,
+        url: pair.q.url,
+        marketKey: pair.q.marketKey || 'toQualify',
+        verificationStatus: pair.q.verificationStatus,
+      },
+      legB: {
+        outcome: pair.bOutcome,
+        label: pair.bLabel,
+        bookmaker: pair.b.bookmaker,
+        price: pair.b.price,
+        url: pair.b.url,
+        marketKey: pair.b.marketKey || 'bothTeamsToScore',
+        verificationStatus: pair.b.verificationStatus,
+      },
+    });
   }
   return results;
 }

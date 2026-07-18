@@ -1542,6 +1542,42 @@ test('detectCrossMarketArbitrage surfaces DNB×BTTS and result×team-blank soft 
   assert.strictEqual(ns.formulaFamily, 'result-team-score');
 });
 
+test('detectCrossMarketArbitrage surfaces 1X2×totals and qualify×BTTS soft pairs', () => {
+  const event = makeEvent({
+    bookmakers: [
+      {
+        name: 'BookA',
+        markets: {
+          h2h: { home: 2.2, draw: 3.2, away: 3.1 },
+          toQualify: { home: 1.85, away: 2.0 },
+          bothTeamsToScore: { yes: 1.9, no: 2.05 },
+          totalGoals_2_5: { over: 1.95, under: 1.9 },
+        },
+      },
+      {
+        name: 'BookB',
+        markets: {
+          h2h: { home: 2.1, draw: 3.3, away: 3.2 },
+          toQualify: { home: 1.8, away: 2.05 },
+          bothTeamsToScore: { yes: 1.85, no: 2.15 },
+          totalGoals_2_5: { over: 1.85, under: 2.05 },
+        },
+      },
+    ],
+  });
+  // home 2.2 + under 2.05 → ~0.94; qualify home 1.85 + btts no 2.15 → ~0.99
+  const results = detectCrossMarketArbitrage(event);
+  const totalsHit = results.find((item) => item.marketKey === 'cross_h2h_home_under_2_5');
+  assert.ok(totalsHit, 'should emit 1 + Under 2.5 soft');
+  assert.strictEqual(totalsHit.formulaFamily, 'result-totals');
+  assert.ok(results.some((item) => item.marketKey === 'cross_qualify_home_btts_no'
+    || item.marketKey === 'cross_qualify_away_btts_no'));
+  const q = results.find((item) => String(item.marketKey).startsWith('cross_qualify_')
+    && String(item.marketKey).includes('btts'));
+  assert.ok(q);
+  assert.strictEqual(q.formulaFamily, 'qualify-soft');
+});
+
 test('detectCrossMarketArbitrage surfaces odd/even × BTTS soft pairs', () => {
   const event = makeEvent({
     bookmakers: [

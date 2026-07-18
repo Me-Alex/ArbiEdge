@@ -246,7 +246,11 @@ function providerOptionsFromEnv(env = process.env) {
     getsbetConcurrency: parsePositiveInteger(env.GETSBET_CONCURRENCY, 8),
     lasVegasMaxDetailEvents: parsePositiveInteger(env.LASVEGAS_MAX_DETAIL_EVENTS, eventTarget),
     lasVegasDetailsConcurrency: parsePositiveInteger(env.LASVEGAS_DETAILS_CONCURRENCY, 8),
-    oddsApiEventMarketKeys: parseCsv(env.ODDS_API_EVENT_MARKETS || ''),
+    // Deep alternate lines + BTTS/DNB on event detail when unset (maximizes candidates).
+    oddsApiEventMarketKeys: parseCsv(
+      env.ODDS_API_EVENT_MARKETS
+      || 'alternate_spreads,alternate_totals,btts,draw_no_bet',
+    ),
     oddsApiMaxEventDetailRequests: parsePositiveInteger(
       env.ODDS_API_MAX_EVENT_DETAIL_REQUESTS_PER_SPORT,
       DEFAULT_ODDS_API_MAX_EVENT_DETAIL_REQUESTS,
@@ -293,7 +297,8 @@ function buildTheOddsApiProvider(
     sportKeys: oddsApiSportKeysFromEnv(env),
     regions: parseCsv(env.ODDS_API_REGIONS || 'eu,uk'),
     bookmakers: parseCsv(env.ODDS_API_BOOKMAKERS || ''),
-    marketKeys: parseCsv(env.ODDS_API_MARKETS || 'h2h,spreads,totals'),
+    // Include btts + DNB by default so cross formulas see OddsAPI books.
+    marketKeys: parseCsv(env.ODDS_API_MARKETS || 'h2h,spreads,totals,btts,draw_no_bet'),
     eventMarketKeys: options.oddsApiEventMarketKeys,
     maxEventDetailRequests: options.oddsApiMaxEventDetailRequests,
     eventDetailConcurrency: options.oddsApiEventDetailConcurrency,
